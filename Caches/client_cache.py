@@ -1,6 +1,6 @@
 import socket
 from dataclasses import dataclass
-
+from asyncio import transports
 
 @dataclass
 class Address:
@@ -32,4 +32,4 @@ class Address:
 class ClientPackage:
     """an object with all the necessary information about a client socket"""
     address: Address
-    client: socket.socket
+    client: socket.socket | transports.BaseTransport
