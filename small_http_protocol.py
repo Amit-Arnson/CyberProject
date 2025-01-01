@@ -33,4 +33,5 @@ class ServerMessage:
             "payload": self.payload
         }
     def __str__(self):
+        # testing to make sure github is linked correctly
         pass
