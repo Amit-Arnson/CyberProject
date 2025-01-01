@@ -2,6 +2,7 @@ import socket
 from dataclasses import dataclass
 from asyncio import transports
 
+
 @dataclass
 class Address:
     """a representation of the ip, port tuple as a class"""
@@ -13,7 +14,7 @@ class Address:
         if not any((self.ip, self.port)) and not self.ip_port_tuple:
             raise AttributeError("missing information in Address (ip, port, or both)")
 
-        if len(self.ip_port_tuple) != 2:
+        if not self.ip_port_tuple or len(self.ip_port_tuple) != 2:
             raise AttributeError(f"expected tuple[ip, port] got {self.ip_port_tuple} instead")
 
         if self.ip_port_tuple:
