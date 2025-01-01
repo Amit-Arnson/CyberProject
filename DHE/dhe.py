@@ -1,7 +1,11 @@
+from sympy import prime, sieve
 from Crypto.Util import number
+import random
 import hashlib
 
 
+# TODO: replace the PyCryptoDome dependency with sympy
+# TODO: create "generate prime based on length" function using sympy isprime
 class KDF:
     def __init__(self, data: bytes, size: int, iterations: int = 10000, salt: bytes = None):
         self.data = data
@@ -36,7 +40,7 @@ class DHE:
     def __init__(self, p: int, g: int = 5, e: int = None):
         """
         :param e: (private) exponent, never shared. used in all calculations
-        :param p: (publicly shared) prime number, both sides must have the same p
+        :param p: (publicly shared) prime number modulus, both sides must have the same p
         :param g: (publicly shared) base, both sides must have the same g
         """
 
@@ -47,7 +51,7 @@ class DHE:
 
     def _generate_secret_exponent(self) -> int:
         """generates your secret exponent"""
-        return number.getRandomRange(self.g, self.p - 1)
+        return random.randint(2, self.p - 2)
 
     def calculate_public(self):
         """
