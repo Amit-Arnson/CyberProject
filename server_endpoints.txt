@@ -2,7 +2,7 @@ methods
 --------
 get - retrieve data
 post - add data to a database/save long term
-respond - is a response to a request
+respond - is a response to a request (return data based on a request)
 
 initiate - initiates an initial response (only the server is allowed to use this)
 
