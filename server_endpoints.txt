@@ -9,7 +9,7 @@ initiate - initiates an initial response (only the server is allowed to use this
 
 
 authentication ->
-    - dhe:
+    >> dhe:
     from server: the server tells the client to start the dhe process, and gives it the necessary information.
     from client: the client responds to the server's request, makes a key and returns it's own public.
 
@@ -29,7 +29,7 @@ authentication ->
         }
         authentication: not required
 
-    - aes:
+    >> aes:
     from server: the server sends the AES key to the client.
     from client: whether the client got the key or not.
 
