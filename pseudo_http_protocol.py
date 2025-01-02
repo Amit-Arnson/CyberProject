@@ -10,10 +10,6 @@ methods = [
 ]
 
 
-class InputError(Exception):
-    pass
-
-
 @dataclass
 class ClientMessage:
     """
