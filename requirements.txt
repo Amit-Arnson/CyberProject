@@ -1,3 +1,4 @@
 python-dotenv
 pycryptodome
 sympy
+aiofiles
