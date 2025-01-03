@@ -1,4 +1,4 @@
 /venv/
 /.idea/
 /secrets.env/
-/database.db/
+/database.db

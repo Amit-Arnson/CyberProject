@@ -14,8 +14,6 @@ class System:
         self.cluster_size = cluster_size
 
 
-
-
 # main_dir/cluster_id/file_id
 
 
