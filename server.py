@@ -1,12 +1,12 @@
 import os
 
 from dotenv import load_dotenv
+
 from Caches.user_cache import UserCache
 from Caches.client_cache import Address, ClientPackage
 
 from pseudo_http_protocol import ClientMessage, ServerMessage
-
-from dataclasses import dataclass
+from Endpoints.server_endpoints import EndPoints, EndPoint
 
 import asyncio
 from asyncio import transports
@@ -20,56 +20,6 @@ PORT = 5555
 
 # cache's a user's auth information such as user ID, aes key and session token.
 cached_authorization = UserCache()
-
-
-# todo: rewrite. dont over complicate this class.
-class EndPoints:
-    # these are the paths the sever gets from a client.
-    # each path will have a method (get/post) and if it requires a valid session token
-    @dataclass
-    class EndPointRequires:
-        # which method it requires
-        method: str
-        # if it requires authentication beforehand
-        authentication: bool
-
-        def __post_init__(self):
-            self.method = self.method.lower()
-
-        def __eq__(self, other) -> bool:
-            if not isinstance(other, type(self)):
-                return False
-            return self.method == other.method and self.authentication == other.authentication
-
-    def __init__(self):
-        # these are the endpoints where the client sends to the server
-        self.endpoints = {
-            "authentication/key_exchange": self.EndPointRequires(method="get", authentication=False),
-        }
-
-        self.function_mapping = {
-            "authentication/key_exchange": authenticate_client,
-        }
-
-    def __contains__(self, item: tuple[str, str, str | None]) -> bool:
-        endpoint = item[0]
-        method = item[1]
-        authentication = True if item[2] else False
-
-        print(item)
-
-        requirement = self.EndPointRequires(method=method, authentication=authentication)
-        endpoint_requirements = self.endpoints.get(endpoint, None)
-
-        if not endpoint_requirements:
-            return False
-
-        return requirement == endpoint_requirements
-
-
-async def authenticate_client(client_package: ClientPackage, client_message: ClientMessage):
-    client = client_package.client
-    print(client_package.address.ip + " :)")
 
 
 # note that read/write using asyncio's protocol adds its own buffer, so we don't need to manually add one.
@@ -101,9 +51,9 @@ class ServerProtocol(asyncio.Protocol):
         given_method = client_message.method
         client_session_token = client_message.authentication
 
-        if (requested_endpoint, given_method, client_session_token) in self.endpoints:
+        if EndPoint(endpoint=requested_endpoint, method=given_method, authentication=client_session_token) in self.endpoints:
             # all functions will accept both the package and the message
-            server_function = self.endpoints.function_mapping[requested_endpoint]
+            server_function = self.endpoints[requested_endpoint]
 
             self.event_loop.create_task(server_function(self.client_package, client_message))
         else:
