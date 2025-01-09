@@ -1,4 +1,4 @@
-from api import encrypt, decrypt
+from AES_128.api import encrypt, decrypt
 import os
 
 
