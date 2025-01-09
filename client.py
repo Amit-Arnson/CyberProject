@@ -1,6 +1,7 @@
 import asyncio
 from asyncio import transports
 
+from pseudo_http_protocol import ClientMessage, ServerMessage
 
 # The IP and PORT of the server.
 IP = "127.0.0.1"
@@ -14,6 +15,12 @@ class ClientProtocol(asyncio.Protocol):
 
     def connection_made(self, transport: transports.Transport) -> None:
         self.transport = transport
+        # self.transport.write(ClientMessage(
+        #     method="get",
+        #     authentication=None,
+        #     endpoint="authentication/key_exchange",
+        #     payload={},
+        # ).encode())
         pass
 
     def connection_lost(self, exc: Exception | None) -> None:
