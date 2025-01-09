@@ -24,7 +24,7 @@ class ClientMessage:
     endpoint: str = None
     payload: dict[str, Any] = None
 
-    encoded: bytes = None
+    _encoded: bytes = None
 
     def _dictionary(self):
         return {
@@ -38,18 +38,18 @@ class ClientMessage:
         """
         encodes the dumped values (in a json format) and returns the bytes
         """
-        self.encoded = self.__str__().encode()
-        return self.encoded
+        self._encoded = self.__str__().encode()
+        return self._encoded
 
     def decode(self) -> dict[str, Any]:
         """
         returns the loaded json gotten from self.encoded.
         in addition, it replaces all the other attributes with the ones gotten from the loaded json.
         """
-        if not self.encoded or not isinstance(self.encoded, bytes):
-            raise AttributeError(f"expected encoded bytes but got {self.encoded} ({type(self.encoded)}) instead")
+        if not self._encoded or not isinstance(self._encoded, bytes):
+            raise AttributeError(f"expected encoded bytes but got {self._encoded} ({type(self._encoded)}) instead")
 
-        decoded = self.encoded.decode()
+        decoded = self._encoded.decode()
         loaded_json = json.loads(decoded)
 
         self.authentication = loaded_json.get("authentication")
@@ -76,6 +76,10 @@ class ClientMessage:
             method=method,
             payload=payload
         )
+
+    def __bytes__(self) -> bytes:
+        """alternative method for ClientMessage(...).encode()"""
+        return self.encode()
 
     def __str__(self) -> str:
         """
@@ -106,19 +110,8 @@ class ServerMessage:
     endpoint: str = None
     payload: dict[str, Any] = None
 
-    encoded: bytes = None
+    _encoded: bytes = None
 
-    def __post_init__(self):
-        # if all the following attributes are NOT none, it means the message isn't meant to be encoded.
-        # flipping this by adding a not creates us a variable that checks if the message was **built** as encoded
-
-        # no attribute should ever be none. due to this reason, it is safe to assume that if all of them are none it means
-        # that the message is meant to be encoded
-        has_all_attributes = all((self.status, self.method, self.endpoint, self.payload))
-        should_be_encoded = not has_all_attributes
-
-        if not self.encoded and should_be_encoded:
-            raise AttributeError(f"expected encoded bytes but got {self.encoded} ({type(self.encoded)}) instead")
 
     def _dictionary(self):
         return {
@@ -132,18 +125,18 @@ class ServerMessage:
         """
         encodes the dumped values (in a json format) and returns the bytes
         """
-        self.encoded = self.__str__().encode()
-        return self.encoded
+        self._encoded = self.__str__().encode()
+        return self._encoded
 
     def decode(self) -> dict[str, Any]:
         """
         returns the loaded json gotten from self.encoded.
         in addition, it replaces all the other attributes with the ones gotten from the loaded json.
         """
-        if not self.encoded or not isinstance(self.encoded, bytes):
-            raise AttributeError(f"expected encoded bytes but got {self.encoded} ({type(self.encoded)}) instead")
+        if not self._encoded or not isinstance(self._encoded, bytes):
+            raise AttributeError(f"expected encoded bytes but got {self._encoded} ({type(self._encoded)}) instead")
 
-        decoded = self.encoded.decode()
+        decoded = self._encoded.decode()
         loaded_json = json.loads(decoded)
 
         self.status = loaded_json.get("status")
@@ -152,6 +145,28 @@ class ServerMessage:
         self.payload = loaded_json.get("payload")
 
         return loaded_json
+
+    @staticmethod
+    def from_bytes(server_message: bytes) -> "ServerMessage":
+        """this is the same process as ServerNessage(...).decode() but it creates a different instance"""
+        decoded_message = server_message.decode()
+        message_dict = json.loads(decoded_message)
+
+        status = message_dict.get("status")
+        endpoint = message_dict.get("endpoint")
+        method = message_dict.get("method")
+        payload = message_dict.get("payload")
+
+        return ServerMessage(
+            status=status,
+            endpoint=endpoint,
+            method=method,
+            payload=payload
+        )
+
+    def __bytes__(self) -> bytes:
+        """alternative method for ServerMessage(...).encode()"""
+        return self.encode()
 
     def __str__(self) -> str:
         """
