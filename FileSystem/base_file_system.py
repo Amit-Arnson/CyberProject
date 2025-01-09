@@ -26,7 +26,17 @@ class System:
 
 
 class BaseFile:
-    """use await File(...).load() in order to access the file"""
+    """
+        A class that represents a file and provides methods to load, save, and manipulate it.
+        use await File(...).load() in order to access the file
+
+        Attributes:
+            path (str): The path to the file.
+            _file (bytes): The file's binary content.
+            file_type (str): The MIME type of the file.
+            file_extension (str): The file's extension.
+        """
+
     def __init__(self, file_path: str):
         self.path = file_path
 
@@ -54,8 +64,8 @@ class BaseFile:
 
     async def save(self, name: str, path: str) -> str:
         """
-        name: the name (or ID) of the file
-        path: the directory where you want it saved
+        :param name: the name (or ID) of the file
+        :param path: the directory where you want it saved
         :return: the full path of the file
         """
 
