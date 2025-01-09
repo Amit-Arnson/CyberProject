@@ -1,7 +1,7 @@
 methods
 --------
-get - retrieve data
-post - add data to a database/save long term
+get - retrieve data, {payload} doesn't need to be empty
+post - add data to a database/save long term, {payload} MUST have content
 respond - is a response to a request (return data based on a request)
 
 initiate - initiates an initial response (only the server is allowed to use this)
@@ -9,7 +9,7 @@ initiate - initiates an initial response (only the server is allowed to use this
 
 
 authentication ->
-    >> dhe:
+    >> key_exchange:
     from server: the server tells the client to start the dhe process, and gives it the necessary information.
     from client: the client responds to the server's request, makes a key and returns it's own public.
 
@@ -28,21 +28,3 @@ authentication ->
             "public": int
         }
         authentication: not required
-
-    >> aes:
-    from server: the server sends the AES key to the client.
-    from client: whether the client got the key or not.
-
-    server:
-    -- payload: payload: {
-            "aes_key": bytes
-        }
-    -- method: "initiate"
-
-    client:
-    -- returns ->
-        method: "respond"
-        payload: {
-            "gotten": bool
-        }
-
