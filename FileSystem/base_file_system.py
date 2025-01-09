@@ -2,7 +2,7 @@ import os
 import asyncio
 import aiofiles
 import aiosqlite
-from file_extension import Extension
+from FileSystem.file_extension import Extension
 
 
 class InvalidExtension(Exception):
@@ -60,7 +60,7 @@ class BaseFile:
             async with aiofiles.open(self.path, "rb") as file:
                 self._file = await file.read()
 
-        self.file_type, self.file_extension = Extension(self._file)
+        self.file_type, self.file_extension = Extension(self._file).get_file_type()
 
     async def save(self, name: str, path: str) -> str:
         """
