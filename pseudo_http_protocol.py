@@ -26,18 +26,6 @@ class ClientMessage:
 
     encoded: bytes = None
 
-    def __post_init__(self):
-        # if all the following attributes are NOT none, it means the message isn't meant to be encoded.
-        # flipping this by adding a not creates us a variable that checks if the message was **built** as encoded
-
-        # no attribute other than authentication should ever be none.
-        # due to this reason, it is safe to assume that if all of them are none it means that the message is meant to be encoded
-        has_all_attributes = all((self.method, self.endpoint, self.payload))
-        should_be_encoded = not has_all_attributes
-
-        if not self.encoded and should_be_encoded:
-            raise AttributeError(f"expected encoded bytes but got {self.encoded} ({type(self.encoded)}) instead")
-
     def _dictionary(self):
         return {
             "authentication": self.authentication,
@@ -71,6 +59,24 @@ class ClientMessage:
 
         return loaded_json
 
+    @staticmethod
+    def from_bytes(client_message: bytes) -> "ClientMessage":
+        """this is the same process as ClientMessage(...).decode() but it creates a different instance"""
+        decoded_message = client_message.decode()
+        message_dict = json.loads(decoded_message)
+
+        authentication = message_dict.get("authentication")
+        endpoint = message_dict.get("endpoint")
+        method = message_dict.get("method")
+        payload = message_dict.get("payload")
+
+        return ClientMessage(
+            authentication=authentication,
+            endpoint=endpoint,
+            method=method,
+            payload=payload
+        )
+
     def __str__(self) -> str:
         """
         returns a dumped json of all the values (with regard for ascii)
@@ -86,6 +92,7 @@ class ClientMessage:
         return self._dictionary()[item]
 
 
+# todo: change complicated encoded/normal syntax into Class.from_bytes(...) like i did with ClientMessage
 @dataclass
 class ServerMessage:
     """
