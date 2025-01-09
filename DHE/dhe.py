@@ -1,7 +1,20 @@
+import typing
+
 from sympy import prime, sieve
 from Crypto.Util import number
 import random
 import hashlib
+
+import sympy
+import random
+
+
+def generate_prime(length) -> int:
+    while True:
+        candidate = random.getrandbits(length)
+        if sympy.isprime(candidate):
+            return candidate
+
 
 
 # TODO: replace the PyCryptoDome dependency with sympy
@@ -80,15 +93,31 @@ class DHE:
         return kdf.derive_key()
 
 
+def generate_initial_dhe(mod_length: int = 200, base: int = typing.Literal[3, 5]) -> DHE:
+    prime_mod = generate_prime(mod_length)
+
+    server_secret_exponent = random.randint(2, prime_mod - 2)
+
+    return DHE(e=server_secret_exponent, p=prime_mod, g=base)
+
+
+def generate_dhe_response(mod: int, base: int) -> DHE:
+    # client_secret_key_prime = number.getRandomRange(base, prime_mod-1)
+    client_secret_exponent = random.randint(2, mod - 2)
+
+    return DHE(e=client_secret_exponent, p=mod, g=base)
+
+
+# todo: check about the exponent https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_key_exchange
 def main():
     # SERVER
-    prime_mod = number.getPrime(200)
+    prime_mod = generate_prime(200)
 
     base = 3
 
-    server_secret_key_prime = number.getRandomRange(base, prime_mod-1)
+    server_secret_exponent = random.randint(2, prime_mod - 2)
 
-    server_dhe = DHE(e=server_secret_key_prime, p=prime_mod, g=base)
+    server_dhe = DHE(e=server_secret_exponent, p=prime_mod, g=base)
     public_server_val = server_dhe.calculate_public()
 
     # CLIENT
@@ -97,9 +126,10 @@ def main():
     # 2) mod
     # 3) public value
 
-    client_secret_key_prime = number.getRandomRange(base, prime_mod-1)
+    # client_secret_key_prime = number.getRandomRange(base, prime_mod-1)
+    client_secret_exponent = random.randint(2, prime_mod - 2)
 
-    client_dhe = DHE(e=client_secret_key_prime, p=prime_mod, g=base)
+    client_dhe = DHE(e=client_secret_exponent, p=prime_mod, g=base)
 
     public_client_val = client_dhe.calculate_public()
 
