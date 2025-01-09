@@ -7,6 +7,11 @@ respond - is a response to a request (return data based on a request)
 initiate - initiates an initial response (only the server is allowed to use this)
 
 
+custom status codes
+-------------------
+from 1XX - 5XX i use the normal HTTP status codes
+
+000 - key exchange
 
 authentication ->
     >> key_exchange:
