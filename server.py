@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-from Caches.user_cache import UserCache
+from Caches.user_cache import UserCache, UserCacheItem
 from Caches.client_cache import Address, ClientPackage
 
 from pseudo_http_protocol import ClientMessage, ServerMessage
@@ -11,22 +11,31 @@ from Endpoints.server_endpoints import EndPoints, EndPoint
 import asyncio
 from asyncio import transports
 
+from AES_128 import cbc
+from DHE.dhe import DHE, generate_initial_dhe
+
 load_dotenv("secrets.env")
 PEPPER = os.getenv("PEPPER")
+
 
 # The IP and PORT of the server.
 IP = "127.0.0.1"
 PORT = 5555
 
 # cache's a user's auth information such as user ID, aes key and session token.
+# todo: due to separating the action functions from server.py (which is practically main.py), i will have to refactor how i cache users.
 cached_authorization = UserCache()
+server_endpoints = EndPoints()
 
 
 # note that read/write using asyncio's protocol adds its own buffer, so we don't need to manually add one.
 class ServerProtocol(asyncio.Protocol):
     def __init__(self):
         self.client_package: ClientPackage | None = None
-        self.endpoints = EndPoints()
+
+        # These just reference the shared instances, not creating new instances per protocol object
+        self.endpoints = server_endpoints
+        self.user_cache = cached_authorization
 
         self.event_loop = asyncio.get_event_loop()
 
@@ -43,6 +52,29 @@ class ServerProtocol(asyncio.Protocol):
         if not self.client_package:
             self.client_package = client_information
 
+        # here starts the process of getting a symmetric encryption key (using dhe)
+        server_dhe: DHE = generate_initial_dhe()
+        base = server_dhe.g
+        prime_modulus = server_dhe.p
+
+        shared_public = server_dhe.calculate_public()
+
+        dhe_key_exchange_message = ServerMessage(
+            status={
+                "code": 000,
+                "message": "encryption key exchange"
+            },
+            method="initiate",
+            endpoint="authenticate/key_exchange",
+            payload={
+                "base": base,
+                "mod": prime_modulus,
+                "public": shared_public
+            }
+        )
+
+        transport.write(dhe_key_exchange_message.encode())
+
     def data_received(self, data: bytes) -> None:
         print(data)
         client_message = ClientMessage.from_bytes(data)
@@ -52,10 +84,9 @@ class ServerProtocol(asyncio.Protocol):
         client_session_token = client_message.authentication
 
         if EndPoint(endpoint=requested_endpoint, method=given_method, authentication=client_session_token) in self.endpoints:
-            # all functions will accept both the package and the message
             server_function = self.endpoints[requested_endpoint]
 
-            self.event_loop.create_task(server_function(self.client_package, client_message))
+            self.event_loop.create_task(server_function(self.client_package, client_message, self.user_cache))
         else:
             pass
             # todo: add error function to return an error to the client
