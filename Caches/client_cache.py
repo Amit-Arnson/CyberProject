@@ -33,4 +33,4 @@ class Address:
 class ClientPackage:
     """an object with all the necessary information about a client socket"""
     address: Address
-    client: socket.socket | transports.BaseTransport
+    client: socket.socket | transports.Transport
