@@ -93,7 +93,7 @@ class DHE:
         return kdf.derive_key()
 
 
-def generate_initial_dhe(mod_length: int = 200, base: int = typing.Literal[3, 5]) -> DHE:
+def generate_initial_dhe(mod_length: int = 200, base: typing.Literal[3, 5] = 5) -> DHE:
     prime_mod = generate_prime(mod_length)
 
     server_secret_exponent = random.randint(2, prime_mod - 2)
