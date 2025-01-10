@@ -1,38 +1,78 @@
+import asyncio
 from dataclasses import dataclass
+from Caches.client_cache import Address
 
 
 @dataclass
 class UserCacheItem:
-    session_token: str
-    user_id: str
-    aes_key: bytes
-    iv: bytes
-    dhe_key: bytes | int
+    address: Address
+    aes_key: bytes | None = None
+    iv: bytes | None = None
+
+    dhe_base: int | None = None
+    dhe_mod: int | None = None
+    dhe_exponent: int | None = None
+
+    session_token: str | None = None
+    user_id: str | None = None
 
 
+# todo: add docs to UserCache describing UserCacheItem
 class UserCache:
     """
     Cache a UserCacheItem which contains:
+    address
+    - the client's ip-port pair
+
     session token,
+    - add doc
+
     user id,
+    - add doc
+
     aes key,
+    - add doc
+
     iv,
-    dhe key,
+    - add doc
     """
     def __init__(self):
         # a dictionary where the key is session_token, and it stores the cache item
         self._cache_dict: dict[str, UserCacheItem] = {}
+        self._cache_via_address: dict[Address, UserCacheItem] = {}
 
-    def add(self, cache_item: UserCacheItem):
+        self._lock = asyncio.Lock()
+
+    async def add(self, cache_item: UserCacheItem):
         """Add a Cache Item to the UserCache dictionary"""
-        user_session_token = cache_item.session_token
-        self._cache_dict[user_session_token] = cache_item
+        user_session_token: str = cache_item.session_token
+        user_address: Address = cache_item.address
 
-    def __getitem__(self, item: str) -> UserCacheItem | None:
+        # using asyncio.lock() to ensure no race conditions happen with a shared mutable resource
+        async with self._lock:
+            if user_session_token:
+                self._cache_dict[user_session_token] = cache_item
+
+            # address is a requirement for UserCacheItem meaning we dont need to check for it
+            self._cache_via_address[user_address] = cache_item
+
+    def __getitem__(self, item: str | Address) -> UserCacheItem | None:
         """
-        :param item: a user's session token
+        :param item: a user's session token or address
         :return: the cached item if found, else none
         """
 
-        return self._cache_dict.get(item)
+        if isinstance(item, str):
+            return self._cache_dict.get(item)
 
+        if isinstance(item, Address):
+            return self._cache_via_address.get(item)
+
+
+@dataclass
+class ClientSideUserCache:
+    aes_key: int | None = None
+    iv: bytes | None = None
+
+    session_token: str | None = None
+    user_id: str | None = None
