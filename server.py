@@ -43,19 +43,14 @@ class ServerProtocol(asyncio.Protocol):
         # gets the ip-port pair as a tuple
         client_address = transport.get_extra_info("peername")
 
-        address = Address(ip_port_tuple=client_address)
-        client_information = ClientPackage(
-            address=address,
-            client=transport,
-        )
-
-        if not self.client_package:
-            self.client_package = client_information
-
         # here starts the process of getting a symmetric encryption key (using dhe)
         server_dhe: DHE = generate_initial_dhe()
+
         base = server_dhe.g
         prime_modulus = server_dhe.p
+        secret_exponent = server_dhe.e
+
+        aes_iv = cbc.generate_iv()
 
         shared_public = server_dhe.calculate_public()
 
@@ -65,20 +60,42 @@ class ServerProtocol(asyncio.Protocol):
                 "message": "encryption key exchange"
             },
             method="initiate",
-            endpoint="authenticate/key_exchange",
+            endpoint="authentication/key_exchange",
             payload={
                 "base": base,
                 "mod": prime_modulus,
-                "public": shared_public
+                "public": shared_public,
+                "iv": aes_iv,
             }
         )
 
         transport.write(dhe_key_exchange_message.encode())
 
+        address = Address(ip_port_tuple=client_address)
+        client_information = ClientPackage(
+            address=address,
+            client=transport,
+        )
+
+        user_cache_item = UserCacheItem(
+            address=address,
+            dhe_base=base,
+            dhe_mod=prime_modulus,
+            dhe_exponent=secret_exponent,
+            iv=aes_iv
+        )
+
+        # asynchronously add the UserCacheItem to the global cache
+        self.event_loop.create_task(self.user_cache.add(user_cache_item))
+
+        if not self.client_package:
+            self.client_package = client_information
+
     def data_received(self, data: bytes) -> None:
-        print(data)
+        print(self.user_cache._cache_dict)
         client_message = ClientMessage.from_bytes(data)
 
+        # todo: validate body of request here
         requested_endpoint = client_message.endpoint
         given_method = client_message.method
         client_session_token = client_message.authentication

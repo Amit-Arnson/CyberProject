@@ -1,17 +1,33 @@
 import asyncio
 from asyncio import transports
 
+from Caches.user_cache import ClientSideUserCache
 from pseudo_http_protocol import ClientMessage, ServerMessage
+
+from Endpoints.client_endpoints import EndPoints
 
 # The IP and PORT of the server.
 IP = "127.0.0.1"
 PORT = 5555
 
+# this is a cache that the client keeps in order to track their own keys and session tokens
+client_user_cache = ClientSideUserCache()
+client_endpoints = EndPoints()
+
 
 # note that read/write using asyncio's protocol adds its own buffer, so we don't need to manually add one.
 class ClientProtocol(asyncio.Protocol):
-    def __init__(self):
+    def __init__(self, on_con_lost: asyncio.Future):
         self.transport: transports.Transport | None = None
+        self.on_con_lost = on_con_lost
+
+        self.endpoints = client_endpoints
+        self.event_loop = asyncio.get_event_loop()
+
+        # a list of status codes that the server sends which count as "ok" (no errors raised)
+        self.acceptable_status_codes: tuple[int, ...] = (
+            000, 200
+        )
 
     def connection_made(self, transport: transports.Transport) -> None:
         self.transport = transport
@@ -24,20 +40,47 @@ class ClientProtocol(asyncio.Protocol):
         pass
 
     def connection_lost(self, exc: Exception | None) -> None:
-        self.transport.close()
+        print("lost connection")
+        self.on_con_lost.set_result(True)
 
     def data_received(self, data: bytes) -> None:
-        pass
+        server_message = ServerMessage.from_bytes(data)
+
+        print(server_message)
+
+        status_code = server_message.status.get("code")
+        requested_endpoint = server_message.endpoint
+        given_method = server_message.method
+
+        print(status_code, type(status_code))
+
+        print(requested_endpoint)
+        if requested_endpoint in self.endpoints:
+            client_action_function = self.endpoints[requested_endpoint]
+
+            self.event_loop.create_task(client_action_function(self.transport, server_message, client_user_cache))
+        else:
+            pass
+            # todo: implement "endpoint not found" logic
 
 
 async def main():
     event_loop = asyncio.get_event_loop()
 
+    # we use asyncio.Future to check for a connection loss so that the client will keep on running
+    # after the initial creation of the connection.
+    on_con_lost = event_loop.create_future()
+
     transport, protocol = await event_loop.create_connection(
-        ClientProtocol,
+        lambda: ClientProtocol(on_con_lost=on_con_lost),
         host=IP,
         port=PORT
     )
+
+    try:
+        await on_con_lost
+    finally:
+        transport.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
