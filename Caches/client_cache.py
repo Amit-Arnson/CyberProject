@@ -2,6 +2,8 @@ import socket
 from dataclasses import dataclass
 from asyncio import transports
 
+from hashlib import sha256
+
 
 @dataclass
 class Address:
@@ -24,9 +26,10 @@ class Address:
         if not isinstance(self.ip, str) or not isinstance(self.port, int):
             raise AttributeError(f"expects ip as str, port as int. got ip as {type(self.ip)}, port as {type(self.port)}")
 
-    def __hash__(self) -> tuple[str, int]:
-        """returns tuple[ip, port]"""
-        return self.ip, self.port
+    def __hash__(self) -> int:
+        """returns the hash of tuple[ip, port]"""
+        # return sha256(f"{self.ip} {self.port}").digest()
+        return hash((self.ip, self.port))
 
 
 @dataclass
