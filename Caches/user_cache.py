@@ -17,7 +17,6 @@ class UserCacheItem:
     user_id: str | None = None
 
 
-# todo: add docs to UserCache describing UserCacheItem
 class UserCache:
     """
     Cache a UserCacheItem which contains:
@@ -25,16 +24,16 @@ class UserCache:
     - the client's ip-port pair
 
     session token,
-    - add doc
+    - the client's session token that is generated AFTER a client logs in
 
     user id,
-    - add doc
+    - the client's user ID
 
     aes key,
-    - add doc
+    - the AES key that is generated using DHE when the initial connection is made
 
     iv,
-    - add doc
+    - the IV that will be used for the CBC encryption
     """
     def __init__(self):
         # a dictionary where the key is session_token, and it stores the cache item
@@ -53,7 +52,7 @@ class UserCache:
             if user_session_token:
                 self._cache_dict[user_session_token] = cache_item
 
-            # address is a requirement for UserCacheItem meaning we dont need to check for it
+            # address is a requirement for UserCacheItem meaning we don't need to check for it
             self._cache_via_address[user_address] = cache_item
 
     def __getitem__(self, item: str | Address) -> UserCacheItem | None:
@@ -69,6 +68,7 @@ class UserCache:
             return self._cache_via_address.get(item)
 
 
+# this is an object for the client-side, just to neatly keep track of crucial stuff
 @dataclass
 class ClientSideUserCache:
     aes_key: int | None = None
