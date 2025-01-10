@@ -1,8 +1,4 @@
 import typing
-
-from sympy import prime, sieve
-from Crypto.Util import number
-import random
 import hashlib
 
 import sympy
@@ -16,9 +12,6 @@ def generate_prime(length) -> int:
             return candidate
 
 
-
-# TODO: replace the PyCryptoDome dependency with sympy
-# TODO: create "generate prime based on length" function using sympy isprime
 class KDF:
     def __init__(self, data: bytes, size: int, iterations: int = 10000, salt: bytes = None):
         self.data = data
