@@ -122,6 +122,7 @@ class ServerMessage:
 
         return urlsafe_b64encode(item).decode()
 
+    # todo: add support for booleans
     @staticmethod
     def _b64decode(item: str) -> Any:
         """
@@ -131,6 +132,8 @@ class ServerMessage:
         try:
             return json.loads(urlsafe_b64decode(item).decode())
         except UnicodeDecodeError:
+            return urlsafe_b64decode(item)
+        except json.decoder.JSONDecodeError:
             return urlsafe_b64decode(item)
 
     def _dictionary(self):
