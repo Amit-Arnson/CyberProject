@@ -34,13 +34,14 @@ class EndPoints:
         # these are the endpoints where the client sends to the server
         self.endpoints: dict[str, tuple["EndPointRequires", Callable]] = {
             "authentication/key_exchange": (
-                EndPointRequires(method="get", authentication=False),
+                EndPointRequires(method="respond", authentication=False),
                 authenticate_client
             ),
         }
         # endpoint -> (requirements, function)
 
     def __getitem__(self, item: str) -> Callable:
+        """returns the function related to the endpoint"""
         _, action = self.endpoints[item]
 
         return action
