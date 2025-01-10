@@ -2,6 +2,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from base64 import urlsafe_b64decode, urlsafe_b64encode
+
 methods = [
     "post",
     "get",
@@ -112,6 +114,24 @@ class ServerMessage:
 
     _encoded: bytes = None
 
+    @staticmethod
+    def _b64encode(item: bytes) -> str:
+        """used to safely encode bytes in order to pass using JSON"""
+        if not isinstance(item, bytes):
+            item = str(item).encode()
+
+        return urlsafe_b64encode(item).decode()
+
+    @staticmethod
+    def _b64decode(item: str) -> Any:
+        """
+         decodes the encoded bytes that were passed via JSON. automatically converts to
+         the correct type using json.loads()
+        """
+        try:
+            return json.loads(urlsafe_b64decode(item).decode())
+        except UnicodeDecodeError:
+            return urlsafe_b64decode(item)
 
     def _dictionary(self):
         return {
@@ -128,6 +148,7 @@ class ServerMessage:
         self._encoded = self.__str__().encode()
         return self._encoded
 
+    # todo: check if .decode() is needed, because .from_bytes(...) exists
     def decode(self) -> dict[str, Any]:
         """
         returns the loaded json gotten from self.encoded.
@@ -142,6 +163,7 @@ class ServerMessage:
         self.status = loaded_json.get("status")
         self.endpoint = loaded_json.get("endpoint")
         self.method = loaded_json.get("method")
+
         self.payload = loaded_json.get("payload")
 
         return loaded_json
@@ -155,7 +177,11 @@ class ServerMessage:
         status = message_dict.get("status")
         endpoint = message_dict.get("endpoint")
         method = message_dict.get("method")
+
+        # if its in byte form, it means the payload is b64 encoded
         payload = message_dict.get("payload")
+        for key, value in payload.items():
+            payload[key] = ServerMessage._b64decode(value)
 
         return ServerMessage(
             status=status,
@@ -170,9 +196,19 @@ class ServerMessage:
 
     def __str__(self) -> str:
         """
-        returns a dumped json of all the values (with regard for ascii)
+        returns a dumped json of all the values (with regard for ascii).
+
+        values are b64url_safe encoded inside of payload
         """
-        return json.dumps(self._dictionary(), ensure_ascii=False)
+        message_dictionary = self._dictionary()
+        message_payload = self._dictionary().get("payload", {})
+
+        b64encoded_payload: dict[str, str] = {}
+        for key, value in message_payload.items():
+            b64encoded_payload[key] = self._b64encode(value)
+
+        message_dictionary["payload"] = b64encoded_payload
+        return json.dumps(message_dictionary, ensure_ascii=False)
 
     def __getitem__(self, item: str) -> str | dict:
         """
