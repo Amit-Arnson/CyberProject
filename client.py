@@ -6,6 +6,8 @@ from pseudo_http_protocol import ClientMessage, ServerMessage
 
 from Endpoints.client_endpoints import EndPoints
 
+from encryptions import EncryptedTransport
+
 # The IP and PORT of the server.
 IP = "127.0.0.1"
 PORT = 5555
@@ -18,7 +20,7 @@ client_endpoints = EndPoints()
 # note that read/write using asyncio's protocol adds its own buffer, so we don't need to manually add one.
 class ClientProtocol(asyncio.Protocol):
     def __init__(self, on_con_lost: asyncio.Future):
-        self.transport: transports.Transport | None = None
+        self.transport: EncryptedTransport | None = None
         self.on_con_lost = on_con_lost
 
         self.endpoints = client_endpoints
@@ -30,7 +32,7 @@ class ClientProtocol(asyncio.Protocol):
         )
 
     def connection_made(self, transport: transports.Transport) -> None:
-        self.transport = transport
+        self.transport = EncryptedTransport(transport=transport)
         pass
 
     def connection_lost(self, exc: Exception | None) -> None:
@@ -38,6 +40,11 @@ class ClientProtocol(asyncio.Protocol):
         self.on_con_lost.set_result(True)
 
     def data_received(self, data: bytes) -> None:
+        # decrypts the data
+        print(data)
+        data = self.transport.read(data)
+        print(data)
+
         server_message = ServerMessage.from_bytes(data)
 
         print(server_message)

@@ -12,6 +12,7 @@ import asyncio
 from asyncio import transports
 
 from AES_128 import cbc
+from encryptions import EncryptedTransport
 from DHE.dhe import DHE, generate_initial_dhe
 
 load_dotenv("secrets.env")
@@ -72,6 +73,8 @@ class ServerProtocol(asyncio.Protocol):
             }
         )
 
+        transport = EncryptedTransport(transport, iv=aes_iv)
+
         transport.write(dhe_key_exchange_message.encode())
 
         address = Address(ip_port_tuple=client_address)
@@ -95,6 +98,9 @@ class ServerProtocol(asyncio.Protocol):
             self.client_package = client_information
 
     def data_received(self, data: bytes) -> None:
+        # decrypts the data
+        data = self.client_package.client.read(data)
+
         client_message = ClientMessage.from_bytes(data)
 
         # todo: validate that the message is actually built like ClientMessage (correct format)
