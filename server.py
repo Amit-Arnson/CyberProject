@@ -23,7 +23,6 @@ IP = "127.0.0.1"
 PORT = 5555
 
 # cache's a user's auth information such as user ID, aes key and session token.
-# todo: due to separating the action functions from server.py (which is practically main.py), i will have to refactor how i cache users.
 cached_authorization = UserCache()
 server_endpoints = EndPoints()
 
@@ -97,7 +96,7 @@ class ServerProtocol(asyncio.Protocol):
     def data_received(self, data: bytes) -> None:
         client_message = ClientMessage.from_bytes(data)
 
-        # todo: validate body of request here
+        # todo: validate that the message is actually built like ClientMessage (correct format)
         requested_endpoint = client_message.endpoint
         given_method = client_message.method
         client_session_token = client_message.authentication
