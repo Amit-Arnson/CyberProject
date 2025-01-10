@@ -103,9 +103,11 @@ class ServerProtocol(asyncio.Protocol):
         client_session_token = client_message.authentication
 
         if EndPoint(endpoint=requested_endpoint, method=given_method, authentication=client_session_token) in self.endpoints:
-            server_function = self.endpoints[requested_endpoint]
+            server_action_function = self.endpoints[requested_endpoint]
 
-            self.event_loop.create_task(server_function(self.client_package, client_message, self.user_cache))
+            # server function actions are specifically tied to endpoints that a client asks for. Functions that are not
+            # directly related to an endpoint will not be inside the action list.
+            self.event_loop.create_task(server_action_function(self.client_package, client_message, self.user_cache))
         else:
             pass
             # todo: add error function to return an error to the client

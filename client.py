@@ -31,12 +31,6 @@ class ClientProtocol(asyncio.Protocol):
 
     def connection_made(self, transport: transports.Transport) -> None:
         self.transport = transport
-        # self.transport.write(ClientMessage(
-        #     method="get",
-        #     authentication=None,
-        #     endpoint="authentication/key_exchange",
-        #     payload={},
-        # ).encode())
         pass
 
     def connection_lost(self, exc: Exception | None) -> None:
@@ -50,14 +44,18 @@ class ClientProtocol(asyncio.Protocol):
 
         status_code = server_message.status.get("code")
         requested_endpoint = server_message.endpoint
-        given_method = server_message.method
 
-        print(status_code, type(status_code))
+        # currently we don't really care about the method. ill decide whether we even need a method from the server to
+        # the client later on.
 
-        print(requested_endpoint)
-        if requested_endpoint in self.endpoints:
+        # given_method = server_message.method
+
+        if requested_endpoint in self.endpoints and status_code in self.acceptable_status_codes:
             client_action_function = self.endpoints[requested_endpoint]
 
+            # client action functions are any function that is related to an endpoint (meaning the server specifically
+            # asks for it). Other functions that may not be related to a specific endpoint will not be in this
+            # pile of functions.
             self.event_loop.create_task(client_action_function(self.transport, server_message, client_user_cache))
         else:
             pass
