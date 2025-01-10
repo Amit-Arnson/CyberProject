@@ -3,11 +3,11 @@ from asyncio.transports import Transport
 from pseudo_http_protocol import ServerMessage, ClientMessage
 from Caches.user_cache import ClientSideUserCache
 
-from AES_128 import cbc
+from encryptions import EncryptedTransport
 from DHE.dhe import DHE, generate_dhe_response
 
 
-async def complete_authentication(transport: Transport, server_message: ServerMessage, user_cache: ClientSideUserCache):
+async def complete_authentication(transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
     """
     this function is used to finish transferring the key using dhe.
 
@@ -47,5 +47,5 @@ async def complete_authentication(transport: Transport, server_message: ServerMe
 
     aes_key = client_dhe.kdf_derive(mutual_key=mutual_key_value, iterations=10000, size=16)
 
-    user_cache.iv = aes_iv
-    user_cache.aes_key = aes_key
+    transport.iv = aes_iv
+    transport.key = aes_key

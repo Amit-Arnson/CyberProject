@@ -1,6 +1,6 @@
 import socket
 from dataclasses import dataclass
-from asyncio import transports
+from encryptions import EncryptedTransport
 
 from hashlib import sha256
 
@@ -36,4 +36,4 @@ class Address:
 class ClientPackage:
     """an object with all the necessary information about a client socket"""
     address: Address
-    client: socket.socket | transports.Transport
+    client: socket.socket | EncryptedTransport
