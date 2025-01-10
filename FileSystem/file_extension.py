@@ -26,6 +26,8 @@ magic_numbers: dict[bytes, tuple[str, str]] = {
 # https://en.wikipedia.org/wiki/List_of_file_signatures
 # todo: make sure that extensions like webp are handled correctly, as according to the wiki it may have a different format
 
+# todo: magic numbers can be faked. add further validation for file checking.
+
 
 class Extension:
     def __init__(self, file: bytes):
