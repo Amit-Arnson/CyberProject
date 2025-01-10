@@ -71,8 +71,5 @@ class UserCache:
 # this is an object for the client-side, just to neatly keep track of crucial stuff
 @dataclass
 class ClientSideUserCache:
-    aes_key: int | None = None
-    iv: bytes | None = None
-
     session_token: str | None = None
     user_id: str | None = None
