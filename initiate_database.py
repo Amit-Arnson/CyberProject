@@ -1,4 +1,4 @@
-import aiosqlite
+import asqlite
 import asyncio
 
 
@@ -7,14 +7,17 @@ class CreateTables:
         self.database = database
 
     async def aio_init(self):
-        async with aiosqlite.connect(self.database) as db:
-            await self._create_clusters(db)
-            # ...
+        async with asqlite.connect(self.database) as connection:
+            async with connection.cursor() as cursor:
+                await self._create_clusters(cursor)
+                # ...
+
+                await connection.commit()
 
     # all of these methods will create tables
     @staticmethod
-    async def _create_clusters(connection: aiosqlite.Connection):
-        await connection.execute(
+    async def _create_clusters(cursor: asqlite.Cursor):
+        await cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS clusters (
                 id INTEGER PRIMARY KEY,

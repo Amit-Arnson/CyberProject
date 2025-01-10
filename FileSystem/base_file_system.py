@@ -1,7 +1,7 @@
 import os
 import asyncio
 import aiofiles
-import aiosqlite
+import asqlite
 from FileSystem.file_extension import Extension
 
 
