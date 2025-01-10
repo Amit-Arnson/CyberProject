@@ -56,6 +56,7 @@ class ServerProtocol(asyncio.Protocol):
         # here we build a server message that includes all the information needed for the
         # key exchange, as well as the IV for after the key exchange is completed (IV is sent with the DHE stuff
         # in order to not send multiple messages).
+
         dhe_key_exchange_message = ServerMessage(
             status={
                 "code": 000,
