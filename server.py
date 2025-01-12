@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from Caches.user_cache import UserCache, UserCacheItem
 from Caches.client_cache import Address, ClientPackage
 
-from pseudo_http_protocol import ClientMessage, ServerMessage
+from pseudo_http_protocol import ClientMessage, ServerMessage, MalformedMessage
 from Endpoints.server_endpoints import EndPoints, EndPoint
 
 import asyncio
@@ -101,7 +101,12 @@ class ServerProtocol(asyncio.Protocol):
         # decrypts the data
         data = self.client_package.client.read(data)
 
-        client_message = ClientMessage.from_bytes(data)
+        try:
+            client_message = ClientMessage.from_bytes(data)
+        except MalformedMessage:
+            # todo: add a response for the error
+            # todo: think of a way to communicate which error is related to which client message (as in, "respond" to the message)
+            return
 
         # todo: validate that the message is actually built like ClientMessage (correct format)
         requested_endpoint = client_message.endpoint

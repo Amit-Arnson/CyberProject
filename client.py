@@ -2,7 +2,7 @@ import asyncio
 from asyncio import transports
 
 from Caches.user_cache import ClientSideUserCache
-from pseudo_http_protocol import ClientMessage, ServerMessage
+from pseudo_http_protocol import ClientMessage, ServerMessage, MalformedMessage
 
 from Endpoints.client_endpoints import EndPoints
 
@@ -45,7 +45,12 @@ class ClientProtocol(asyncio.Protocol):
         data = self.transport.read(data)
         print(data)
 
-        server_message = ServerMessage.from_bytes(data)
+        try:
+            server_message = ServerMessage.from_bytes(data)
+        except MalformedMessage:
+            # todo: add error handling for malformed message form a server (unlikely to happen though, maybe only fabricated messages)
+            # todo: think of a way for the client to communicate the error to the server (check server-side todo list for explanation)
+            return
 
         print(server_message)
 
