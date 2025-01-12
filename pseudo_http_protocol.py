@@ -12,6 +12,18 @@ methods = [
 ]
 
 
+class MalformedMessage(Exception):
+    """en error that is raised when an invalid message format is sent [raised in Class.from_bytes(...)]"""
+    def __init__(self, message: str):
+        super().__init__(message)
+
+        # the status message of the error
+        self.message = message
+
+        # the status code of this error
+        self.code = 400
+
+
 @dataclass
 class ClientMessage:
     """
@@ -65,12 +77,19 @@ class ClientMessage:
     def from_bytes(client_message: bytes) -> "ClientMessage":
         """this is the same process as ClientMessage(...).decode() but it creates a different instance"""
         decoded_message = client_message.decode()
-        message_dict = json.loads(decoded_message)
+
+        try:
+            message_dict = json.loads(decoded_message)
+        except json.JSONDecodeError:
+            raise MalformedMessage("malformed information")
 
         authentication = message_dict.get("authentication")
         endpoint = message_dict.get("endpoint")
         method = message_dict.get("method")
         payload = message_dict.get("payload")
+
+        if not all((endpoint, method, payload)):
+            raise MalformedMessage("missing information")
 
         return ClientMessage(
             authentication=authentication,
@@ -175,7 +194,11 @@ class ServerMessage:
     def from_bytes(server_message: bytes) -> "ServerMessage":
         """this is the same process as ServerNessage(...).decode() but it creates a different instance"""
         decoded_message = server_message.decode()
-        message_dict = json.loads(decoded_message)
+
+        try:
+            message_dict = json.loads(decoded_message)
+        except json.JSONDecodeError:
+            raise MalformedMessage("malformed information")
 
         status = message_dict.get("status")
         endpoint = message_dict.get("endpoint")
@@ -183,6 +206,10 @@ class ServerMessage:
 
         # if its in byte form, it means the payload is b64 encoded
         payload = message_dict.get("payload")
+
+        if not all((status, endpoint, method, payload)):
+            raise MalformedMessage("missing information")
+
         for key, value in payload.items():
             payload[key] = ServerMessage._b64decode(value)
 
