@@ -33,10 +33,29 @@ class EndPoints:
     def __init__(self):
         # these are the endpoints where the client sends to the server
         self.endpoints: dict[str, tuple["EndPointRequires", Callable]] = {
+            # authentication/key_exchange is used to share the encryption key between the server and client.
             "authentication/key_exchange": (
                 EndPointRequires(method="respond", authentication=False),
                 authenticate_client
             ),
+
+            # user/signup is used to create a new user account.
+            "user/signup": (
+                EndPointRequires(method="post", authentication=False),
+                # todo: create a function to handle signups
+            ),
+
+            # user/login is used to log into an existing user account
+            "user/login": (
+                EndPointRequires(method="post", authentication=False),
+                # todo: create a function to handle login
+            ),
+
+            # song/upload is used to upload: the song file, description, tabs (images), artist, name and genre tags.
+            "song/upload": (
+                EndPointRequires(method="post", authentication=True),
+                # todo: create function to handle uploading songs
+            )
         }
         # endpoint -> (requirements, function)
 
