@@ -1,5 +1,6 @@
 import os
 
+import asqlite
 from dotenv import load_dotenv
 
 from Caches.user_cache import UserCache, UserCacheItem
@@ -30,7 +31,9 @@ server_endpoints = EndPoints()
 
 # note that read/write using asyncio's protocol adds its own buffer, so we don't need to manually add one.
 class ServerProtocol(asyncio.Protocol):
-    def __init__(self):
+    def __init__(self, database_pool: asqlite.Pool):
+        self.db_pool = database_pool
+
         self.client_package: ClientPackage | None = None
 
         # These just reference the shared instances, not creating new instances per protocol object
@@ -118,7 +121,7 @@ class ServerProtocol(asyncio.Protocol):
 
             # server function actions are specifically tied to endpoints that a client asks for. Functions that are not
             # directly related to an endpoint will not be inside the action list.
-            self.event_loop.create_task(server_action_function(self.client_package, client_message, self.user_cache))
+            self.event_loop.create_task(server_action_function(self.db_pool, self.client_package, client_message, self.user_cache))
         else:
             pass
             # todo: add error function to return an error to the client
@@ -127,10 +130,20 @@ class ServerProtocol(asyncio.Protocol):
 async def main() -> None:
     """Hosts a server to communicate with a client through sending and receiving string data."""
 
+    # creating an async database pool for all server-side database interactions. A db pool helps avoid race
+    # conditions in async code.
+    database_pool = await asqlite.create_pool("database.db")
+
     event_loop = asyncio.get_event_loop()
 
+    # event_loop.create_server() expects a Callable to create a new instance of the protocol class. I want to pass a database
+    # pool into the protocol class, which obviously can only be created once. Due to this, I have to build a function that
+    # creates an instance of the ServerProtocol that has the database pool inside of it.
+    def protocol_factory():
+        return ServerProtocol(database_pool)
+
     server = await event_loop.create_server(
-        ServerProtocol,
+        protocol_factory,
         host=IP,
         port=PORT,
     )
