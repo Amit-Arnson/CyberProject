@@ -2,3 +2,5 @@
 /.idea/
 /secrets.env/
 /database.db
+*.db-shm
+*.db-wal
