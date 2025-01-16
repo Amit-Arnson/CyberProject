@@ -5,12 +5,22 @@ from Caches.user_cache import UserCache, UserCacheItem
 from AES_128 import cbc
 from DHE.dhe import DHE
 
+import asqlite
+
 
 class InvalidPayload(Exception):
     """Error that is thrown when the client passes an invalid payload"""
+    def __init__(self, argument: str):
+        super().__init__(argument)
+
+        # the passed message to be sent to the client post-error
+        self.message = argument
+
+        # the status code the error represents
+        self.code = 400
 
 
-async def authenticate_client(client_package: ClientPackage, client_message: ClientMessage, user_cache: UserCache):
+async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage, user_cache: UserCache):
     """
     this function is used to finish transferring the key using dhe.
 
@@ -77,7 +87,7 @@ async def authenticate_client(client_package: ClientPackage, client_message: Cli
     #     ).encode())
 
 
-async def user_signup(client_package: ClientPackage, client_message: ClientMessage, user_cache: UserCache):
+async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage, _: UserCache):
     """
     this function is used to create a new user account, however it does NOT automatically log the user in (for now, may change)
 
@@ -98,4 +108,20 @@ async def user_signup(client_package: ClientPackage, client_message: ClientMessa
     > iv
     > aes_key
     """
+
+    client = client_package.client
+    address = client_package.address
+
+    # since the user cache isn't affected by this function, it does not need to be referenced.
+
+    payload = client_message.payload
+
+    try:
+        username = payload["username"]
+        password = payload["password"]
+        display_name = payload["display_name"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(f"Invalid payload passed. expected keys \"username\", \"passwor\", \"display_name\", instead got {payload_keys}")
+
 
