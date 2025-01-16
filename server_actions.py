@@ -18,6 +18,15 @@ async def authenticate_client(client_package: ClientPackage, client_message: Cli
     {
         "public": int
     }
+
+    expected cache pre-function:
+    > address
+    > iv
+
+    expected cache post-function:
+    > address
+    > iv
+    + aes_key
     """
 
     client = client_package.client
@@ -66,4 +75,27 @@ async def authenticate_client(client_package: ClientPackage, client_message: Cli
     #             "testing": True
     #         }
     #     ).encode())
+
+
+async def user_signup(client_package: ClientPackage, client_message: ClientMessage, user_cache: UserCache):
+    """
+    this function is used to create a new user account, however it does NOT automatically log the user in (for now, may change)
+
+    expected payload:
+    {
+        "username": str
+        "password": str
+        "display_name": str
+    }
+
+    expected cache pre-function:
+    > address
+    > iv
+    > aes_key
+
+    expected cache post-function:
+    > address
+    > iv
+    > aes_key
+    """
 
