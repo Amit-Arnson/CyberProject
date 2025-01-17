@@ -103,8 +103,8 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
 
     expected payload:
     {
-        "username": str
-        "password": str
+        "username": str,
+        "password": str,
         "display_name": str
     }
 
@@ -160,3 +160,55 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
                 }
         ).encode()
     )
+
+
+async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage, user_cache: UserCache):
+    """
+    this function is used to log a user in, by accepting a password and username (then checking that they are valid)
+    and generating a session token and returns the user id.
+
+    this function is tied to user/login
+
+    expected payload:
+    {
+        "username": str,
+        "password": str
+    }
+
+        expected cache pre-function:
+    > address
+    > iv
+    > aes_key
+
+    expected cache post-function:
+    > address
+    > iv
+    > aes_key
+    + user_id
+    + session token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    payload = client_message.payload
+
+    try:
+        username = payload["username"]
+        password = payload["password"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(f"Invalid payload passed. expected key \"username\", \"password\", instead got {payload_keys}")
+
+    async with db_pool.acquire() as connection:
+        hashed_password, salt = await queries.User.fetch_hashed_password_and_salt(
+            connection=connection,
+            username=username,
+        )
+
+    if not authenticate_password(password=password, hashed_password=hashed_password, salt=salt):
+        raise # todo: create invalid credentials error
+
