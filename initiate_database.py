@@ -36,7 +36,7 @@ class CreateTables:
         await cursor.execute(
             """
                         CREATE TABLE IF NOT EXISTS users (
-                            user_id INTEGER PRIMARY KEY,
+                            user_id TEXT PRIMARY KEY,
                             username TEXT NOT NULL,
                             display_name TEXT NOT NULL,
                             password TEXT NOT NULL,
