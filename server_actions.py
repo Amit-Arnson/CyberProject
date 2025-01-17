@@ -1,3 +1,5 @@
+import os
+
 from pseudo_http_protocol import ClientMessage, ServerMessage
 from Caches.client_cache import ClientPackage
 from Caches.user_cache import UserCache, UserCacheItem
@@ -6,6 +8,10 @@ from AES_128 import cbc
 from DHE.dhe import DHE
 
 import asqlite
+
+from secure_user_credentials import generate_hashed_password, authenticate_password, generate_user_id
+
+import queries
 
 
 class InvalidPayload(Exception):
@@ -23,6 +29,8 @@ class InvalidPayload(Exception):
 async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage, user_cache: UserCache):
     """
     this function is used to finish transferring the key using dhe.
+
+    this function is tied to authentication/key_exchange
 
     expected payload:
     {
@@ -91,6 +99,8 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
     """
     this function is used to create a new user account, however it does NOT automatically log the user in (for now, may change)
 
+    this function is tied to users/signup
+
     expected payload:
     {
         "username": str
@@ -124,4 +134,29 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
         payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
         raise InvalidPayload(f"Invalid payload passed. expected keys \"username\", \"passwor\", \"display_name\", instead got {payload_keys}")
 
+    hashed_password, salt = generate_hashed_password(password=password)
+    user_id = generate_user_id(username=username)
 
+    async with db_pool.acquire() as connection:
+        await queries.User.create_user(
+            connection=connection,
+            user_id=user_id,
+            username=username,
+            display_name=display_name,
+            password=hashed_password,
+            salt=salt
+        )
+
+    client.write(
+        ServerMessage(
+                status={
+                    "code": 200,
+                    "message": "success"
+                },
+                method="respond",
+                endpoint="user/signup",
+                payload={
+                    "user_id": user_id,
+                }
+        ).encode()
+    )
