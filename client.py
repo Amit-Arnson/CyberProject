@@ -57,6 +57,21 @@ class ClientProtocol(asyncio.Protocol):
         status_code = server_message.status.get("code")
         requested_endpoint = server_message.endpoint
 
+        if self.transport.key and self.transport.iv:
+            self.transport.write(
+                ClientMessage(
+                    authentication=None,
+                    method="post",
+                    endpoint="user/signup",
+                    payload={
+                        "username": "amit1234",
+                        "display_name": "amit",
+                        "password": "1234!"
+                    }
+                ).encode()
+            )
+            print("sent to server :)")
+
         # currently we don't really care about the method. ill decide whether we even need a method from the server to
         # the client later on.
 
