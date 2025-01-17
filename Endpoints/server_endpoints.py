@@ -1,5 +1,5 @@
 from typing import Callable
-from server_actions import authenticate_client
+from server_actions import authenticate_client, user_signup
 
 from dataclasses import dataclass
 
@@ -42,7 +42,7 @@ class EndPoints:
             # user/signup is used to create a new user account.
             "user/signup": (
                 EndPointRequires(method="post", authentication=False),
-                # todo: create a function to handle signups
+                user_signup
             ),
 
             # user/login is used to log into an existing user account
