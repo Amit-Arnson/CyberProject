@@ -1,7 +1,6 @@
 import os
 
 import asqlite
-from dotenv import load_dotenv
 
 from Caches.user_cache import UserCache, UserCacheItem
 from Caches.client_cache import Address, ClientPackage
@@ -15,9 +14,6 @@ from asyncio import transports
 from AES_128 import cbc
 from encryptions import EncryptedTransport
 from DHE.dhe import DHE, generate_initial_dhe
-
-load_dotenv("secrets.env")
-PEPPER = os.getenv("PEPPER")
 
 
 # The IP and PORT of the server.
