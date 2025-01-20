@@ -1,3 +1,6 @@
+import base64
+import time
+
 from dotenv import load_dotenv
 
 import os
@@ -48,12 +51,39 @@ def authenticate_password(password: str, salt: bytes, hashed_password: str) -> b
 def generate_user_id(username: str) -> str:
     """creates a random user ID based on the username and a random uuid4"""
 
-    random_user_id = sha256(uuid4().bytes).digest()
+    random_unique_id = sha256(uuid4().bytes).digest()
     encoded_username = sha256(username.encode()).digest()
 
-    user_id = sha256(encoded_username + random_user_id).hexdigest()
+    user_id = sha256(encoded_username + random_unique_id).hexdigest()
 
     return user_id
+
+
+def generate_session_token(user_id: str) -> str:
+    # we add the time when the token is created into the first part of the token. this is so that we can easily
+    # track when the token was created without needing a different variable for it.
+    current_time = time.time().hex().encode()
+    b64_encoded_time = base64.b64encode(current_time).decode()
+
+    # to get the float time back
+    # 1) b64decode(bytes)
+    # 2) .decode(bytes)
+    # 3) float.fromhex(str)
+
+    # generates an uuid4
+    random_unique_id = uuid4().bytes
+    user_id_bytes = user_id.encode()
+
+    # hashes the randomly generated uuid4 with the user's ID
+    random_token = sha256(random_unique_id + user_id_bytes).hexdigest()
+
+    # random bytes to add at the end of the token just so that there is 0% chance for collisions
+    end_bytes = os.urandom(8).hex()
+
+    # todo: see if you need to use hmac to sign the token in order to stop tempering and spoofing
+    session_token = f"{b64_encoded_time}#{random_token}{end_bytes}"
+
+    return session_token
 
 
 # the pepper in secrets.env was created using this script
