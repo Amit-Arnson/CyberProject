@@ -37,6 +37,8 @@ async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, cl
         "public": int
     }
 
+    expected output: no message sent (none)
+
     expected cache pre-function:
     > address
     > iv
@@ -108,6 +110,11 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
         "display_name": str
     }
 
+    expected output:
+    {
+        "user_id": str,
+    }
+
     expected cache pre-function:
     > address
     > iv
@@ -175,7 +182,13 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
         "password": str
     }
 
-        expected cache pre-function:
+    expected output:
+    {
+        "session_token": str,
+        "user_id": str,
+    }
+
+    expected cache pre-function:
     > address
     > iv
     > aes_key
@@ -204,10 +217,12 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
         raise InvalidPayload(f"Invalid payload passed. expected key \"username\", \"password\", instead got {payload_keys}")
 
     async with db_pool.acquire() as connection:
-        hashed_password, salt = await queries.User.fetch_hashed_password_and_salt(
+        user = await queries.User.fetch_user(
             connection=connection,
             username=username,
         )
+
+    hashed_password, salt = user["hashed_password"], user["salt"]
 
     if not authenticate_password(password=password, hashed_password=hashed_password, salt=salt):
         raise # todo: create invalid credentials error
