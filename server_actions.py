@@ -9,7 +9,7 @@ from DHE.dhe import DHE
 
 import asqlite
 
-from secure_user_credentials import generate_hashed_password, authenticate_password, generate_user_id
+from secure_user_credentials import generate_hashed_password, authenticate_password, generate_user_id, generate_session_token
 
 import queries
 
@@ -127,9 +127,10 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
     """
 
     client = client_package.client
-    address = client_package.address
 
-    # since the user cache isn't affected by this function, it does not need to be referenced.
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise # todo: add error for not completing the key exchange
 
     payload = client_message.payload
 
@@ -144,6 +145,9 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
     hashed_password, salt = generate_hashed_password(password=password)
     user_id = generate_user_id(username=username)
 
+    # todo: add username checking (check if username is taken) and length checking (username/display/password length)
+
+    # creates the user based on the client's input
     async with db_pool.acquire() as connection:
         await queries.User.create_user(
             connection=connection,
@@ -154,6 +158,7 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
             salt=salt
         )
 
+    # sends a message to the client to show that the account creation was successful and sends the user ID to the client
     client.write(
         ServerMessage(
                 status={
@@ -204,6 +209,10 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
     client = client_package.client
     address = client_package.address
 
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise # todo: add error for not completing the key exchange
+
     # gets the UserCacheItem for this specific client (and references it)
     client_user_cache: UserCacheItem = user_cache[address]
 
@@ -222,8 +231,32 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
             username=username,
         )
 
-    hashed_password, salt = user["hashed_password"], user["salt"]
+    hashed_password: str = user["hashed_password"]
+    salt: bytes = user["salt"]
 
     if not authenticate_password(password=password, hashed_password=hashed_password, salt=salt):
         raise # todo: create invalid credentials error
 
+    user_id: str = user["user_id"]
+
+    user_session_token = generate_session_token(user_id)
+
+    # adding the user ID and session token to the client cache
+    client_user_cache.user_id = user_id
+    client_user_cache.session_token = user_session_token
+
+    # sends the client the session token and the user ID
+    client.write(
+        ServerMessage(
+                status={
+                    "code": 200,
+                    "message": "success"
+                },
+                method="respond",
+                endpoint="user/login",
+                payload={
+                    "session_token": user_session_token,
+                    "user_id": user_id,
+                }
+        ).encode()
+    )
