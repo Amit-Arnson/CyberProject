@@ -1,6 +1,7 @@
 # this file is used as a way to organize all the needed SQL queries
 
 from asqlite import ProxiedConnection
+from sqlite3 import Row
 
 
 class User:
@@ -11,8 +12,7 @@ class User:
             user_id, username, display_name, password, salt
         )
 
-    # todo: find out what the Row is
     @staticmethod
-    async def fetch_user(connection: ProxiedConnection, username: str):
+    async def fetch_user(connection: ProxiedConnection, username: str) -> Row:
         row = await connection.fetchone("SELECT * FROM users WHERE username = ?", username)
-        return row["password"], row["salt"]
+        return row
