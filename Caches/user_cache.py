@@ -71,5 +71,10 @@ class UserCache:
 # this is an object for the client-side, just to neatly keep track of crucial stuff
 @dataclass
 class ClientSideUserCache:
+    """
+    session_token: the current session token for the user login
+    user_id: the ID of the logged-in user
+    """
+
     session_token: str | None = None
     user_id: str | None = None
