@@ -90,6 +90,8 @@ class ServerProtocol(asyncio.Protocol):
             iv=aes_iv
         )
 
+        # todo: maybe add a signing feature to all server messages so that they cant be faked? (using asymmetric key)
+
         # asynchronously add the UserCacheItem to the global cache
         self.event_loop.create_task(self.user_cache.add(user_cache_item))
 
