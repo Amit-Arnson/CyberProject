@@ -13,17 +13,7 @@ from secure_user_credentials import generate_hashed_password, authenticate_passw
 
 import queries
 
-
-class InvalidPayload(Exception):
-    """Error that is thrown when the client passes an invalid payload"""
-    def __init__(self, argument: str):
-        super().__init__(argument)
-
-        # the passed message to be sent to the client post-error
-        self.message = argument
-
-        # the status code the error represents
-        self.code = 400
+from Errors.raised_errors import NoEncryption, InvalidCredentials, TooLong, UserExists, InvalidPayload
 
 
 async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage, user_cache: UserCache):
@@ -130,7 +120,7 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
 
     # checks if the client has completed the key exchange
     if not client.key or not client.iv:
-        raise # todo: add error for not completing the key exchange
+        raise NoEncryption("missing encryption values: please re-authenticate")
 
     payload = client_message.payload
 
@@ -145,18 +135,33 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
     hashed_password, salt = generate_hashed_password(password=password)
     user_id = generate_user_id(username=username)
 
-    # todo: add username checking (check if username is taken) and length checking (username/display/password length)
+    # username, display name and password length check.
+    if len(username) > 20:
+        raise TooLong("Username provided is too long: max 20 characters")
+    elif len(display_name) > 20:
+        raise TooLong("Display name provided is too long: max 20 characters")
+    elif len(password) > 30:
+        raise TooLong("Password is too long: max 30 characters")
 
     # creates the user based on the client's input
     async with db_pool.acquire() as connection:
-        await queries.User.create_user(
-            connection=connection,
-            user_id=user_id,
-            username=username,
-            display_name=display_name,
-            password=hashed_password,
-            salt=salt
-        )
+        # using a transaction since im creating 2 queries that rely on each other
+        async with connection.transaction():
+
+            # making sure that the user doesn't already exist
+            user_exists = await queries.User.user_exists(connection=connection, username=username)
+
+            if user_exists:
+                raise UserExists("A user with the given username already exists")
+
+            await queries.User.create_user(
+                connection=connection,
+                user_id=user_id,
+                username=username,
+                display_name=display_name,
+                password=hashed_password,
+                salt=salt
+            )
 
     # sends a message to the client to show that the account creation was successful and sends the user ID to the client
     client.write(
@@ -211,7 +216,7 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
 
     # checks if the client has completed the key exchange
     if not client.key or not client.iv:
-        raise # todo: add error for not completing the key exchange
+        raise NoEncryption("missing encryption values: please re-authenticate")
 
     # gets the UserCacheItem for this specific client (and references it)
     client_user_cache: UserCacheItem = user_cache[address]
@@ -235,7 +240,7 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
     salt: bytes = user["salt"]
 
     if not authenticate_password(password=password, hashed_password=hashed_password, salt=salt):
-        raise # todo: create invalid credentials error
+        raise InvalidCredentials("Invalid login credentials passed")
 
     user_id: str = user["user_id"]
 
