@@ -28,7 +28,8 @@ class ClientProtocol(asyncio.Protocol):
 
         # a list of status codes that the server sends which count as "ok" (no errors raised)
         self.acceptable_status_codes: tuple[int, ...] = (
-            000, 200
+            000,
+            200
         )
 
     def connection_made(self, transport: transports.Transport) -> None:
@@ -57,6 +58,8 @@ class ClientProtocol(asyncio.Protocol):
         status_code = server_message.status.get("code")
         requested_endpoint = server_message.endpoint
 
+        # this is just a test function for creating a user. since i dont have the GUI made yet.
+        # todo: remove later
         if self.transport.key and self.transport.iv:
             self.transport.write(
                 ClientMessage(
