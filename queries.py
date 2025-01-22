@@ -16,3 +16,12 @@ class User:
     async def fetch_user(connection: ProxiedConnection, username: str) -> Row:
         row = await connection.fetchone("SELECT * FROM users WHERE username = ?", username)
         return row
+
+    @staticmethod
+    async def user_exists(connection: ProxiedConnection, username: str) -> bool:
+        user = await User.fetch_user(connection=connection, username=username)
+
+        if user:
+            return True
+
+        return False
