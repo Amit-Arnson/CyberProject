@@ -16,7 +16,7 @@ class System:
 
         # setting default values inside the __init__ so that its clear that these shouldn't just be chosen randomly.
         # to change their value, check the set_... functions.
-        self._main_directory = "AudioFiles"
+        self._main_directory = "SavedFiles"
         self._cluster_size = 100
 
     # I have created set_... for directory and cluster size so that it is clear that these values are not "just" part of the constructor.
