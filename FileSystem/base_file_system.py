@@ -37,6 +37,10 @@ class System:
         # only attempt to make the directory if it doesn't exist yet
         if not os.path.exists(self._main_directory):
             os.makedirs(self._main_directory, exist_ok=True)
+        else:
+            # ansi color for blue. logging.info didn't work for some reason, so I just use a normal print here.
+            blue_text = '\033[34m'
+            print(f"{blue_text}INFO: THE DIRECTORY \"{self._main_directory}\" ALREADY EXISTS.")
 
     @staticmethod
     def _create_unique_id(random_bytes_length: int = 8) -> str:
