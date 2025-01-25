@@ -15,7 +15,7 @@ from AES_128 import cbc
 from encryptions import EncryptedTransport
 from DHE.dhe import DHE, generate_initial_dhe
 
-from FileSystem.base_file_system import System
+from FileSystem.base_file_system import System, BaseFile
 
 
 # The IP and PORT of the server.
@@ -138,6 +138,12 @@ async def main() -> None:
 
     # create the directory (check doc-string for more info)
     file_system.initialize()
+
+    # test code:
+    # temp = BaseFile(file_path="C:\\Users\\amita\OneDrive\Pictures\DuckOpng.png")
+    # await temp.load()
+    #
+    # await file_system.save(temp, uploaded_by_id="testest")
 
     event_loop = asyncio.get_event_loop()
 
