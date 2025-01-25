@@ -176,6 +176,10 @@ class BaseFile:
         """
 
     def __init__(self, file_path: str):
+        """
+        after creating the object, use .load() to load the bytes and extensions.
+        to create an instance without the file_path, use BaseFile.from_bytes(...) to create the object.
+        """
         self.path = file_path
 
         # these are all loaded with await self.load()
