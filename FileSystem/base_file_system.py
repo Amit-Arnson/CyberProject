@@ -66,7 +66,7 @@ class System:
             unique_file_id = self._create_unique_id()
 
             async with self.db_pool.acquire() as connection:
-                exists = FileSystem.does_file_exist(connection=connection, file_id=unique_file_id)
+                exists = await FileSystem.does_file_exist(connection=connection, file_id=unique_file_id)
 
         # this error should NEVER raise. if it does, fuck.
         if not unique_file_id:
@@ -84,7 +84,7 @@ class System:
             unique_cluster_id = self._create_unique_id()
 
             async with self.db_pool.acquire() as connection:
-                exists = FileSystem.does_cluster_exist(connection=connection, cluster_id=unique_cluster_id)
+                exists = await FileSystem.does_cluster_exist(connection=connection, cluster_id=unique_cluster_id)
 
         # this error should NEVER raise. if it does, fuck.
         if not unique_cluster_id:
@@ -115,7 +115,7 @@ class System:
         """:returns: tuple[cluster's full directory (main_dir/cluster_id), cluster ID]"""
 
         async with self.db_pool.acquire() as connection:
-            free_cluster_id = FileSystem.find_free_cluster(connection, max_size=self._cluster_size)
+            free_cluster_id = await FileSystem.find_free_cluster(connection, max_size=self._cluster_size)
 
         if not free_cluster_id:
             free_cluster_id = await self._create_new_cluster()
