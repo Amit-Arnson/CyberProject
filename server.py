@@ -15,6 +15,8 @@ from AES_128 import cbc
 from encryptions import EncryptedTransport
 from DHE.dhe import DHE, generate_initial_dhe
 
+from FileSystem.base_file_system import System
+
 
 # The IP and PORT of the server.
 IP = "127.0.0.1"
@@ -131,6 +133,11 @@ async def main() -> None:
     # creating an async database pool for all server-side database interactions. A db pool helps avoid race
     # conditions in async code.
     database_pool = await asqlite.create_pool("database.db")
+
+    file_system = System(db_pool=database_pool)
+
+    # create the directory (check doc-string for more info)
+    file_system.initialize()
 
     event_loop = asyncio.get_event_loop()
 
