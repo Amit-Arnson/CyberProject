@@ -42,7 +42,7 @@ class CreateTables:
             """
             CREATE TABLE IF NOT EXISTS clusters (
                 cluster_id TEXT PRIMARY KEY,
-                current_size INT NOT NULL DEFAULT 0,
+                current_size INT NOT NULL DEFAULT 0
             );
             """
         )
@@ -74,7 +74,7 @@ class CreateTables:
                 album_name TEXT NOT NULL,   
                 song_length INTEGER NOT NULL,
                 FOREIGN KEY (file_id) REFERENCES files(file_id),
-                FOREIGN KEY (user_id) REFERENCES files(user_uploaded_id),
+                FOREIGN KEY (user_id) REFERENCES files(user_uploaded_id)
             );
             """
         )
