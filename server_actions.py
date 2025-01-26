@@ -59,7 +59,9 @@ async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, cl
         p=client_user_cache.dhe_mod
     )
 
-    # calculates the mutual key
+    # todo: figure out how to stop fake base/mod in DHE (since they can be spoofed client side)
+
+    # calculates the mutual key (note: this key is a secret key and should not be shared)
     mutual_key_number: int = server_dhe.calculate_mutual(client_public_value)
 
     # derives a 16 byte key from the mutual key
