@@ -86,17 +86,18 @@ def generate_session_token(user_id: str) -> str:
     return session_token
 
 
-# the pepper in secrets.env was created using this script
-"""
-import secrets
-import string
+if __name__ == "__main__":
+    # the pepper in secrets.env was created using this script
+    import secrets
+    import string
 
-def generate_pepper(length=32):
-    characters = string.ascii_letters + string.digits + string.punctuation
-    pepper = ''.join(secrets.choice(characters) for i in range(length))
-    return pepper
 
-# Example usage:
-pepper = generate_pepper(32)
-print(f"Generated Pepper: {pepper}")  # Keep this pepper secret!
-"""
+    def generate_pepper(length=32):
+        characters = string.ascii_letters + string.digits + string.punctuation
+        generated_pepper = ''.join(secrets.choice(characters) for i in range(length))
+        return generated_pepper
+
+
+    # Example usage:
+    pepper = generate_pepper(32)
+    print(f"Generated Pepper: {pepper}")  # Keep this pepper secret!
