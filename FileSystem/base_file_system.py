@@ -40,7 +40,10 @@ class System:
         else:
             # ansi color for blue. logging.info didn't work for some reason, so I just use a normal print here.
             blue_text = '\033[34m'
-            print(f"{blue_text}INFO: THE DIRECTORY \"{self._main_directory}\" ALREADY EXISTS.")
+
+            # resets the console color back.
+            ansi_break = '\x1b[0m'
+            print(f"{blue_text}INFO: THE DIRECTORY \"{self._main_directory}\" ALREADY EXISTS.{ansi_break}")
 
     @staticmethod
     def _create_unique_id(random_bytes_length: int = 8) -> str:
