@@ -9,14 +9,13 @@ from pseudo_http_protocol import ClientMessage, ServerMessage, MalformedMessage
 from Endpoints.server_endpoints import EndPoints, EndPoint
 
 import asyncio
-from asyncio import transports
+from asyncio import transports, Task
 
 from AES_128 import cbc
 from encryptions import EncryptedTransport
 from DHE.dhe import DHE, generate_initial_dhe
 
 from FileSystem.base_file_system import System, BaseFile
-
 
 # The IP and PORT of the server.
 IP = "127.0.0.1"
@@ -121,10 +120,25 @@ class ServerProtocol(asyncio.Protocol):
 
             # server function actions are specifically tied to endpoints that a client asks for. Functions that are not
             # directly related to an endpoint will not be inside the action list.
-            self.event_loop.create_task(server_action_function(self.db_pool, self.client_package, client_message, self.user_cache))
+
+            action = self.event_loop.create_task(server_action_function(self.db_pool, self.client_package, client_message, self.user_cache))
+            action.add_done_callback(self.on_complete)
         else:
             pass
             # todo: add error function to return an error to the client
+
+    # todo: find a way to tell the client the error in a way that can be graphically visualized
+    def on_complete(self, action: Task):
+        """
+            this is the callback function for the created tasks. once a task is finished (either normally or by error),
+            this function will be called.
+
+            Any error handling related to errors thrown inside of server actions should be done here.
+        """
+        if action.exception():
+            print(f"Task failed with exception: {action.exception()}")
+        else:
+            print(f"Task completed successfully with result: {action.result()}")
 
 
 async def main() -> None:
