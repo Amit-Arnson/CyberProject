@@ -2,6 +2,17 @@ from AES_128.api import encrypt, decrypt
 import os
 
 
+class MismatchingKeysException(Exception):
+    """An error for when invalid key is passed for cbc decrypting.
+
+    NOTE: just because this error doesn't raise, it does not mean that the key is necessarily correct; it just means that
+    the decoded bytes of the decrypted data are valid.
+    """
+
+    # this error can be thrown if:
+    # 1) utf-8 encoding the bytes of the "plaintext" (after decryption) raises an error
+    # 2) trying to un-pad the plaintext causes a ValueError (trying to turn something that isn't "integer-like" into an integer)
+
 def pad(data: str | bytes) -> bytes:
     if isinstance(data, str):
         data = data.encode()
@@ -92,7 +103,15 @@ def cbc_decrypt(cipher: bytes, key: bytes, iv: bytes) -> bytes:
 
     plain_data = block_to_data(plain_list)
 
-    return unpad(plain_data)
+    try:
+        # plain_data.decode() is done purely to check the validity of the encryption result. check the Mismatching error
+        # doc-string and comments for more information
+        plain_data.decode()
+
+        return unpad(plain_data)
+    # If decryption fails or the data is not valid UTF-8, raise an exception.
+    except (UnicodeDecodeError, ValueError):
+        raise MismatchingKeysException("the given key to decrypt is invalid or the data is corrupted")
 
 
 def main():
@@ -103,7 +122,9 @@ def main():
     iv = generate_iv()
     cipher = cbc_encrypt(plaintext=data, key=key, iv=iv)
     print(cipher)
-    plaintext = cbc_decrypt(cipher=cipher, key=key, iv=iv)
+
+    fake_key = bytes([0x20, 0x65, 0x0f, 0xb8] * 4)
+    plaintext = cbc_decrypt(cipher=cipher, key=fake_key, iv=iv)
     print(plaintext)
 
 
