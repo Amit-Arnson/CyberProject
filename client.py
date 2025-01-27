@@ -8,6 +8,10 @@ from Endpoints.client_endpoints import EndPoints
 
 from encryptions import EncryptedTransport
 
+# todo: do NOT use global variables with flet. i want to make the GUI classes in different files.
+# what is allowed? sharing "global" info with ft.Page
+import flet as ft
+
 # The IP and PORT of the server.
 IP = "127.0.0.1"
 PORT = 5555
@@ -19,7 +23,7 @@ client_endpoints = EndPoints()
 
 # note that read/write using asyncio's protocol adds its own buffer, so we don't need to manually add one.
 class ClientProtocol(asyncio.Protocol):
-    def __init__(self, on_con_lost: asyncio.Future):
+    def __init__(self, on_con_lost: asyncio.Future, page: ft.Page):
         self.transport: EncryptedTransport | None = None
         self.on_con_lost = on_con_lost
 
@@ -31,6 +35,10 @@ class ClientProtocol(asyncio.Protocol):
             000,
             200
         )
+
+        self.page = page
+        self.page.transport = self.transport
+        # todo: figure out a good way to communicate between action functions and page.
 
     def connection_made(self, transport: transports.Transport) -> None:
         self.transport = EncryptedTransport(transport=transport)
@@ -92,7 +100,7 @@ class ClientProtocol(asyncio.Protocol):
             # todo: implement "endpoint not found" logic
 
 
-async def main():
+async def main(page: ft.Page):
     event_loop = asyncio.get_event_loop()
 
     # we use asyncio.Future to check for a connection loss so that the client will keep on running
@@ -100,7 +108,7 @@ async def main():
     on_con_lost = event_loop.create_future()
 
     transport, protocol = await event_loop.create_connection(
-        lambda: ClientProtocol(on_con_lost=on_con_lost),
+        lambda: ClientProtocol(on_con_lost=on_con_lost, page=page),
         host=IP,
         port=PORT
     )
@@ -110,5 +118,7 @@ async def main():
     finally:
         transport.close()
 
+# todo: figure out if i need the following flet extensions: flet-audio, flet-audio-recorder
 if __name__ == "__main__":
-    asyncio.run(main())
+    # flet natively supports async environment, for this reason we do not need to use asyncio.run() and only use flet.app().
+    ft.app(main)
