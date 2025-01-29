@@ -17,6 +17,8 @@ from DHE.dhe import DHE, generate_initial_dhe
 
 from FileSystem.base_file_system import System, BaseFile
 
+from initiate_database import CreateTables
+
 # The IP and PORT of the server.
 IP = "127.0.0.1"
 PORT = 5555
@@ -144,17 +146,28 @@ class ServerProtocol(asyncio.Protocol):
 async def main() -> None:
     """Hosts a server to communicate with a client through sending and receiving string data."""
 
+    database_name = "database.db"
+
+    # create all of the tables in the database
+    await CreateTables(database_name).aio_init()
+
     # creating an async database pool for all server-side database interactions. A db pool helps avoid race
     # conditions in async code.
-    database_pool = await asqlite.create_pool("database.db")
+    database_pool = await asqlite.create_pool(database_name)
 
     file_system = System(db_pool=database_pool)
 
     # create the directory (check doc-string for more info)
     file_system.initialize()
 
-    # test code:
-    # temp = BaseFile(file_path="C:\\Users\\amita\OneDrive\Pictures\DuckOpng.png")
+    # todo: create file compression.
+    
+    # # test code:
+    # with open("C:\\Users\\amita\OneDrive\Pictures\DuckOpng.png", "rb") as fff:
+    #     bb: bytes = fff.read()
+    #
+    # # temp = BaseFile(file_path="C:\\Users\\amita\OneDrive\Pictures\DuckOpng.png")
+    # temp = await BaseFile.from_bytes(bb)
     # await temp.load()
     #
     # await file_system.save(temp, uploaded_by_id="testest")
