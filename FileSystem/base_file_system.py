@@ -112,7 +112,7 @@ class System:
         os.makedirs(cluster_dir)
 
         # 4) return cluster ID
-        return cluster_dir
+        return cluster_id
 
     async def _find_free_cluster(self) -> tuple[str, str]:
         """:returns: tuple[cluster's full directory (main_dir/cluster_id), cluster ID]"""
