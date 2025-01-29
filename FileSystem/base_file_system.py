@@ -190,6 +190,10 @@ class BaseFile:
         self.file_type: str = ""
         self.file_extension: str = ""
 
+        # a simple check to see if a file is initialized (self.load()). this can be used for validation checking
+        # when calling functions that require the loaded file.
+        self.loaded = False
+
     async def load(self) -> None:
         """
         this function initially loads the file from a given path
@@ -206,6 +210,9 @@ class BaseFile:
                 self._file = await file.read()
 
         self.file_type, self.file_extension = Extension(self._file).get_file_type()
+
+        # set the loaded trigger to True after loading the file.
+        self.loaded = True
 
     async def save(self, name: str, path: str) -> str:
         """
@@ -236,12 +243,11 @@ class BaseFile:
     @staticmethod
     async def from_bytes(file: bytes) -> "BaseFile":
         """
-        creates a File object from inputted file bytes
+        creates a File object from inputted file bytes.
+        This function calls .load() for you, therefore you do not need to load it yourself.
         """
-        cls_file = BaseFile(
-            file_path=""
-        )
 
+        cls_file = BaseFile(file_path="")
         cls_file._file = file
 
         # this is in order to load the extension and file type
