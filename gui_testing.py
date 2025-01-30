@@ -40,6 +40,7 @@ class SimpleClicker:
 
         print(self.page.has)
 
+
 class CooldownManager:
     def __init__(self):
         self.last_called = 0  # Store the last called time
@@ -48,6 +49,7 @@ class CooldownManager:
         """
         This decorator will apply a cooldown to any method.
         """
+
         def decorator(func):
             @functools.wraps(func)
             def wrapper(func_self, *args, **kwargs):
@@ -62,6 +64,7 @@ class CooldownManager:
                     return None  # You could also raise an exception if needed
 
             return wrapper
+
         return decorator
 
 
@@ -78,22 +81,50 @@ class MainPage:
 
         self.page.overlay.append(self.file_picker)
 
-        cooldown = CooldownManager().cooldown(1)
-        self._reached_bottom = cooldown(self._reached_bottom)
+        self.last_reached_bottom = int(time.time())
+
+        self.square_grid_view: ft.GridView = ft.GridView(
+            expand=True,
+            runs_count=5,
+            max_extent=150,
+            child_aspect_ratio=1.0,
+            spacing=5,
+            run_spacing=5,
+            padding=10,
+            on_scroll=self._reached_bottom,
+            auto_scroll=False,
+        )
 
     def _finished_picking_file(self, e):
         print(e)
 
+    async def _scroll_to_bottom(self, delay: float = 0.5):
+        await asyncio.sleep(delay)
+
+        self.square_grid_view.scroll_to(offset=-1, duration=2000, curve=ft.AnimationCurve.EASE_IN)
+        self.page.scroll_to(offset=-1, duration=2000, curve=ft.AnimationCurve.EASE_IN)
+
     # todo: figure out the AssertionError issue
-    def _reached_bottom(self, e: ft.OnScrollEvent):
+    # note: assertion error of uid is None happens when you update the page too fast.
+    async def _reached_bottom(self, e: ft.OnScrollEvent):
         if e.pixels == e.max_scroll_extent:
-            print("end")
+            self.page.overlay.append(
+                ft.SnackBar(
+                    bgcolor=ft.Colors.BLACK,
+                    content=ft.Container(
+                        expand=True,
+                        width=self.page.width,
+                        height=self.page.height / 10,
+                        bgcolor=ft.Colors.BLACK,
+                        content=ft.Text("You have reached the bottom!", color=ft.Colors.WHITE)
+                    ),
+                    open=True,
+                    duration=1000,
+                )
+            )
 
-            old_grid = self.get_key_recursive("the_grid")
-
-            container_list = []
-            for i in range(1, 500 + 1):
-                container_list.append(
+            for i in range(1, 11):
+                self.square_grid_view.controls.append(
                     ft.Container(
                         content=ft.Text(f"{i}"),
                         height=self.page.height / 200,
@@ -103,14 +134,15 @@ class MainPage:
                     )
                 )
 
-            print(old_grid.uid)
-            old_grid.controls.extend(container_list)
-
-            print(old_grid.controls)
             try:
-                old_grid.update()
-                self.page.update()
-                old_grid.scroll_to(offset=-1, duration=100)
+                if int(time.time()) - self.last_reached_bottom >= 1:
+                    await asyncio.sleep(0.5)
+                    self.page.update()
+                    self.last_reached_bottom = int(time.time())
+
+                    await self._scroll_to_bottom()
+                else:
+                    pass
             except AssertionError as e:
                 print(e)
                 raise e
@@ -124,31 +156,18 @@ class MainPage:
 
         return lv
 
-    def _create_grid(self, grid_item_amount: int = 120) -> ft.GridView:
-        gd = ft.GridView(
-            expand=1,
-            runs_count=5,
-            max_extent=150,
-            child_aspect_ratio=1.0,
-            spacing=5,
-            run_spacing=5,
-            padding=10,
-            on_scroll=self._reached_bottom,
-            auto_scroll=False
-        )
+    def _add_to_grid(self, grid_item_amount: int = 120) -> None:
 
         for i in range(1, grid_item_amount + 1):
-            gd.controls.append(
+            self.square_grid_view.controls.append(
                 ft.Container(
                     content=ft.Text(f"{i}"),
                     height=self.page.height / 200,
                     width=self.page.width / 200,
                     bgcolor=ft.Colors.AMBER,
-                    padding=10
+                    padding=10,
                 )
             )
-
-        return gd
 
     def _page_resize(self, e):
         self.start()
@@ -200,11 +219,11 @@ class MainPage:
 
     def _make_page(self):
         lv = self._create_list()
-        gd = self._create_grid()
-        gd.key = "the_grid"
+        self._add_to_grid()
 
         column1 = ft.Column(
             key="main_column",
+            auto_scroll=False,
             controls=[
                 ft.Container(
                     expand_loose=True,
@@ -216,8 +235,8 @@ class MainPage:
                 ),
                 ft.Container(
                     expand=True,
-                    content=gd,
-                    key="grid_viewer"
+                    content=self.square_grid_view,
+                    key="grid_viewer",
                 ),
             ]
         )
@@ -271,6 +290,7 @@ class MainPage:
     @initializer
     def start(self):
         self._make_page()
+
 
 def main(page: ft.Page):
     page.has = "has"
