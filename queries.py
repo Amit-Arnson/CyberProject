@@ -71,13 +71,19 @@ class FileSystem:
 
         current_time = int(time.time())
 
-        await connection.execute(
-            """
-            INSERT INTO files
-            (file_id, file_cluster_id, user_uploaded_id, size, uploaded_at) VALUES (?, ?, ?, ?, ?)
-            """,
-            file_id, cluster_id, user_uploaded_id, size, current_time
-        )
+        async with connection.transaction():
+            await connection.execute(
+                """
+                INSERT INTO files
+                (file_id, file_cluster_id, user_uploaded_id, size, uploaded_at) VALUES (?, ?, ?, ?, ?)
+                """,
+                file_id, cluster_id, user_uploaded_id, size, current_time
+            )
+
+            await connection.execute(
+                """UPDATE clusters SET current_size = current_size + 1 WHERE cluster_id = ?""",
+                cluster_id
+            )
 
     @staticmethod
     async def does_file_exist(connection: ProxiedConnection, file_id: str) -> bool:
