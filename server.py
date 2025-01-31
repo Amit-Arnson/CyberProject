@@ -138,6 +138,7 @@ class ServerProtocol(asyncio.Protocol):
             Any error handling related to errors thrown inside of server actions should be done here.
         """
         if action.exception():
+            # raise action.exception()
             print(f"Task failed with exception: {action.exception()}")
         else:
             print(f"Task completed successfully with result: {action.result()}")
