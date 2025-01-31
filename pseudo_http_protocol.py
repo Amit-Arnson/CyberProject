@@ -251,7 +251,7 @@ class ServerMessage:
         values are b64url_safe encoded inside of payload
         """
         message_dictionary = self._dictionary()
-        message_payload = self._dictionary().get("payload", {})
+        message_payload = message_dictionary.get("payload", {})
 
         # we b64 encode all the bytes in the payload, so that we can json.dumps() the payload dict.
         json_serialized_payload = self.serialize_data(message_payload)
