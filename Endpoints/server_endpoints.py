@@ -1,5 +1,5 @@
 from typing import Callable
-from server_actions import authenticate_client, user_signup
+from server_actions import authenticate_client, user_signup, user_login
 
 from dataclasses import dataclass
 
@@ -48,7 +48,7 @@ class EndPoints:
             # user/login is used to log into an existing user account
             "user/login": (
                 EndPointRequires(method="post", authentication=False),
-                # todo: create a function to handle login
+                user_login,
             ),
 
             # song/upload is used to upload: the song file, description, tabs (images), artist, name and genre tags.
