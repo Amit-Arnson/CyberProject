@@ -41,33 +41,6 @@ class SimpleClicker:
         print(self.page.has)
 
 
-class CooldownManager:
-    def __init__(self):
-        self.last_called = 0  # Store the last called time
-
-    def cooldown(self, seconds: int):
-        """
-        This decorator will apply a cooldown to any method.
-        """
-
-        def decorator(func):
-            @functools.wraps(func)
-            def wrapper(func_self, *args, **kwargs):
-                current = time.time()
-                if current - self.last_called >= seconds:
-                    result = func(func_self, *args, **kwargs)
-                    self.last_called = current  # Update the last called time
-                    return result
-                else:
-                    # Handle the case when the cooldown is still active
-                    print(f"Cooldown active. Try again in {seconds - (current - self.last_called):.2f} seconds.")
-                    return None  # You could also raise an exception if needed
-
-            return wrapper
-
-        return decorator
-
-
 class MainPage:
     def __init__(self, page: ft.Page):
         self.page = page
@@ -82,9 +55,9 @@ class MainPage:
         self.page.overlay.append(self.file_picker)
 
         self.last_reached_bottom = int(time.time())
+        self.last_scroll_direction: str = ""
 
         self.square_grid_view: ft.GridView = ft.GridView(
-            expand=True,
             runs_count=5,
             max_extent=150,
             child_aspect_ratio=1.0,
@@ -92,36 +65,40 @@ class MainPage:
             run_spacing=5,
             padding=10,
             on_scroll=self._reached_bottom,
+
+
             auto_scroll=False,
         )
 
     def _finished_picking_file(self, e):
         print(e)
 
-    async def _scroll_to_bottom(self, delay: float = 0.5):
-        await asyncio.sleep(delay)
-
-        self.square_grid_view.scroll_to(offset=-1, duration=2000, curve=ft.AnimationCurve.EASE_IN)
-        self.page.scroll_to(offset=-1, duration=2000, curve=ft.AnimationCurve.EASE_IN)
-
     # todo: figure out the AssertionError issue
     # note: assertion error of uid is None happens when you update the page too fast.
     async def _reached_bottom(self, e: ft.OnScrollEvent):
-        if e.pixels == e.max_scroll_extent:
-            self.page.overlay.append(
-                ft.SnackBar(
-                    bgcolor=ft.Colors.BLACK,
-                    content=ft.Container(
-                        expand=True,
-                        width=self.page.width,
-                        height=self.page.height / 10,
-                        bgcolor=ft.Colors.BLACK,
-                        content=ft.Text("You have reached the bottom!", color=ft.Colors.WHITE)
-                    ),
-                    open=True,
-                    duration=1000,
-                )
-            )
+        current_scroll_direction = e.direction
+
+        if current_scroll_direction:
+            self.last_scroll_direction = current_scroll_direction
+
+        if e.pixels == e.max_scroll_extent and self.last_scroll_direction == "reverse":
+            self.last_scroll_direction = None
+            # self.page.overlay.append(
+            #     ft.SnackBar(
+            #         bgcolor=ft.Colors.BLACK,
+            #         content=ft.Container(
+            #             expand=True,
+            #             width=self.page.width,
+            #             height=self.page.height / 10,
+            #             bgcolor=ft.Colors.BLACK,
+            #             content=ft.Text("You have reached the bottom!", color=ft.Colors.WHITE)
+            #         ),
+            #         open=True,
+            #         duration=1000,
+            #     )
+            # )
+
+            self.square_grid_view.auto_scroll = True
 
             for i in range(1, 11):
                 self.square_grid_view.controls.append(
@@ -135,12 +112,10 @@ class MainPage:
                 )
 
             try:
-                if int(time.time()) - self.last_reached_bottom >= 1:
-                    await asyncio.sleep(0.5)
+                if int(time.time()) - self.last_reached_bottom >= 0.5:
+                    await asyncio.sleep(0.1)
                     self.page.update()
                     self.last_reached_bottom = int(time.time())
-
-                    await self._scroll_to_bottom()
                 else:
                     pass
             except AssertionError as e:
@@ -285,6 +260,7 @@ class MainPage:
         self.page.add(rows)
         print(self.get_key_recursive("grid_viewer"))
 
+        # self.page.auto_scroll = False
         self.page.update()
 
     @initializer
