@@ -1,55 +1,145 @@
 import flet as ft
 
+from encryptions import EncryptedTransport
+from Caches.user_cache import ClientSideUserCache
+
+from pseudo_http_protocol import ClientMessage
+
 
 class LoginPage:
     def __init__(self, page: ft.Page):
         self.page = page
+        self.page.padding = 0
         self.page.on_resized = self._page_resize
+        self.page.theme_mode = ft.ThemeMode.LIGHT
 
+        self.transport: EncryptedTransport | None = None
+        if hasattr(page, "transport"):
+            self.transport: EncryptedTransport = page.transport
+
+        self.user_cache: ClientSideUserCache | None = None
+        if hasattr(page, "user_cache"):
+            self.user_cache: ClientSideUserCache = page.user_cache
+
+        self._initialize_controls()
+
+    def _initialize_controls(self):
         self.username_textbox = ft.TextField(
             max_length=20,
-            width=self.page.width / 5,
+            width=self.page.width,
             height=self.page.height / 10,
+            label="username",
         )
 
         self.password_textbot = ft.TextField(
             password=True,
             can_reveal_password=True,
             max_length=20,
-            width=self.page.width / 5,
+            width=self.page.width,
             height=self.page.height / 10,
+            label="password"
+        )
+
+        self.login_button = ft.Button(
+            bgcolor=ft.Colors.BLUE,
+            content=ft.Text("LOGIN", weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+            width=self.page.width,
+            height=self.page.height / 12,
+            on_click=self._send_login
+        )
+
+        self.signup_button = ft.Button(
+            bgcolor=ft.Colors.WHITE,
+            content=ft.Text("SIGNUP", weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK),
+            width=self.page.width,
+            height=self.page.height / 12,
+            style=ft.ButtonStyle(
+                side={ft.ControlState.DEFAULT: ft.BorderSide(1, ft.Colors.BLACK)}
+            ),
+        )
+
+        # the use of a stack here is to lay the Container that has the "or" text on TOP of the divider.
+        self.horizontal_button_divider = ft.Stack(
+            controls=[
+                ft.Divider(
+                    thickness=1,
+                    color=ft.Colors.GREY,
+                ),
+                ft.Container(
+                    content=ft.Text(
+                        "or",
+                        color=ft.Colors.GREY,
+                        weight=ft.FontWeight.BOLD,
+                        size=self.page.height / 46
+                    ),
+                    bgcolor=self.page.bgcolor if self.page.bgcolor else ft.Colors.WHITE,
+                    height=self.page.height / 30,
+                    width=self.page.width / 14,
+                    alignment=ft.Alignment(0, 0),
+                    right=self.page.width / 10,
+                    top=-5
+                )
+            ],
+            height=self.page.height / 25,
+            width=self.page.width / 3.5
+        )
+
+        self.textbox_background_text = ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Text("Login", size=self.page.width / 35),
+                    ft.Text("Log into your JamBox account!", size=self.page.width / 70),
+                ],
+                spacing=0,
+            ),
+            height=self.page.height / 6,
+            padding=10
         )
 
         self.textbox_background = ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Text("Login", size=25),
-                    ft.Text("Log into your JamBox account!", size=10),
+                    self.textbox_background_text,
+
                     self.username_textbox,
                     self.password_textbot,
-                ]
+
+                    self.login_button,
+                    self.horizontal_button_divider,
+                    self.signup_button,
+                ],
+                spacing=6,
+                expand=True
             ),
             width=self.page.width / 3.5,
             height=self.page.height / 1.5,
             shadow=ft.BoxShadow(
                 spread_radius=2,
                 blur_radius=5,
-                color=ft.Colors.GREY
+                color=ft.Colors.GREY,
             ),
             bgcolor=self.page.bgcolor if self.page.bgcolor else ft.Colors.WHITE,
             padding=10,
+            border_radius=5,
         )
 
         self.logo_header = ft.Container(
+            # bgcolor=ft.Colors.BLUE_300,
+            content=ft.Image(
+                src="/JamBoxLOGO.png",
+                fit=ft.ImageFit.COVER,
+                width=100,
+                height=100,
+            ),
             width=self.page.width,
-            height=self.page.height/10,
-            bgcolor=ft.Colors.BLUE_300
+            height=self.page.height / 10,
+            alignment=ft.Alignment(-1, 0)
         )
 
         self.info_bottom = ft.Container(
             width=self.page.width,
             height=self.page.height,
-            bgcolor=ft.Colors.BLUE_300,
+            # bgcolor=ft.Colors.BLUE_300,
         )
 
         self.page_view = ft.Column(
@@ -64,20 +154,56 @@ class LoginPage:
             spacing=20
         )
 
-    def _resize_textbox(self):
-        self.username_textbox.width = self.page.width / 5
-        self.username_textbox.height = self.page.height / 10
+    def _resize_divider(self):
+        self.horizontal_button_divider.width = self.page.width / 3.5
+        self.horizontal_button_divider.height = self.page.height / 25
 
-        self.password_textbot.width = self.page.width / 5
-        self.password_textbot.height = self.page.height / 10
+        # divider: ft.Divider = self.horizontal_button_divider.controls[0]
+        text_container: ft.Container = self.horizontal_button_divider.controls[-1]
+
+        text_container.right = self.page.width / 10
+        text_container.width = self.page.width / 14
+        text_container.height = self.page.height / 30
+
+        text_container_content: ft.Text = text_container.content
+
+        text_container_content.size = self.page.height / 46
+
+    def _resize_buttons(self):
+        self.login_button.width = self.page.width
+        self.login_button.height = self.page.height / 12
+
+        self.signup_button.width = self.page.width
+        self.signup_button.height = self.page.height / 12
+
+    def _resize_textbox(self):
+        # height doesn't affect the shown height of the box, however it does change the "padding", which makes it look
+        # bad when making the screen large.
+
+        self.username_textbox.width = self.page.width
+        # self.username_textbox.height = self.page.height / 10
+
+        self.password_textbot.width = self.page.width
+        # self.password_textbot.height = self.page.height / 10
 
     def _resize_textbox_background(self):
         self.textbox_background.width = self.page.width / 3.5
         self.textbox_background.height = self.page.height / 1.5
 
+        self.textbox_background_text.height = self.page.height / 6
+        login_text: ft.Text = self.textbox_background_text.content.controls[0]
+        info_text: ft.Text = self.textbox_background_text.content.controls[-1]
+
+        login_text.size = self.page.width / 35
+        info_text.size = self.page.width / 70
+
     def _resize_header(self):
         self.logo_header.width = self.page.width,
         self.logo_header.height = self.page.height / 10
+
+        jambox_logo: ft.Image = self.logo_header.content
+        jambox_logo.width = self.page.width / 12
+        jambox_logo.height = self.page.width / 12
 
     def _resize_bottom(self):
         self.info_bottom.height = self.page.height
@@ -88,20 +214,84 @@ class LoginPage:
         self._resize_header()
         self._resize_textbox()
         self._resize_textbox_background()
+        self._resize_buttons()
+        self._resize_divider()
 
     def _page_resize(self, e):
         self._resize()
         self.page.update()
 
+    def _raise_error_banner(self, error: ft.Control):
+        """
+            accepts the control which will be displayed to the user.
+            this means you can style texts to contain clickable "links"
+        """
+        def close_banner(e):
+            self.page.close(banner)
+
+        action_button_style = ft.ButtonStyle(color=ft.Colors.BLUE)
+        banner = ft.Banner(
+            bgcolor=ft.Colors.AMBER_100,
+            leading=ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=ft.Colors.AMBER, size=40),
+            content=error,
+            actions=[
+                ft.TextButton(text="OK", style=action_button_style, on_click=close_banner),
+            ],
+            open=True
+        )
+
+        self.page.add(banner)
+
+    def _send_login(self, e):
+        """
+        send the login request to the server with the input values from the user.
+
+        endpoint: user/login (POST)
+
+        expected payload (to server):
+        {
+            "username": str,
+            "password": str
+        }
+
+        expected output (from server):
+        {
+            "session_token": str,
+            "user_id": str,
+        }
+        """
+
+        username = self.username_textbox.value
+        password = self.password_textbot.value
+
+        if self.transport:
+            self.transport.write(
+                ClientMessage(
+                    authentication=None,
+                    endpoint="user/login",
+                    method="post",
+                    payload={
+                        "username": username,
+                        "password": password
+                    }
+                ).encode()
+            )
+        else:
+            error_text = ft.Text(
+                value="There seems to have been an error when trying to submit login information (code 1001)",
+                color=ft.Colors.BLACK,
+            )
+            self._raise_error_banner(error_text)
+
     def show(self):
-        self.page.padding = 0
         self.page.add(self.page_view)
 
         self.page.update()
+
 
 def main(page: ft.Page):
     LoginPage(page=page).show()
 
 
 if __name__ == "__main__":
-    ft.app(main)
+    ft.app(main, assets_dir="Assets")
