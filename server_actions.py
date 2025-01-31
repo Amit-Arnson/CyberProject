@@ -238,7 +238,10 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
             username=username,
         )
 
-    hashed_password: str = user["hashed_password"]
+    if not user:
+        raise InvalidCredentials("user doesnt exist")
+
+    hashed_password: str = user["password"]
     salt: bytes = user["salt"]
 
     if not authenticate_password(password=password, hashed_password=hashed_password, salt=salt):
