@@ -20,7 +20,7 @@ async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, cl
     """
     this function is used to finish transferring the key using dhe.
 
-    this function is tied to authentication/key_exchange
+    this function is tied to authentication/key_exchange (RESPOND)
 
     expected payload:
     {
@@ -93,7 +93,7 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
     """
     this function is used to create a new user account, however it does NOT automatically log the user in (for now, may change)
 
-    this function is tied to users/signup
+    this function is tied to users/signup (POST)
 
     expected payload:
     {
@@ -186,7 +186,7 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
     this function is used to log a user in, by accepting a password and username (then checking that they are valid)
     and generating a session token and returns the user id.
 
-    this function is tied to user/login
+    this function is tied to user/login (POST)
 
     expected payload:
     {
