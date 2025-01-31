@@ -1,5 +1,5 @@
 import asyncio
-from asyncio import transports
+from asyncio import transports, Task
 
 from Caches.user_cache import ClientSideUserCache
 from pseudo_http_protocol import ClientMessage, ServerMessage, MalformedMessage
@@ -11,6 +11,9 @@ from encryptions import EncryptedTransport
 # todo: do NOT use global variables with flet. i want to make the GUI classes in different files.
 # what is allowed? sharing "global" info with ft.Page
 import flet as ft
+
+from GUI.login import LoginPage
+from GUI.page_error import PageError
 
 # The IP and PORT of the server.
 IP = "127.0.0.1"
@@ -42,7 +45,11 @@ class ClientProtocol(asyncio.Protocol):
 
     def connection_made(self, transport: transports.Transport) -> None:
         self.transport = EncryptedTransport(transport=transport)
-        pass
+
+        self.page.transport = self.transport
+        self.page.user_cache = ClientSideUserCache
+
+        LoginPage(page=self.page).show()
 
     def connection_lost(self, exc: Exception | None) -> None:
         print("lost connection")
@@ -68,20 +75,20 @@ class ClientProtocol(asyncio.Protocol):
 
         # this is just a test function for creating a user. since i dont have the GUI made yet.
         # todo: remove later
-        if self.transport.key and self.transport.iv:
-            self.transport.write(
-                ClientMessage(
-                    authentication=None,
-                    method="post",
-                    endpoint="user/signup",
-                    payload={
-                        "username": "amit1234",
-                        "display_name": "amit",
-                        "password": "1234!"
-                    }
-                ).encode()
-            )
-            print("sent to server :)")
+        # if self.transport.key and self.transport.iv:
+        #     self.transport.write(
+        #         ClientMessage(
+        #             authentication=None,
+        #             method="post",
+        #             endpoint="user/signup",
+        #             payload={
+        #                 "username": "amit1234",
+        #                 "display_name": "amit",
+        #                 "password": "1234!"
+        #             }
+        #         ).encode()
+        #     )
+        #     print("sent to server :)")
 
         # currently we don't really care about the method. ill decide whether we even need a method from the server to
         # the client later on.
@@ -94,13 +101,37 @@ class ClientProtocol(asyncio.Protocol):
             # client action functions are any function that is related to an endpoint (meaning the server specifically
             # asks for it). Other functions that may not be related to a specific endpoint will not be in this
             # pile of functions.
-            self.event_loop.create_task(client_action_function(self.transport, server_message, client_user_cache))
+            action = self.event_loop.create_task(client_action_function(self.transport, server_message, client_user_cache))
+            action.add_done_callback(self.on_complete)
         else:
-            pass
-            # todo: implement "endpoint not found" logic
+            # this is activated when an endpoint is not found
+            # for other error handling, go to on_complete
+            # todo: add on_complete error handling.
+
+            status_message = server_message.status.get("message")
+            self.page.server_error(
+                ft.Text(
+                    f"{status_message}\n\nstatus: {status_code}"
+                )
+            )
+
+    def on_complete(self, action: Task):
+        """
+            this is the callback function for the created tasks. once a task is finished (either normally or by error),
+            this function will be called.
+
+            Any error handling related to errors thrown inside of server actions should be done here.
+        """
+        if action.exception():
+            # raise action.exception()
+            print(f"Task failed with exception: {action.exception()}")
+        else:
+            print(f"Task completed successfully with result: {action.result()}")
 
 
 async def main(page: ft.Page):
+    page.server_error = PageError(page).error
+
     event_loop = asyncio.get_event_loop()
 
     # we use asyncio.Future to check for a connection loss so that the client will keep on running
