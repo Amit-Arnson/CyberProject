@@ -225,9 +225,11 @@ class ServerMessage:
         method = message_dict.get("method")
 
         # if its in byte form, it means the payload is b64 encoded (see ServerMessage.serialize_data())
-        payload = message_dict.get("payload")
+        # since payloads are allowed to be empty, if the payload doesn't exist we replace it with an empty dict
+        payload = message_dict.get("payload", {})
 
-        if not all((status, endpoint, method, payload)):
+        # payload IS allowed to be empty.
+        if not all((status, endpoint, method)):
             raise MalformedMessage("missing information")
 
         # decode the b64 values of the bytes.
