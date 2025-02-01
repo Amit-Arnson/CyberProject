@@ -139,7 +139,32 @@ class ServerProtocol(asyncio.Protocol):
         """
         if action.exception():
             # raise action.exception()
+            error = action.exception()
             print(f"Task failed with exception: {action.exception()}")
+
+            # if the error is not a custom error, then it is assumed that it is an internal server error.
+            error_code = 500
+            if hasattr(error, "code"):
+                error_code = error.code
+
+            error_message = "an internal server error occurred"
+            if hasattr(error, "message"):
+                error_message = error.message
+
+            transport = self.client_package.client
+
+            transport.write(
+                ServerMessage(
+                    status={
+                        "code": error_code,
+                        "message": error_message,
+                    },
+                    method="respond",
+                    # todo: figure out what the endpoint here will be
+                    endpoint="???",
+                    payload={}
+                ).encode(),
+            )
         else:
             print(f"Task completed successfully with result: {action.result()}")
 
@@ -149,7 +174,7 @@ async def main() -> None:
 
     database_name = "database.db"
 
-    # create all of the tables in the database
+    # create all the tables in the database
     await CreateTables(database_name).aio_init()
 
     # creating an async database pool for all server-side database interactions. A db pool helps avoid race
