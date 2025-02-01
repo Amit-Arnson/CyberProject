@@ -6,13 +6,19 @@ from Caches.user_cache import ClientSideUserCache
 from encryptions import EncryptedTransport
 from DHE.dhe import DHE, generate_dhe_response
 
+from flet import Page
 
-async def complete_authentication(transport: EncryptedTransport, server_message: ServerMessage, _: ClientSideUserCache):
+from gui_testing import MainPage
+
+
+async def complete_authentication(_: Page, transport: EncryptedTransport, server_message: ServerMessage, __: ClientSideUserCache):
     """
     this function is used to finish transferring the key using dhe.
     it sends the client's public key back to the server.
 
     this function also saves the IV and full key to the transport
+
+    tied to authentication/key_exchange
 
     expected payload:
     {
@@ -62,10 +68,12 @@ async def complete_authentication(transport: EncryptedTransport, server_message:
     transport.key = aes_key
 
 
-async def user_login(transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
+async def user_login(page: Page, transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
     """
     this function expects the login result from requesting a login from the server.
     it then saves the session token and the user ID to the ClientSideUserCache.
+
+    tied to user/login
 
     expected payload:
     {
@@ -87,5 +95,8 @@ async def user_login(transport: EncryptedTransport, server_message: ServerMessag
 
     user_cache.session_token = session_token
     user_cache.user_id = user_id
+
+    # this is a temporary MainPage for testing purposes only
+    MainPage(page).start()
 
     # todo: figure out how to log in the user client side, as in, GUI.
