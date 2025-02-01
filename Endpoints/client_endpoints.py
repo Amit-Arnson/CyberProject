@@ -1,11 +1,12 @@
 from typing import Callable
-from client_actions import complete_authentication
+from client_actions import complete_authentication, user_login
 
 
 class EndPoints:
     def __init__(self):
         self.endpoints: dict[str, Callable] = {
-            "authentication/key_exchange": complete_authentication
+            "authentication/key_exchange": complete_authentication,
+            "user/login": user_login,
         }
         # endpoint -> function
 
