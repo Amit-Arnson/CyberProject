@@ -11,9 +11,8 @@ class ErrorName(Exception):
         self.message = argument
 
         # the status code the error represents
-        self.code = # a integer code
+        self.code = # an integer code
 """
-
 
 
 class InvalidPayload(Exception):
