@@ -1,3 +1,5 @@
+import asyncio
+
 import flet as ft
 
 from encryptions import EncryptedTransport
@@ -286,6 +288,20 @@ class SignupPage:
 
         expected output (from server):
         {
+            "user_id": str,
+        }
+
+        this function will then automatically log the user in.
+        the signup endpoint in the server does not log in automatically, and thus it must be done as different action.
+
+        expected payload (to server):
+        {
+            "username": str,
+            "password": str
+        }
+
+        expected output (from server):
+        {
             "session_token": str,
             "user_id": str,
         }
@@ -305,15 +321,18 @@ class SignupPage:
             self.confirm_password_textbox.error_text = "password does not match up!"
             self.confirm_password_textbox.update()
 
-        return
+            return
+
         if self.transport:
+            # create the account by signing the user in.
             self.transport.write(
                 ClientMessage(
                     authentication=None,
-                    endpoint="user/login",
+                    endpoint="user/signup/login",
                     method="post",
                     payload={
                         "username": username,
+                        "display_name": display_name,
                         "password": password
                     }
                 ).encode()
