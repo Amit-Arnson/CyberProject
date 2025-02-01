@@ -125,6 +125,7 @@ class ServerProtocol(asyncio.Protocol):
 
             action = self.event_loop.create_task(server_action_function(self.db_pool, self.client_package, client_message, self.user_cache))
             action.add_done_callback(self.on_complete)
+            action.end_point = requested_endpoint
         else:
             pass
             # todo: add error function to return an error to the client
@@ -162,7 +163,7 @@ class ServerProtocol(asyncio.Protocol):
                     method="respond",
                     # todo: figure out what the endpoint here will be
                     endpoint="???",
-                    payload={}
+                    payload={"responding": action.end_point}
                 ).encode(),
             )
         else:
