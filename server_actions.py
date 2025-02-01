@@ -89,6 +89,112 @@ async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, cl
     #     ).encode())
 
 
+async def user_signup_and_login(db_pool: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage, user_cache: UserCache):
+    """
+    this function is used to create a new user account, and automatically logs the user in
+
+    this function is tied to users/signup/login (POST)
+
+    expected payload:
+    {
+        "username": str,
+        "password": str,
+        "display_name": str
+    }
+
+    expected output:
+    {
+        "session_token": str,
+        "user_id": str,
+    }
+
+    expected cache pre-function:
+    > address
+    > iv
+    > aes_key
+
+    expected cache post-function:
+    > address
+    > iv
+    > aes_key
+    + user_id
+    + session token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    client_user_cache: UserCacheItem = user_cache[address]
+    payload = client_message.payload
+
+    try:
+        username = payload["username"]
+        password = payload["password"]
+        display_name = payload["display_name"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(f"Invalid payload passed. expected keys \"username\", \"passwor\", \"display_name\", instead got {payload_keys}")
+
+    hashed_password, salt = generate_hashed_password(password=password)
+    user_id = generate_user_id(username=username)
+
+    # username, display name and password length check.
+    if len(username) > 20:
+        raise TooLong("Username provided is too long: max 20 characters")
+    elif len(display_name) > 20:
+        raise TooLong("Display name provided is too long: max 20 characters")
+    elif len(password) > 30:
+        raise TooLong("Password is too long: max 30 characters")
+
+    # creates the user based on the client's input
+    async with db_pool.acquire() as connection:
+        # using a transaction since im creating 2 queries that rely on each other
+        async with connection.transaction():
+
+            # making sure that the user doesn't already exist
+            user_exists = await queries.User.user_exists(connection=connection, username=username)
+
+            if user_exists:
+                raise UserExists("A user with the given username already exists")
+
+            await queries.User.create_user(
+                connection=connection,
+                user_id=user_id,
+                username=username,
+                display_name=display_name,
+                password=hashed_password,
+                salt=salt
+            )
+
+    # now the LOGIN process begins
+
+    user_session_token = generate_session_token(user_id)
+
+    # adding the user ID and session token to the client cache
+    client_user_cache.user_id = user_id
+    client_user_cache.session_token = user_session_token
+
+    # sends the client the session token and the user ID
+    client.write(
+        ServerMessage(
+                status={
+                    "code": 200,
+                    "message": "success"
+                },
+                method="respond",
+                endpoint="user/login",
+                payload={
+                    "session_token": user_session_token,
+                    "user_id": user_id,
+                }
+        ).encode()
+    )
+
+
 async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage, _: UserCache):
     """
     this function is used to create a new user account, however it does NOT automatically log the user in (for now, may change)
