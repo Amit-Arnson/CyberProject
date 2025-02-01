@@ -108,6 +108,9 @@ class ClientProtocol(asyncio.Protocol):
             # for other error handling, go to on_complete
             # todo: add on_complete error handling.
 
+            if status_code in self.acceptable_status_codes:
+                return
+
             status_message = server_message.status.get("message")
             self.page.server_error(
                 ft.Text(
