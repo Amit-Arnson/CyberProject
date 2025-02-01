@@ -101,7 +101,7 @@ class ClientProtocol(asyncio.Protocol):
             # client action functions are any function that is related to an endpoint (meaning the server specifically
             # asks for it). Other functions that may not be related to a specific endpoint will not be in this
             # pile of functions.
-            action = self.event_loop.create_task(client_action_function(self.transport, server_message, client_user_cache))
+            action = self.event_loop.create_task(client_action_function(self.page, self.transport, server_message, client_user_cache))
             action.add_done_callback(self.on_complete)
         else:
             # this is activated when an endpoint is not found
@@ -152,4 +152,4 @@ async def main(page: ft.Page):
 # todo: figure out if i need the following flet extensions: flet-audio, flet-audio-recorder
 if __name__ == "__main__":
     # flet natively supports async environment, for this reason we do not need to use asyncio.run() and only use flet.app().
-    ft.app(main)
+    ft.app(main, assets_dir="GUI/Assets")
