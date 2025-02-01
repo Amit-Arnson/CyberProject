@@ -17,9 +17,10 @@ class LoginPage:
         if hasattr(page, "transport"):
             self.transport: EncryptedTransport = page.transport
 
-        self.user_cache: ClientSideUserCache | None = None
-        if hasattr(page, "user_cache"):
-            self.user_cache: ClientSideUserCache = page.user_cache
+        # the user cache is not needed in login (since we don't have a session token assigned yet)
+        # self.user_cache: ClientSideUserCache | None = None
+        # if hasattr(page, "user_cache"):
+        #     self.user_cache: ClientSideUserCache = page.user_cache
 
         self._initialize_controls()
 
@@ -56,6 +57,7 @@ class LoginPage:
             style=ft.ButtonStyle(
                 side={ft.ControlState.DEFAULT: ft.BorderSide(1, ft.Colors.BLACK)}
             ),
+            on_click=self._switch_to_signup
         )
 
         # the use of a stack here is to lay the Container that has the "or" text on TOP of the divider.
@@ -112,7 +114,7 @@ class LoginPage:
                 expand=True
             ),
             width=self.page.width / 3.5,
-            height=self.page.height / 1.5,
+            expand=True,
             shadow=ft.BoxShadow(
                 spread_radius=2,
                 blur_radius=5,
@@ -188,7 +190,6 @@ class LoginPage:
 
     def _resize_textbox_background(self):
         self.textbox_background.width = self.page.width / 3.5
-        self.textbox_background.height = self.page.height / 1.5
 
         self.textbox_background_text.height = self.page.height / 6
         login_text: ft.Text = self.textbox_background_text.content.controls[0]
@@ -242,6 +243,13 @@ class LoginPage:
 
         self.page.add(banner)
 
+    def _switch_to_signup(self, e):
+        # importing SignupPage inside the function so that circular import error doesn't happen.
+        # this is because the import only happens when the button is clicked, and not loaded when the page loads initially.
+        from GUI.signup import SignupPage
+
+        SignupPage(self.page).show()
+
     def _send_login(self, e):
         """
         send the login request to the server with the input values from the user.
@@ -262,7 +270,12 @@ class LoginPage:
         """
 
         username = self.username_textbox.value
-        password = self.password_textbot.value
+
+        # passwords are stripped of whitespaces.
+        # todo: implement stripping the password server-side too.
+        password = self.password_textbot.value.strip()
+
+        # todo: implement a minimum length check (server-side and client side)
 
         if self.transport:
             self.transport.write(
@@ -283,7 +296,12 @@ class LoginPage:
             )
             self._raise_error_banner(error_text)
 
-    def show(self):
+    def show(self, clear: bool = True):
+        """:param clear: whether to clear the page before trying to add the page's content or not."""
+
+        if clear:
+            self.page.clean()
+
         self.page.add(self.page_view)
 
         self.page.update()
