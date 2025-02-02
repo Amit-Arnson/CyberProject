@@ -350,6 +350,7 @@ class SignupPage:
         if clear:
             self.page.clean()
 
+        self.page.view = self
         self.page.add(self.page_view)
 
         self.page.update()
