@@ -41,9 +41,33 @@ class SimpleClicker:
         print(self.page.has)
 
 
+class SimpleContainer(ft.Container):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.height = 100
+        self.width = 100
+
+        self.bgcolor = self._generate_random_color()
+
+        self.on_click = self._on_click
+
+    def _generate_random_color(self):
+        return random.choice(
+            [
+                ft.Colors.RED_100,
+                ft.Colors.GREEN,
+                ft.Colors.YELLOW,
+                ft.Colors.BLUE
+            ]
+        )
+
+    def _on_click(self, e: ft.ControlEvent):
+        print("hi")
+
 class MainPage:
     def __init__(self, page: ft.Page):
         self.page = page
+        self.page.auto_scroll = False
 
         self.page.on_resized = self._page_resize
 
@@ -65,7 +89,6 @@ class MainPage:
             run_spacing=5,
             padding=10,
             on_scroll=self._reached_bottom,
-
 
             auto_scroll=False,
         )
@@ -102,11 +125,8 @@ class MainPage:
 
             for i in range(1, 11):
                 self.square_grid_view.controls.append(
-                    ft.Container(
+                    SimpleContainer(
                         content=ft.Text(f"{i}"),
-                        height=self.page.height / 200,
-                        width=self.page.width / 200,
-                        bgcolor=random.choice([ft.Colors.AMBER, ft.Colors.GREEN, ft.Colors.YELLOW]),
                         padding=10,
                     )
                 )
@@ -124,7 +144,7 @@ class MainPage:
 
     @staticmethod
     def _create_list(list_length: int = 60) -> ft.ListView:
-        lv = ft.ListView(expand=1, spacing=10, padding=20)
+        lv = ft.ListView(expand=1, spacing=10, padding=20, auto_scroll=False)
 
         for i in range(1, list_length + 1):
             lv.controls.append(ft.Text(f"Line {i}"))
@@ -141,6 +161,7 @@ class MainPage:
                     width=self.page.width / 200,
                     bgcolor=ft.Colors.AMBER,
                     padding=10,
+                    on_click=lambda _: self.square_grid_view.scroll_to(delta=100)
                 )
             )
 
@@ -217,6 +238,7 @@ class MainPage:
         )
 
         column2 = ft.Column(
+            auto_scroll=False,
             key="fwf",
             controls=[
                 ft.Container(
@@ -241,6 +263,7 @@ class MainPage:
         rows = ft.Row(
             key="main_page",
             expand=True,
+            auto_scroll=False,
             controls=[
                 ft.Container(
                     content=column2,
