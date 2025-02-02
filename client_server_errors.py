@@ -74,7 +74,7 @@ async def signup_error(page: Page, _: EncryptedTransport, server_message: Server
     status_message = server_message.status.get("message")
 
     # since the .show() method applies "self" to page.view, we can access the page's contents and controls (which are
-    # normally saved in the self of LoginPage) by accessing page.view
+    # normally saved in the self of the class) by accessing page.view
 
     if hasattr(page, "view"):
         signup_page = page.view
