@@ -5,6 +5,7 @@ from Caches.user_cache import ClientSideUserCache
 from pseudo_http_protocol import ClientMessage, ServerMessage, MalformedMessage
 
 from Endpoints.client_endpoints import EndPoints
+from Endpoints.client_error_endpoints import ErrorEndPoints
 
 from encryptions import EncryptedTransport
 
@@ -22,6 +23,7 @@ PORT = 5555
 # this is a cache that the client keeps in order to track their own keys and session tokens
 client_user_cache = ClientSideUserCache()
 client_endpoints = EndPoints()
+client_error_endpoints = ErrorEndPoints()
 
 
 # note that read/write using asyncio's protocol adds its own buffer, so we don't need to manually add one.
@@ -31,6 +33,7 @@ class ClientProtocol(asyncio.Protocol):
         self.on_con_lost = on_con_lost
 
         self.endpoints = client_endpoints
+        self.error_endpoints = client_error_endpoints
         self.event_loop = asyncio.get_event_loop()
 
         # a list of status codes that the server sends which count as "ok" (no errors raised)
@@ -103,6 +106,12 @@ class ClientProtocol(asyncio.Protocol):
             # pile of functions.
             action = self.event_loop.create_task(client_action_function(self.page, self.transport, server_message, client_user_cache))
             action.add_done_callback(self.on_complete)
+        elif requested_endpoint in self.error_endpoints:
+            client_error_action_function = self.error_endpoints[requested_endpoint]
+
+            # these are all the functions to graphically display errors (as in, GUI)
+            error_action = self.event_loop.create_task(client_error_action_function(self.page, self.transport, server_message, client_user_cache))
+            error_action.add_done_callback(self.on_complete)
         else:
             # this is activated when an endpoint is not found
             # for other error handling, go to on_complete
