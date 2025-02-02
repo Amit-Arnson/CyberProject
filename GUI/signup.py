@@ -317,10 +317,19 @@ class SignupPage:
         password = self.password_textbot.value.strip()
         confirm_password = self.confirm_password_textbox.value.strip()
 
+        # reset any currently showing error
+        self.confirm_password_textbox.error_text = None
+        self.username_textbox.error_text = None
+        self.password_textbot.error_text = None
+        self.display_name_textbox.error_text = None
+
+        self.page.update()
+
         if password != confirm_password:
             self.confirm_password_textbox.error_text = "password does not match up!"
-            self.confirm_password_textbox.update()
 
+            # despite us updating the
+            self.confirm_password_textbox.update()
             return
 
         if self.transport:
