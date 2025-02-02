@@ -28,15 +28,13 @@ class SignupPage:
     def _initialize_controls(self):
         self.username_textbox = ft.TextField(
             max_length=20,
-            width=self.page.width,
-            height=self.page.height / 10,
+            expand=True,
             label="username",
         )
 
         self.display_name_textbox = ft.TextField(
             max_length=20,
-            width=self.page.width,
-            height=self.page.height / 10,
+            expand=True,
             label="display name",
         )
 
@@ -44,8 +42,7 @@ class SignupPage:
             password=True,
             can_reveal_password=True,
             max_length=20,
-            width=self.page.width,
-            height=self.page.height / 10,
+            expand=True,
             label="password"
         )
 
@@ -53,8 +50,7 @@ class SignupPage:
             password=True,
             can_reveal_password=True,
             max_length=20,
-            width=self.page.width,
-            height=self.page.height / 10,
+            expand=True,
             label="confirm password"
         )
 
@@ -132,7 +128,7 @@ class SignupPage:
                     self.horizontal_button_divider,
                     self.to_login_button,
                 ],
-                spacing=6,
+                spacing=12,
                 expand=True,
                 scroll=ft.ScrollMode.HIDDEN
             ),
@@ -201,16 +197,6 @@ class SignupPage:
         self.signup_button.width = self.page.width
         self.signup_button.height = self.page.height / 12
 
-    def _resize_textbox(self):
-        # height doesn't affect the shown height of the box, however it does change the "padding", which makes it look
-        # bad when making the screen large.
-
-        self.username_textbox.width = self.page.width
-        # self.username_textbox.height = self.page.height / 10
-
-        self.password_textbot.width = self.page.width
-        # self.password_textbot.height = self.page.height / 10
-
     def _resize_textbox_background(self):
         self.textbox_background.width = self.page.width / 3.5
 
@@ -236,7 +222,7 @@ class SignupPage:
     def _resize(self):
         self._resize_bottom()
         self._resize_header()
-        self._resize_textbox()
+        # self._resize_textbox()
         self._resize_textbox_background()
         self._resize_buttons()
         self._resize_divider()
