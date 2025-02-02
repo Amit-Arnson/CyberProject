@@ -162,7 +162,7 @@ class ServerProtocol(asyncio.Protocol):
                     },
                     method="respond",
                     # todo: figure out what the endpoint here will be
-                    endpoint="???",
+                    endpoint=f"{action.end_point}/error",
                     payload={"responding": action.end_point}
                 ).encode(),
             )
