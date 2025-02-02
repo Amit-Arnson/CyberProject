@@ -36,6 +36,7 @@ async def login_error(page: Page, _: EncryptedTransport, server_message: ServerM
     if hasattr(page, "view"):
         login_page = page.view
 
+        # todo: check if i want to make it so that instead of directly changing the "self" values, ill have a helper function inbetween to make things more controlled
         login_page.username_textbox.error_text = status_message
         login_page.username_textbox.update()
     else:
