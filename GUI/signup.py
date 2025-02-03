@@ -17,6 +17,7 @@ class SignupPage:
         self.page_width = 1200
         self.page_height = 700
 
+        self.textbox_size = 55
 
         self.transport: EncryptedTransport | None = None
         if hasattr(page, "transport"):
@@ -40,21 +41,54 @@ class SignupPage:
 
         return border
 
+    def _clear_username_error(self, e):
+        if not self.username_textbox.error_text:
+            return
+
+        self.username_textbox.error_text = None
+
+        self.username_textbox.update()
+
+    def _clear_display_name_error(self, e):
+        if not self.display_name_textbox.error_text:
+            return
+
+        self.display_name_textbox.error_text = None
+
+        self.display_name_textbox.update()
+
+    def _clear_password_error(self, e):
+        if not self.password_textbot.error_text:
+            return
+
+        self.password_textbot.error_text = None
+
+        self.password_textbot.update()
+
+    def _clear_password_confirm_error(self, e):
+        if not self.confirm_password_textbox.error_text:
+            return
+
+        self.confirm_password_textbox.error_text = None
+
+        self.confirm_password_textbox.update()
+
     def _initialize_username(self, border_color: ft.Colors = ft.Colors.GREY):
         self.username_textbox = ft.TextField(
             max_length=20,
             expand=True,
-            height=50,
+            height=self.textbox_size,
             label="username",
             border=ft.InputBorder.NONE,
             content_padding=10,
-            error_style=ft.TextStyle(-10)
+            on_focus=self._clear_username_error,
+            error_style=ft.TextStyle(height=-1)
         )
 
         self.username_decoration = ft.Container(
             content=ft.Icon(ft.Icons.PERSON),
-            height=50,
-            width=50,
+            height=self.textbox_size,
+            width=self.textbox_size,
             border=ft.Border(
                 right=ft.BorderSide(width=1, color=border_color),
             ),
@@ -78,17 +112,18 @@ class SignupPage:
         self.display_name_textbox = ft.TextField(
             max_length=20,
             expand=True,
-            height=50,
+            height=self.textbox_size,
             label="display name",
             border=ft.InputBorder.NONE,
             content_padding=10,
-            error_style=ft.TextStyle(-10)
+            on_focus=self._clear_display_name_error,
+            error_style=ft.TextStyle(height=-1)
         )
 
         self.display_name_decoration = ft.Container(
             content=ft.Icon(ft.Icons.PERSON),
-            height=50,
-            width=50,
+            height=self.textbox_size,
+            width=self.textbox_size,
             border=ft.Border(
                 right=ft.BorderSide(width=1, color=border_color),
             ),
@@ -113,18 +148,19 @@ class SignupPage:
             password=True,
             can_reveal_password=True,
             max_length=20,
-            height=50,
+            height=self.textbox_size,
             expand=True,
             label="password",
             border=ft.InputBorder.NONE,
             content_padding=10,
-            error_style=ft.TextStyle(-10)
+            on_focus=self._clear_password_error,
+            error_style=ft.TextStyle(height=-1)
         )
 
         self.password_decoration = ft.Container(
             content=ft.Icon(ft.Icons.LOCK),
-            height=50,
-            width=50,
+            height=self.textbox_size,
+            width=self.textbox_size,
             border=ft.Border(
                 right=ft.BorderSide(width=1, color=border_color),
             ),
@@ -149,18 +185,19 @@ class SignupPage:
             password=True,
             can_reveal_password=True,
             max_length=20,
-            height=50,
+            height=self.textbox_size,
             expand=True,
             label="confirm password",
             border=ft.InputBorder.NONE,
             content_padding=10,
-            error_style=ft.TextStyle(-10)
+            on_focus=self._clear_password_confirm_error,
+            error_style=ft.TextStyle(height=-1)
         )
 
         self.confirm_password_decoration = ft.Container(
             content=ft.Icon(ft.Icons.PERSON),
-            height=50,
-            width=50,
+            height=self.textbox_size,
+            width=self.textbox_size,
             border=ft.Border(
                 right=ft.BorderSide(width=1, color=border_color),
             ),
