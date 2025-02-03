@@ -12,6 +12,10 @@ class LoginPage:
         self.page = page
         self.page.padding = 0
         self.page.theme_mode = ft.ThemeMode.LIGHT
+        
+        # these are the values for a good aspect ratio
+        self.page_width = 1200
+        self.page_height = 700
 
         self.transport: EncryptedTransport | None = None
         if hasattr(page, "transport"):
@@ -109,16 +113,16 @@ class LoginPage:
         self.login_button = ft.Button(
             bgcolor=ft.Colors.BLUE,
             content=ft.Text("LOGIN", weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-            width=self.page.width,
-            height=self.page.height / 12,
+            width=self.page_width,
+            height=self.page_height / 12,
             on_click=self._send_login
         )
 
         self.signup_button = ft.Button(
             bgcolor=ft.Colors.WHITE,
             content=ft.Text("SIGNUP", weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK),
-            width=self.page.width,
-            height=self.page.height / 12,
+            width=self.page_width,
+            height=self.page_height / 12,
             style=ft.ButtonStyle(
                 side={ft.ControlState.DEFAULT: ft.BorderSide(1, ft.Colors.BLACK)}
             ),
@@ -138,15 +142,15 @@ class LoginPage:
                         "don't have an account?",
                         color=ft.Colors.GREY,
                         weight=ft.FontWeight.BOLD,
-                        size=self.page.height / 46
+                        size=self.page_height / 46
                     ),
                     bgcolor=self.page.bgcolor if self.page.bgcolor else ft.Colors.WHITE,
-                    height=self.page.height / 30,
-                    width=self.page.width / 6,
+                    height=self.page_height / 30,
+                    width=self.page_width / 6,
                     alignment=ft.Alignment(0, 0),
                 )
             ],
-            height=self.page.height / 25,
+            height=self.page_height / 25,
             alignment=ft.Alignment(0, 0)
         )
 
@@ -198,7 +202,7 @@ class LoginPage:
                 spacing=12,
                 expand=True
             ),
-            width=self.page.width / 3,
+            width=self.page_width / 3,
             padding=10,
             alignment=ft.Alignment(0, 0)
         )
@@ -207,9 +211,9 @@ class LoginPage:
             [
                 # the empty containers are there for the spacing of the items, so that the login content will be
                 # in the middle of the right side.
-                ft.Container(height=140, width=self.page.width/3),
+                ft.Container(height=140, width=self.page_width/3),
                 self.login_content,
-                ft.Container(height=180, width=self.page.width/3, expand=True, )
+                ft.Container(height=180, width=self.page_width/3, expand=True, )
             ],
             alignment=ft.MainAxisAlignment.START,
         )
