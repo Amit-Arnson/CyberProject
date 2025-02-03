@@ -131,14 +131,12 @@ class LoginPage:
                 width=100,
                 height=100,
             ),
-            width=self.page.width,
             height=self.page.height / 10,
             alignment=ft.Alignment(-1, 0)
         )
 
         self.info_bottom = ft.Container(
             height=self.page.height / 5,
-            bgcolor=ft.Colors.BLUE_300,
         )
 
         self.page_view = ft.Column(
@@ -178,7 +176,7 @@ class LoginPage:
     def _resize_textbox_background(self):
         # self.textbox_background.width = self.page.width / 3.5
 
-        if self.page.height > 1000:
+        if self.page.height > 700:
             self.textbox_background.height = 450
             self.textbox_background.expand = False
         else:
@@ -193,7 +191,6 @@ class LoginPage:
         # info_text.size = self.page.width / 70
 
     def _resize_header(self):
-        self.logo_header.width = self.page.width,
         self.logo_header.height = self.page.height / 10
 
         jambox_logo: ft.Image = self.logo_header.content
@@ -202,8 +199,6 @@ class LoginPage:
 
     def _resize_bottom(self):
         self.info_bottom.height = self.page.height / 5
-        self.info_bottom.bgcolor = ft.Colors.TERTIARY
-        self.info_bottom.width = self.page.width
 
     # todo: change signup's GUI
     # todo: see if i want to completely change the login/signup GUI style
