@@ -323,7 +323,7 @@ class SignupPage:
             [
                 # the empty containers are there for the spacing of the items, so that the login content will be
                 # in the middle of the right side.
-                ft.Container(height=80, width=self.page_width/3),
+                ft.Container(height=70, width=self.page_width/3),
                 self.login_content,
                 ft.Container(height=180, width=self.page_width/3, expand=True, )
             ],
