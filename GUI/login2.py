@@ -24,6 +24,17 @@ class LoginPage:
 
         self._initialize_controls()
 
+    @staticmethod
+    def _full_border(border_color: ft.Colors):
+        border = ft.Border(
+            top=ft.BorderSide(width=1, color=border_color),
+            bottom=ft.BorderSide(width=1, color=border_color),
+            right=ft.BorderSide(width=1, color=border_color),
+            left=ft.BorderSide(width=1, color=border_color)
+        )
+
+        return border
+
     def _initialize_username(self, border_color: ft.Colors = ft.Colors.GREY):
         self.username_textbox = ft.TextField(
             max_length=20,
@@ -55,12 +66,7 @@ class LoginPage:
 
         self.username_container = ft.Container(
             content=self.username_decoration_row,
-            border=ft.Border(
-                top=ft.BorderSide(width=1, color=border_color),
-                bottom=ft.BorderSide(width=1, color=border_color),
-                right=ft.BorderSide(width=1, color=border_color),
-                left=ft.BorderSide(width=1, color=border_color)
-            ),
+            border=self._full_border(border_color),
         )
 
     def _initialize_password(self, border_color: ft.Colors = ft.Colors.GREY):
@@ -96,12 +102,7 @@ class LoginPage:
 
         self.password_container = ft.Container(
             content=self.password_decoration_row,
-            border=ft.Border(
-                top=ft.BorderSide(width=1, color=border_color),
-                bottom=ft.BorderSide(width=1, color=border_color),
-                right=ft.BorderSide(width=1, color=border_color),
-                left=ft.BorderSide(width=1, color=border_color)
-            ),
+            border=self._full_border(border_color),
         )
 
     def _initialize_buttons(self):
