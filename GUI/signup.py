@@ -263,8 +263,8 @@ class SignupPage:
         )
 
     def _initialize_text(self):
-        self.login_text = ft.Text("Login", size=50)
-        self.login_sub_text = ft.Text("Log in to your jambox account!", size=20, color=ft.Colors.GREY_600)
+        self.login_text = ft.Text("Signup", size=50)
+        self.login_sub_text = ft.Text("Create your own Jambox account!", size=20, color=ft.Colors.GREY_600)
         self.login_text_container = ft.Container(
             ft.Column(
                 [
