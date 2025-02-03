@@ -31,7 +31,8 @@ class LoginPage:
             height=50,
             label="username",
             border=ft.InputBorder.NONE,
-            content_padding=10
+            content_padding=10,
+            error_style=ft.TextStyle(-10)
         )
 
         self.username_decoration = ft.Container(
@@ -71,7 +72,8 @@ class LoginPage:
             expand=True,
             label="password",
             border=ft.InputBorder.NONE,
-            content_padding=10
+            content_padding=10,
+            error_style=ft.TextStyle(-10)
         )
 
         self.password_decoration = ft.Container(
