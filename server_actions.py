@@ -13,7 +13,7 @@ from secure_user_credentials import generate_hashed_password, authenticate_passw
 
 import queries
 
-from Errors.raised_errors import NoEncryption, InvalidCredentials, TooLong, UserExists, InvalidPayload
+from Errors.raised_errors import NoEncryption, InvalidCredentials, TooLong, UserExists, InvalidPayload, TooShort
 
 
 async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage, user_cache: UserCache):
@@ -143,12 +143,22 @@ async def user_signup_and_login(db_pool: asqlite.Pool, client_package: ClientPac
     user_id = generate_user_id(username=username)
 
     # username, display name and password length check.
+
+    # checks if it's too long
     if len(username) > 20:
         raise TooLong("Username provided is too long: max 20 characters")
     elif len(display_name) > 20:
         raise TooLong("Display name provided is too long: max 20 characters")
     elif len(password) > 30:
         raise TooLong("Password is too long: max 30 characters")
+
+    # checks if it's too short
+    if len(username) < 3:
+        raise TooShort("Username provided is too short: min 3 characters")
+    elif len(display_name) < 3:
+        raise TooShort("Display name provided is too short: min 3 characters")
+    elif len(password) < 6:
+        raise TooLong("Password is too short: min 6 characters")
 
     # creates the user based on the client's input
     async with db_pool.acquire() as connection:
@@ -244,12 +254,22 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
     user_id = generate_user_id(username=username)
 
     # username, display name and password length check.
+
+    # checks if it's too long
     if len(username) > 20:
         raise TooLong("Username provided is too long: max 20 characters")
     elif len(display_name) > 20:
         raise TooLong("Display name provided is too long: max 20 characters")
     elif len(password) > 30:
         raise TooLong("Password is too long: max 30 characters")
+
+    # checks if it's too short
+    if len(username) < 3:
+        raise TooShort("Username provided is too short: min 3 characters")
+    elif len(display_name) < 3:
+        raise TooShort("Display name provided is too short: min 3 characters")
+    elif len(password) < 6:
+        raise TooLong("Password is too short: min 6 characters")
 
     # creates the user based on the client's input
     async with db_pool.acquire() as connection:
