@@ -219,21 +219,21 @@ class SignupPage:
 
     def _initialize_buttons(self):
         self.login_button = ft.Button(
-            bgcolor=ft.Colors.BLUE,
-            content=ft.Text("LOGIN", weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-            width=self.page_width,
-            height=self.page_height / 12,
-            on_click=self._switch_to_login
-        )
-
-        self.signup_button = ft.Button(
             bgcolor=ft.Colors.WHITE,
-            content=ft.Text("SIGNUP", weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK),
+            content=ft.Text("LOGIN", weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK),
             width=self.page_width,
             height=self.page_height / 12,
             style=ft.ButtonStyle(
                 side={ft.ControlState.DEFAULT: ft.BorderSide(1, ft.Colors.BLACK)}
             ),
+            on_click=self._switch_to_login
+        )
+
+        self.signup_button = ft.Button(
+            bgcolor=ft.Colors.BLUE,
+            content=ft.Text("SIGNUP", weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+            width=self.page_width,
+            height=self.page_height / 12,
             on_click=self._send_signup
         )
 
