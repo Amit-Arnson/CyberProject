@@ -137,9 +137,8 @@ class LoginPage:
         )
 
         self.info_bottom = ft.Container(
-            width=self.page.width,
-            height=self.page.height,
-            # bgcolor=ft.Colors.BLUE_300,
+            height=self.page.height / 5,
+            bgcolor=ft.Colors.BLUE_300,
         )
 
         self.page_view = ft.Column(
@@ -148,10 +147,10 @@ class LoginPage:
                 self.textbox_background,
                 self.info_bottom,
             ],
-            horizontal_alignment=ft.CrossAxisAlignment(
-                ft.CrossAxisAlignment.CENTER
-            ),
-            spacing=20
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=20,
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            expand=True,
         )
 
     def _resize_divider(self):
@@ -177,14 +176,21 @@ class LoginPage:
         self.signup_button.height = self.page.height / 12
 
     def _resize_textbox_background(self):
-        self.textbox_background.width = self.page.width / 3.5
+        # self.textbox_background.width = self.page.width / 3.5
 
-        self.textbox_background_text.height = self.page.height / 6
-        login_text: ft.Text = self.textbox_background_text.content.controls[0]
-        info_text: ft.Text = self.textbox_background_text.content.controls[-1]
+        if self.page.height > 1000:
+            self.textbox_background.height = 450
+            self.textbox_background.expand = False
+        else:
+            self.textbox_background.height = None
+            self.textbox_background.expand = True
 
-        login_text.size = self.page.width / 35
-        info_text.size = self.page.width / 70
+        # self.textbox_background_text.height = self.page.height / 6
+        # login_text: ft.Text = self.textbox_background_text.content.controls[0]
+        # info_text: ft.Text = self.textbox_background_text.content.controls[-1]
+
+        # login_text.size = self.page.width / 35
+        # info_text.size = self.page.width / 70
 
     def _resize_header(self):
         self.logo_header.width = self.page.width,
@@ -195,15 +201,19 @@ class LoginPage:
         jambox_logo.height = self.page.width / 12
 
     def _resize_bottom(self):
-        self.info_bottom.height = self.page.height
+        self.info_bottom.height = self.page.height / 5
+        self.info_bottom.bgcolor = ft.Colors.TERTIARY
         self.info_bottom.width = self.page.width
 
+    # todo: change signup's GUI
+    # todo: see if i want to completely change the login/signup GUI style
     def _resize(self):
         self._resize_bottom()
         self._resize_header()
         self._resize_textbox_background()
-        self._resize_buttons()
-        self._resize_divider()
+        #self._resize_buttons()
+        #self._resize_divider()
+
 
     def _page_resize(self, e):
         self._resize()
