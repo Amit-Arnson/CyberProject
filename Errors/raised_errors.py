@@ -37,6 +37,17 @@ class TooLong(Exception):
         self.code = 400
 
 
+class TooShort(Exception):
+    """Error that is thrown when the client's input is "too short" (eg: username with many characters)"""
+
+    # view docstring at the top of the file to see comments.
+    def __init__(self, argument: str):
+        super().__init__(argument)
+
+        self.message = argument
+        self.code = 400
+
+
 class UserExists(Exception):
     """Error that is thrown if a user that is created already exists"""
 
