@@ -132,14 +132,14 @@ class LoginPage:
                 ),
                 ft.Container(
                     content=ft.Text(
-                        "or",
+                        "don't have an account?",
                         color=ft.Colors.GREY,
                         weight=ft.FontWeight.BOLD,
                         size=self.page.height / 46
                     ),
                     bgcolor=self.page.bgcolor if self.page.bgcolor else ft.Colors.WHITE,
                     height=self.page.height / 30,
-                    width=self.page.width / 14,
+                    width=self.page.width / 6,
                     alignment=ft.Alignment(0, 0),
                 )
             ],
@@ -147,13 +147,7 @@ class LoginPage:
             alignment=ft.Alignment(0, 0)
         )
 
-    def _initialize_controls(self):
-        self._initialize_username()
-        self._initialize_password()
-
-        self._initialize_buttons()
-        self._initialize_divider()
-
+    def _initialize_text(self):
         self.login_text = ft.Text("Login", size=50)
         self.login_sub_text = ft.Text("Log in to your jambox account!", size=20, color=ft.Colors.GREY_600)
         self.login_text_container = ft.Container(
@@ -165,17 +159,38 @@ class LoginPage:
             )
         )
 
+    def _initialize_controls(self):
+        self._initialize_username()
+        self._initialize_password()
+
+        self._initialize_buttons()
+        self._initialize_divider()
+
+        self._initialize_text()
+
         self.login_content = ft.Container(
             content=ft.Column(
                 controls=[
-                    self.login_text_container,
+                    ft.Column(
+                        [
+                            ft.Column([
+                                self.login_text_container,
 
-                    self.username_container,
-                    self.password_container,
+                                self.username_container,
+                                self.password_container,
+                            ]),
 
-                    self.login_button,
-                    self.horizontal_button_divider,
-                    self.signup_button,
+                            ft.Column(
+                                [
+                                    self.login_button,
+                                    self.horizontal_button_divider,
+                                    self.signup_button,
+                                ],
+                                spacing=13
+                            )
+                        ],
+                        spacing=25,
+                    ),
                 ],
                 spacing=12,
                 expand=True
@@ -189,11 +204,11 @@ class LoginPage:
             [
                 # the empty containers are there for the spacing of the items, so that the login content will be
                 # in the middle of the right side.
-                ft.Container(height=180),
+                ft.Container(height=140, width=self.page.width/3),
                 self.login_content,
-                ft.Container(height=180)
+                ft.Container(height=180, width=self.page.width/3, expand=True, )
             ],
-            alignment=ft.MainAxisAlignment.START
+            alignment=ft.MainAxisAlignment.START,
         )
 
         self.right_side = ft.Container(
