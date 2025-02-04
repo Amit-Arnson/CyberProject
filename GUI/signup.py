@@ -62,12 +62,12 @@ class SignupPage:
         self.display_name_textbox.update()
 
     def _clear_password_error(self, e):
-        if not self.password_textbot.error_text:
+        if not self.password_textbox.error_text:
             return
 
-        self.password_textbot.error_text = None
+        self.password_textbox.error_text = None
 
-        self.password_textbot.update()
+        self.password_textbox.update()
 
     def _clear_password_confirm_error(self, e):
         if not self.confirm_password_textbox.error_text:
@@ -148,7 +148,7 @@ class SignupPage:
         )
 
     def _initialize_password(self, border_color: ft.Colors = ft.Colors.GREY):
-        self.password_textbot = ft.TextField(
+        self.password_textbox = ft.TextField(
             password=True,
             can_reveal_password=True,
             max_length=20,
@@ -173,7 +173,7 @@ class SignupPage:
         self.password_decoration_row = ft.Row(
             [
                 self.password_decoration,
-                self.password_textbot
+                self.password_textbox
             ],
             spacing=0,
             expand=True
@@ -434,13 +434,13 @@ class SignupPage:
         display_name = self.display_name_textbox.value
 
         # passwords are stripped of whitespaces
-        password = self.password_textbot.value.strip()
+        password = self.password_textbox.value.strip()
         confirm_password = self.confirm_password_textbox.value.strip()
 
         # reset any currently showing error
         self.confirm_password_textbox.error_text = None
         self.username_textbox.error_text = None
-        self.password_textbot.error_text = None
+        self.password_textbox.error_text = None
         self.display_name_textbox.error_text = None
 
         self.page.update()

@@ -54,12 +54,12 @@ class LoginPage:
         self.username_textbox.update()
 
     def _clear_password_error(self, e):
-        if not self.password_textbot.error_text:
+        if not self.password_textbox.error_text:
             return
 
-        self.password_textbot.error_text = None
+        self.password_textbox.error_text = None
 
-        self.password_textbot.update()
+        self.password_textbox.update()
 
     def _initialize_username(self, border_color: ft.Colors = ft.Colors.GREY):
         self.username_textbox = ft.TextField(
@@ -97,7 +97,7 @@ class LoginPage:
         )
 
     def _initialize_password(self, border_color: ft.Colors = ft.Colors.GREY):
-        self.password_textbot = ft.TextField(
+        self.password_textbox = ft.TextField(
             password=True,
             can_reveal_password=True,
             max_length=20,
@@ -122,7 +122,7 @@ class LoginPage:
         self.password_decoration_row = ft.Row(
             [
                 self.password_decoration,
-                self.password_textbot
+                self.password_textbox
             ],
             spacing=0,
             expand=True
@@ -323,7 +323,7 @@ class LoginPage:
 
         # passwords are stripped of whitespaces.
         # todo: implement stripping the password server-side too.
-        password = self.password_textbot.value.strip()
+        password = self.password_textbox.value.strip()
 
         # todo: implement a minimum length check (server-side and client side)
 
