@@ -244,14 +244,14 @@ class LoginPage:
             alignment=ft.MainAxisAlignment.START,
         )
 
-        self.right_side = ft.Container(
+        self.left_side = ft.Container(
             content=self.spaced_content,
             expand=False,
             bgcolor=ft.Colors.WHITE,
             padding=0,
         )
 
-        self.left_side = ft.Container(
+        self.right_side = ft.Container(
             expand=True,
             bgcolor=ft.Colors.BLUE_900,
             padding=0,
@@ -259,8 +259,8 @@ class LoginPage:
 
         self.page_view = ft.Row(
             controls=[
-                self.right_side,
-                self.left_side
+                self.left_side,
+                self.right_side
             ],
             expand=True,
             spacing=0,
