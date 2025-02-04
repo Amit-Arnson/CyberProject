@@ -23,7 +23,7 @@ class SignupPage:
         if hasattr(page, "transport"):
             self.transport: EncryptedTransport = page.transport
 
-        # the user cache is not needed in login (since we don't have a session token assigned yet)
+        # the user cache is not needed in signup (since we don't have a session token assigned yet)
         # self.user_cache: ClientSideUserCache | None = None
         # if hasattr(page, "user_cache"):
         #     self.user_cache: ClientSideUserCache = page.user_cache
@@ -263,13 +263,13 @@ class SignupPage:
         )
 
     def _initialize_text(self):
-        self.login_text = ft.Text("Signup", size=50)
-        self.login_sub_text = ft.Text("Create your own Jambox account!", size=20, color=ft.Colors.GREY_600)
-        self.login_text_container = ft.Container(
+        self.signup_text = ft.Text("Signup", size=50)
+        self.signup_sub_text = ft.Text("Create your own Jambox account!", size=20, color=ft.Colors.GREY_600)
+        self.signup_text_container = ft.Container(
             ft.Column(
                 [
-                    self.login_text,
-                    self.login_sub_text
+                    self.signup_text,
+                    self.signup_sub_text
                 ],
             )
         )
@@ -287,14 +287,14 @@ class SignupPage:
 
         # all the columns inside of columns inside of columns here is so that the buttons are spaced
         # out correctly from the divider, and the buttons + divider as a whole spaced out from the text fields
-        self.login_content = ft.Container(
+        self.signup_content = ft.Container(
             content=ft.Column(
                 controls=[
                     ft.Column(
                         [
                             # this is the "text field" item as a whole
                             ft.Column([
-                                self.login_text_container,
+                                self.signup_text_container,
 
                                 self.username_container,
                                 self.display_name_container,
@@ -327,10 +327,10 @@ class SignupPage:
 
         self.spaced_content = ft.Column(
             [
-                # the empty containers are there for the spacing of the items, so that the login content will be
+                # the empty containers are there for the spacing of the items, so that the signup content will be
                 # in the middle of the right side.
                 ft.Container(height=70, width=self.page_width/3),
-                self.login_content,
+                self.signup_content,
                 ft.Container(height=180, width=self.page_width/3, expand=True, )
             ],
             alignment=ft.MainAxisAlignment.START,
@@ -390,9 +390,10 @@ class SignupPage:
 
     def _send_signup(self, e):
         """
-        send the login request to the server with the input values from the user.
+        send the signup + login request to the server. it will initially create the account (if possible) and then
+        it will also log the user in with the newly created account.
 
-        endpoint: user/login (POST)
+        endpoint: user/signup/login (POST)
 
         expected payload (to server):
         {
@@ -463,7 +464,7 @@ class SignupPage:
             )
         else:
             error_text = ft.Text(
-                value="There seems to have been an error when trying to submit login information (code 1001)",
+                value="There seems to have been an error when trying to submit signup information (code 1001)",
                 color=ft.Colors.BLACK,
             )
             self._raise_error_banner(error_text)
