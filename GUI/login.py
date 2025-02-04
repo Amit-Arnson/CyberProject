@@ -195,11 +195,14 @@ class LoginPage:
 
         self._initialize_text()
 
+        # all the columns inside of columns inside of columns here is so that the buttons are spaced
+        # out correctly from the divider, and the buttons + divider as a whole spaced out from the text fields
         self.login_content = ft.Container(
             content=ft.Column(
                 controls=[
                     ft.Column(
                         [
+                            # this is the "text field" item as a whole
                             ft.Column([
                                 self.login_text_container,
 
@@ -207,15 +210,18 @@ class LoginPage:
                                 self.password_container,
                             ]),
 
+                            # this is the buttons + divider item as a whole
                             ft.Column(
                                 [
                                     self.login_button,
                                     self.horizontal_button_divider,
                                     self.signup_button,
                                 ],
+                                # we space out the buttons from the divider
                                 spacing=13
                             )
                         ],
+                        # we space out the text item from the button/divider item
                         spacing=25,
                     ),
                 ],
