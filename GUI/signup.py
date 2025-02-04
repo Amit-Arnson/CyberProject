@@ -19,6 +19,10 @@ class SignupPage:
 
         self.textbox_size = 55
 
+        # since the "password" type text fields have an eye icon to be able to turn off visible/invisible password,
+        # the text field itself needs to be set down a little lower (so that the eye is centered)
+        self.password_offset = 5
+
         self.transport: EncryptedTransport | None = None
         if hasattr(page, "transport"):
             self.transport: EncryptedTransport = page.transport
@@ -148,7 +152,7 @@ class SignupPage:
             password=True,
             can_reveal_password=True,
             max_length=20,
-            height=self.textbox_size,
+            height=self.textbox_size - self.password_offset,
             expand=True,
             label="password",
             border=ft.InputBorder.NONE,
@@ -185,7 +189,7 @@ class SignupPage:
             password=True,
             can_reveal_password=True,
             max_length=20,
-            height=self.textbox_size,
+            height=self.textbox_size - self.password_offset,
             expand=True,
             label="confirm password",
             border=ft.InputBorder.NONE,
