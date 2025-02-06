@@ -45,37 +45,16 @@ class SignupPage:
 
         return border
 
-    def _clear_username_error(self, e):
-        if not self.username_textbox.error_text:
+    @staticmethod
+    def _clear_textfield_error(e: ft.ControlEvent):
+        text_field: ft.TextField = e.control
+
+        if not text_field.error_text:
             return
 
-        self.username_textbox.error_text = None
+        text_field.error_text = None
 
-        self.username_textbox.update()
-
-    def _clear_display_name_error(self, e):
-        if not self.display_name_textbox.error_text:
-            return
-
-        self.display_name_textbox.error_text = None
-
-        self.display_name_textbox.update()
-
-    def _clear_password_error(self, e):
-        if not self.password_textbox.error_text:
-            return
-
-        self.password_textbox.error_text = None
-
-        self.password_textbox.update()
-
-    def _clear_password_confirm_error(self, e):
-        if not self.confirm_password_textbox.error_text:
-            return
-
-        self.confirm_password_textbox.error_text = None
-
-        self.confirm_password_textbox.update()
+        text_field.update()
 
     def _initialize_username(self, border_color: ft.Colors = ft.Colors.GREY):
         self.username_textbox = ft.TextField(
@@ -85,7 +64,7 @@ class SignupPage:
             label="username",
             border=ft.InputBorder.NONE,
             content_padding=10,
-            on_focus=self._clear_username_error,
+            on_focus=self._clear_textfield_error,
             error_style=ft.TextStyle(height=-1)
         )
 
@@ -120,7 +99,7 @@ class SignupPage:
             label="display name",
             border=ft.InputBorder.NONE,
             content_padding=10,
-            on_focus=self._clear_display_name_error,
+            on_focus=self._clear_textfield_error,
             error_style=ft.TextStyle(height=-1)
         )
 
@@ -157,7 +136,7 @@ class SignupPage:
             label="password",
             border=ft.InputBorder.NONE,
             content_padding=10,
-            on_focus=self._clear_password_error,
+            on_focus=self._clear_textfield_error,
             error_style=ft.TextStyle(height=-1)
         )
 
@@ -194,7 +173,7 @@ class SignupPage:
             label="confirm password",
             border=ft.InputBorder.NONE,
             content_padding=10,
-            on_focus=self._clear_password_confirm_error,
+            on_focus=self._clear_textfield_error,
             error_style=ft.TextStyle(height=-1)
         )
 
