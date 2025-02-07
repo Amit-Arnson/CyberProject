@@ -3,6 +3,8 @@ import flet as ft
 from encryptions import EncryptedTransport
 from pseudo_http_protocol import ClientMessage
 
+from GUI.navigation_sidebar import NavigationSidebar
+
 
 class UploadPage:
     def __init__(self, page: ft.Page):
@@ -17,11 +19,25 @@ class UploadPage:
         if hasattr(page, "transport"):
             self.transport: EncryptedTransport = page.transport
 
+        self.sidebar = NavigationSidebar()
+
         self._initialize_controls()
 
+
     def _initialize_controls(self):
-        self.page_view = ft.Container()
-        pass
+        aa = ft.Container(
+            expand=True,
+            bgcolor=ft.Colors.GREY,
+        )
+
+        self.page_view = ft.Row(
+            [
+                self.sidebar,
+                aa,
+            ],
+            spacing=0,
+            expand=True
+        )
 
     def show(self, clear: bool = True):
         """:param clear: whether to clear the page before trying to add the page's content or not."""
