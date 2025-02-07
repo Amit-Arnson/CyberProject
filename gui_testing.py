@@ -24,6 +24,7 @@ class SimpleClicker:
 
     def plus_click(self, e):
         self.txt_number.value = str(int(self.txt_number.value) + 1)
+        self.txt_number.error_text = self.txt_number.value
         self.page.update()
 
     def show(self):
@@ -39,6 +40,41 @@ class SimpleClicker:
         )
 
         print(self.page.has)
+
+
+class TextBox:
+    def __init__(self, page: ft.Page):
+        self.page = page
+
+        self.text = ft.TextField(
+            width=100,
+            label="username",
+            height=50,
+        )
+
+        self.error_button = ft.Button(
+            on_click=self._error_text,
+            width=50,
+            height=50,
+            bgcolor=ft.Colors.YELLOW,
+            text="f"
+        )
+
+        self.column = ft.Column(
+            [
+                self.text,
+                self.error_button
+            ]
+        )
+
+    def _error_text(self, e):
+        self.text.error_text = "error!!"
+
+        self.page.update()
+
+    def show(self):
+        self.page.add(self.column)
+        self.page.update()
 
 
 class SimpleContainer(ft.Container):
@@ -294,7 +330,7 @@ class MainPage:
 def main(page: ft.Page):
     page.has = "has"
 
-    MainPage(page=page).start()
+    SimpleClicker(page=page).show()
 
 
 if __name__ == "__main__":
