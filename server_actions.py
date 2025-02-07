@@ -146,19 +146,19 @@ async def user_signup_and_login(db_pool: asqlite.Pool, client_package: ClientPac
 
     # checks if it's too long
     if len(username) > 20:
-        raise TooLong("Username provided is too long: max 20 characters")
+        raise TooLong("Username provided is too long: max 20 characters", extra={"type": "username"})
     elif len(display_name) > 20:
-        raise TooLong("Display name provided is too long: max 20 characters")
+        raise TooLong("Display name provided is too long: max 20 characters", extra={"type": "display_name"})
     elif len(password) > 30:
-        raise TooLong("Password is too long: max 30 characters")
+        raise TooLong("Password is too long: max 30 characters", extra={"type": "password"})
 
     # checks if it's too short
     if len(username) < 3:
-        raise TooShort("Username provided is too short: min 3 characters")
+        raise TooShort("Username provided is too short: min 3 characters", extra={"type": "username"})
     elif len(display_name) < 3:
-        raise TooShort("Display name provided is too short: min 3 characters")
+        raise TooShort("Display name provided is too short: min 3 characters", extra={"type": "display_name"})
     elif len(password) < 6:
-        raise TooLong("Password is too short: min 6 characters")
+        raise TooLong("Password is too short: min 6 characters", extra={"type": "password"})
 
     # creates the user based on the client's input
     async with db_pool.acquire() as connection:
@@ -257,19 +257,19 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
 
     # checks if it's too long
     if len(username) > 20:
-        raise TooLong("Username provided is too long: max 20 characters")
+        raise TooLong("Username provided is too long: max 20 characters", extra={"type": "username"})
     elif len(display_name) > 20:
-        raise TooLong("Display name provided is too long: max 20 characters")
+        raise TooLong("Display name provided is too long: max 20 characters", extra={"type": "display_name"})
     elif len(password) > 30:
-        raise TooLong("Password is too long: max 30 characters")
+        raise TooLong("Password is too long: max 30 characters", extra={"type": "password"})
 
     # checks if it's too short
     if len(username) < 3:
-        raise TooShort("Username provided is too short: min 3 characters")
+        raise TooShort("Username provided is too short: min 3 characters", extra={"type": "username"})
     elif len(display_name) < 3:
-        raise TooShort("Display name provided is too short: min 3 characters")
+        raise TooShort("Display name provided is too short: min 3 characters", extra={"type": "display_name"})
     elif len(password) < 6:
-        raise TooLong("Password is too short: min 6 characters")
+        raise TooLong("Password is too short: min 6 characters", extra={"type": "password"})
 
     # creates the user based on the client's input
     async with db_pool.acquire() as connection:
