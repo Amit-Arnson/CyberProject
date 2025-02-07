@@ -9,6 +9,15 @@ class NavigationSidebar(ft.Container):
 
         self.sidebar_width = self.page_width / 3.3
 
+        self.item_text_values = {
+            "color": ft.Colors.WHITE70,
+            "weight": ft.FontWeight.BOLD
+        }
+
+        self.item_icon_values = {
+            "color": ft.Colors.WHITE70
+        }
+
         self._initialize_sidebar()
 
         self.content = ft.Column(
@@ -50,8 +59,8 @@ class NavigationSidebar(ft.Container):
             width=self.sidebar_width,
             content=ft.Row(
                 [
-                    ft.Icon(ft.Icons.MENU),
-                    ft.Text("TEMPO FINDER")
+                    ft.Icon(ft.Icons.MUSIC_NOTE, **self.item_icon_values),
+                    ft.Text("TEMPO FINDER", **self.item_text_values)
                 ],
             ),
             padding=10,
@@ -64,8 +73,8 @@ class NavigationSidebar(ft.Container):
             width=self.sidebar_width,
             content=ft.Row(
                 [
-                    ft.Icon(ft.Icons.MENU),
-                    ft.Text("AI CHAT")
+                    ft.Icon(ft.Icons.CHAT, **self.item_icon_values),
+                    ft.Text("AI CHAT", **self.item_text_values)
                 ]
             ),
             padding=10,
@@ -78,8 +87,8 @@ class NavigationSidebar(ft.Container):
             width=self.sidebar_width,
             content=ft.Row(
                 [
-                    ft.Icon(ft.Icons.MENU),
-                    ft.Text("UPLOAD SONG")
+                    ft.Icon(ft.Icons.UPLOAD_FILE, **self.item_icon_values),
+                    ft.Text("UPLOAD SONG", **self.item_text_values)
                 ]
             ),
             padding=10,
@@ -95,8 +104,8 @@ class NavigationSidebar(ft.Container):
             width=self.sidebar_width,
             content=ft.Row(
                 [
-                    ft.Icon(ft.Icons.MENU),
-                    ft.Text("SETTINGS")
+                    ft.Icon(ft.Icons.SETTINGS, **self.item_icon_values),
+                    ft.Text("SETTINGS", **self.item_text_values)
                 ]
             ),
             padding=10,
@@ -109,8 +118,8 @@ class NavigationSidebar(ft.Container):
             width=self.sidebar_width,
             content=ft.Row(
                 [
-                    ft.Icon(ft.Icons.MENU),
-                    ft.Text("LOGOUT")
+                    ft.Icon(ft.Icons.LOGOUT, **self.item_icon_values),
+                    ft.Text("LOGOUT", **self.item_text_values)
                 ]
             ),
             padding=10,
@@ -123,7 +132,6 @@ class NavigationSidebar(ft.Container):
         self.top_part = ft.Container(
             height=80,
             width=self.sidebar_width,
-            content=ft.Text("Upload Song"),
             alignment=ft.Alignment(0, 0)
         )
 
