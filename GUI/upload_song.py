@@ -23,11 +23,61 @@ class UploadPage:
 
         self._initialize_controls()
 
+    def _initialize_sidebar_top(self):
+        self.sidebar.top_part.margin = ft.Margin(top=10, bottom=0, right=0, left=0)
+        # self.sidebar.top_part.content = ft.Stack(
+        #     [
+        #         ft.Container(
+        #             content=ft.Text("Upload Song", size=25, color=ft.Colors.BLUE_600),
+        #             bgcolor=ft.Colors.BLUE_900,
+        #             height=100,
+        #             width=280,
+        #             alignment=ft.Alignment(0, 0)
+        #         ),
+        #         ft.Container(
+        #             ft.Container(
+        #                 expand=True,
+        #                 bgcolor=ft.Colors.BLUE_100,
+        #                 shape=ft.BoxShape.CIRCLE,
+        #             ),
+        #             right=0,
+        #         )
+        #     ],
+        # )
+
+        self.sidebar.top_part.content = ft.Container(
+            ft.Stack(
+                [
+                    ft.Container(
+                        width=90,
+                        height=75,
+                        bgcolor=ft.Colors.BLUE_900,
+                        shape=ft.BoxShape.CIRCLE,
+                        right=-1,
+                    ),
+                    ft.Container(
+                        width=320,
+                        height=75.5,
+                        bgcolor=ft.Colors.BLUE_900,
+                        left=0,
+                        content=ft.Text(
+                            "Upload Song", size=25, color=ft.Colors.BLUE_700,
+                            weight=ft.FontWeight.BOLD
+                        ),
+                        alignment=ft.Alignment(0, 0)
+                    ),
+                ]
+            ),
+            padding=ft.Padding(right=0, bottom=0, left=0, top=5),
+            width=500,
+            height=100,
+        )
 
     def _initialize_controls(self):
+        self._initialize_sidebar_top()
+
         aa = ft.Container(
             expand=True,
-            bgcolor=ft.Colors.GREY,
         )
 
         self.page_view = ft.Row(
