@@ -152,6 +152,10 @@ class ServerProtocol(asyncio.Protocol):
             if hasattr(error, "message"):
                 error_message = error.message
 
+            extra: dict = {}
+            if hasattr(error, "extra"):
+                extra = error.extra
+
             transport = self.client_package.client
 
             transport.write(
@@ -163,7 +167,7 @@ class ServerProtocol(asyncio.Protocol):
                     method="respond",
                     # todo: figure out what the endpoint here will be
                     endpoint=f"{action.end_point}/error",
-                    payload={"responding": action.end_point}
+                    payload=extra
                 ).encode(),
             )
         else:
