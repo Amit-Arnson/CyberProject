@@ -21,6 +21,12 @@ class UploadPage:
 
         self.sidebar = NavigationSidebar()
 
+        self.file_picker = ft.FilePicker()
+        self.file_picker.on_result = self._on_finish_select
+
+        # add the file picker control to the page
+        self.page.overlay.append(self.file_picker)
+
         self._initialize_controls()
 
     def _initialize_sidebar_top(self):
@@ -54,12 +60,29 @@ class UploadPage:
             height=100,
         )
 
+    def _select_files(self, e: ft.ControlEvent):
+        self.file_picker.pick_files(
+            allow_multiple=False
+        )
+
+    def _on_finish_select(self, e: ft.FilePickerUploadEvent):
+        print(e)
+
+    def _initialize_file_selector(self):
+        self.file_picker_container = ft.Container(
+            on_click=self._select_files,
+            width=500,
+            height=500,
+            bgcolor=ft.Colors.RED
+        )
     def _initialize_controls(self):
         self._initialize_sidebar_top()
+        self._initialize_file_selector()
 
         # this is just a temporary container so that something takes that space up
         aa = ft.Container(
             expand=True,
+            content=self.file_picker_container
         )
 
         self.page_view = ft.Row(
