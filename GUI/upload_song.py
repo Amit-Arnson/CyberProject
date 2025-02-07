@@ -10,6 +10,9 @@ class UploadPage:
         self.page.padding = 0
         self.page.theme_mode = ft.ThemeMode.LIGHT
 
+        self.page_width = 1200
+        self.page_height = 700
+
         self.transport: EncryptedTransport | None = None
         if hasattr(page, "transport"):
             self.transport: EncryptedTransport = page.transport
