@@ -25,25 +25,6 @@ class UploadPage:
 
     def _initialize_sidebar_top(self):
         self.sidebar.top_part.margin = ft.Margin(top=10, bottom=0, right=0, left=0)
-        # self.sidebar.top_part.content = ft.Stack(
-        #     [
-        #         ft.Container(
-        #             content=ft.Text("Upload Song", size=25, color=ft.Colors.BLUE_600),
-        #             bgcolor=ft.Colors.BLUE_900,
-        #             height=100,
-        #             width=280,
-        #             alignment=ft.Alignment(0, 0)
-        #         ),
-        #         ft.Container(
-        #             ft.Container(
-        #                 expand=True,
-        #                 bgcolor=ft.Colors.BLUE_100,
-        #                 shape=ft.BoxShape.CIRCLE,
-        #             ),
-        #             right=0,
-        #         )
-        #     ],
-        # )
 
         self.sidebar.top_part.content = ft.Container(
             ft.Stack(
@@ -57,7 +38,8 @@ class UploadPage:
                     ),
                     ft.Container(
                         width=320,
-                        height=75.5,
+                        # this is the closest ive managed to make it look like 1 piece
+                        height=75.19,
                         bgcolor=ft.Colors.BLUE_900,
                         left=0,
                         content=ft.Text(
@@ -68,7 +50,6 @@ class UploadPage:
                     ),
                 ]
             ),
-            padding=ft.Padding(right=0, bottom=0, left=0, top=5),
             width=500,
             height=100,
         )
@@ -76,6 +57,7 @@ class UploadPage:
     def _initialize_controls(self):
         self._initialize_sidebar_top()
 
+        # this is just a temporary container so that something takes that space up
         aa = ft.Container(
             expand=True,
         )
