@@ -29,6 +29,7 @@ async def login_error(page: Page, _: EncryptedTransport, server_message: ServerM
 
     status_code = server_message.status.get("code")
     status_message = server_message.status.get("message")
+    extra = server_message.payload
 
     # since the .show() method applies "self" to page.view, we can access the page's contents and controls (which are
     # normally saved in the self of LoginPage) by accessing page.view
@@ -36,9 +37,16 @@ async def login_error(page: Page, _: EncryptedTransport, server_message: ServerM
     if hasattr(page, "view"):
         login_page = page.view
 
+        error_type = extra.get("type")
+
         # todo: check if i want to make it so that instead of directly changing the "self" values, ill have a helper function inbetween to make things more controlled
-        login_page.username_textbox.error_text = status_message
-        login_page.username_textbox.update()
+
+        if error_type == "password":
+            login_page.password_textbox.error_text = status_message
+        else:
+            login_page.username_textbox.error_text = status_message
+
+        page.update()
     else:
         # whilst page.view may not exist in some cases, page.server_error is always defined at the start of runtime.
         # this means that we can always access it.
@@ -72,6 +80,7 @@ async def signup_error(page: Page, _: EncryptedTransport, server_message: Server
 
     status_code = server_message.status.get("code")
     status_message = server_message.status.get("message")
+    extra = server_message.payload
 
     # since the .show() method applies "self" to page.view, we can access the page's contents and controls (which are
     # normally saved in the self of the class) by accessing page.view
@@ -79,9 +88,17 @@ async def signup_error(page: Page, _: EncryptedTransport, server_message: Server
     if hasattr(page, "view"):
         signup_page = page.view
 
+        error_type = extra.get("type")
+
         # todo: check if i want to make it so that instead of directly changing the "self" values, ill have a helper function inbetween to make things more controlled
-        signup_page.username_textbox.error_text = status_message
-        signup_page.username_textbox.update()
+        if error_type == "password":
+            signup_page.password_textbox.error_text = status_message
+        elif error_type == "display_name":
+            signup_page.display_name_textbox.error_text = status_message
+        else:
+            signup_page.username_textbox.error_text = status_message
+
+        page.update()
     else:
         # whilst page.view may not exist in some cases, page.server_error is always defined at the start of runtime.
         # this means that we can always access it.
