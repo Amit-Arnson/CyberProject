@@ -11,22 +11,23 @@ class AutoFocusTextfield(ft.Stack):
         super().__init__()
         self.values: list[str] = []
 
-        self.text_padding = self.calculate_text_padding()
+        self.text_padding = 10
 
         self.value_container = ft.Container(
             height=50,
             width=width,
             expand=True,
-            padding=10,
+            padding=5,
             content=ft.Row(
-                alignment=ft.MainAxisAlignment.START
+                alignment=ft.MainAxisAlignment.START,
+                spacing=1,
             )
         )
 
         self.textfield = ft.TextField(
             multiline=False,
             content_padding=ft.Padding(left=self.text_padding, right=0, top=0, bottom=0),
-            on_submit=self.on_finish
+            on_submit=self.on_finish,
         )
 
         self.controls = [
@@ -34,11 +35,46 @@ class AutoFocusTextfield(ft.Stack):
             self.textfield
         ]
 
+    def calculate_word_pixel_length(self, word: str):
+        letter_pixel_length = {
+            'a': 14,  # If testing showed that 'a' is slightly narrower than before
+            'b': 16,
+            'c': 14,
+            'd': 15,
+            'e': 14,
+            'f': 12,
+            'g': 15,
+            'h': 15,
+            'i': 9,  # Narrower than expected
+            'j': 12,
+            'k': 15,
+            'l': 9,  # Narrower than expected
+            'm': 14,  # 'm' usually wider
+            'n': 15,
+            'o': 15,
+            'p': 16,
+            'q': 15,
+            'r': 12,
+            's': 14,
+            't': 14,  # Narrower than expected
+            'u': 15,
+            'v': 14,
+            'w': 14,  # 'w' usually wider
+            'x': 15,
+            'y': 14,
+            'z': 13
+        }
+
+        return sum(letter_pixel_length.get(letter, 15) for letter in word)
+
     def calculate_text_padding(self):
-        return sum([len(value) for value in self.values]) * 11.5 + 10
+        return 10 + sum([self.calculate_word_pixel_length(value) for value in self.values])
 
     def update_text_padding(self):
         self.text_padding = self.calculate_text_padding()
+
+    def remove_tag(self, e: ft.ControlEvent):
+        print(e)
 
     def on_finish(self, e):
         value = self.textfield.value
@@ -46,11 +82,23 @@ class AutoFocusTextfield(ft.Stack):
 
         tag_text_container = ft.Container(
             height=30,
-            width=len(value) * 10,
             bgcolor=ft.Colors.RED,
             border_radius=5,
-            content=ft.Text(value),
-            alignment=ft.Alignment(0, 0)
+            content=ft.Row(
+                [
+                    ft.Text(value),
+                    ft.Container(
+                        content=ft.Icon(
+                            ft.Icons.CLOSE,
+                            size=10,
+                            color=ft.Colors.BLACK,
+                        ),
+                        on_click=self.remove_tag
+                    )
+                ]
+            ),
+            alignment=ft.Alignment(-1, 0),
+            padding=5,
         )
 
         self.value_container.content.controls.append(
@@ -59,10 +107,10 @@ class AutoFocusTextfield(ft.Stack):
 
         self.update_text_padding()
         self.textfield.value = None
-        self.textfield.autofocus = True
         self.textfield.content_padding = ft.Padding(left=self.text_padding, right=0, top=0, bottom=0)
 
         self.update()
+        self.textfield.focus()
 
 
 
