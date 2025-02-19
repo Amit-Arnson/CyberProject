@@ -6,84 +6,78 @@ from pseudo_http_protocol import ClientMessage
 from GUI.navigation_sidebar import NavigationSidebar
 
 
-class AutoFocusTextfield(ft.Stack):
-    def __init__(self, width: int):
-        super().__init__()
-        self.values: list[str] = []
+class TagInput(ft.Container):
+    def __init__(self, tag_color: ft.Colors = ft.Colors.GREEN_300, tag_height: int = 40, **kwargs):
+        super().__init__(**kwargs)
 
-        self.text_padding = 10
+        # to keep track of the tags when they are removed (so we can accurately remove the value from the self.values)
+        self.tag_id = 0
 
-        self.value_container = ft.Container(
-            height=50,
-            width=width,
-            expand=True,
-            padding=5,
-            content=ft.Row(
-                alignment=ft.MainAxisAlignment.START,
-                spacing=1,
+        self.tag_color = tag_color
+        self.tag_height = tag_height
+
+        # list[(tag ID, tag text value)]
+        self.values: list[tuple[int, str]] = []
+
+        self.value_row = ft.Row()
+        self.textfield = ft.TextField(
+            on_submit=self.on_finish,
+            border_width=0,
+            autofocus=True,
+        )
+
+        # setting the clip to hard edge means that anything inside of this container that goes outside the bounds gets cut off
+        self.clip_behavior = ft.ClipBehavior.HARD_EDGE
+
+        self.padding = 5
+        self.content = ft.Row(
+            [
+                self.value_row,
+                self.textfield
+            ],
+            spacing=1
+        )
+
+    def get_values(self) -> list[str]:
+        """
+        :returns: the current values that are inputted in the text field
+        """
+
+        # returns only the value and ignores the tag ID completely
+        return [
+            value for tag_id, value in self.values
+        ]
+
+    def _remove_tag(self, e: ft.ControlEvent):
+        tag: ft.Container = e.control
+
+        removed_tag_id: int = tag.data["id"]
+        removed_tag_value: str = tag.data["value"]
+
+        # removes the ID-value pair from the values list
+        self.values.remove(
+            (
+                removed_tag_id, removed_tag_value
             )
         )
 
-        self.textfield = ft.TextField(
-            multiline=False,
-            content_padding=ft.Padding(left=self.text_padding, right=0, top=0, bottom=0),
-            on_submit=self.on_finish,
-        )
+        # removes the actual control (container) from the view
+        self.value_row.controls.remove(tag)
 
-        self.controls = [
-            self.value_container,
-            self.textfield
-        ]
-
-    def calculate_word_pixel_length(self, word: str):
-        letter_pixel_length = {
-            'a': 14,  # If testing showed that 'a' is slightly narrower than before
-            'b': 16,
-            'c': 14,
-            'd': 15,
-            'e': 14,
-            'f': 12,
-            'g': 15,
-            'h': 15,
-            'i': 9,  # Narrower than expected
-            'j': 12,
-            'k': 15,
-            'l': 9,  # Narrower than expected
-            'm': 14,  # 'm' usually wider
-            'n': 15,
-            'o': 15,
-            'p': 16,
-            'q': 15,
-            'r': 12,
-            's': 14,
-            't': 14,  # Narrower than expected
-            'u': 15,
-            'v': 14,
-            'w': 14,  # 'w' usually wider
-            'x': 15,
-            'y': 14,
-            'z': 13
-        }
-
-        return sum(letter_pixel_length.get(letter, 15) for letter in word)
-
-    def calculate_text_padding(self):
-        return 10 + sum([self.calculate_word_pixel_length(value) for value in self.values])
-
-    def update_text_padding(self):
-        self.text_padding = self.calculate_text_padding()
-
-    def remove_tag(self, e: ft.ControlEvent):
-        print(e)
+        self.update()
 
     def on_finish(self, e):
         value = self.textfield.value
-        self.values.append(value)
 
-        tag_text_container = ft.Container(
-            height=30,
-            bgcolor=ft.Colors.RED,
-            border_radius=5,
+        self.values.append(
+            (
+                self.tag_id, value
+            )
+        )
+
+        self.textfield.value = None
+
+        tag = ft.Container(
             content=ft.Row(
                 [
                     ft.Text(value),
@@ -93,26 +87,33 @@ class AutoFocusTextfield(ft.Stack):
                             size=10,
                             color=ft.Colors.BLACK,
                         ),
-                        on_click=self.remove_tag
                     )
                 ]
             ),
             alignment=ft.Alignment(-1, 0),
             padding=5,
+            height=self.tag_height,
+            bgcolor=self.tag_color,
+            border_radius=5,
+            on_click=self._remove_tag,
+
+            # adding the ID and value so that i can easily find and remove it for the on_click event
+            data={
+                "id": self.tag_id,
+                "value": value,
+            }
         )
 
-        self.value_container.content.controls.append(
-            tag_text_container
-        )
+        self.value_row.controls.append(tag)
 
-        self.update_text_padding()
-        self.textfield.value = None
-        self.textfield.content_padding = ft.Padding(left=self.text_padding, right=0, top=0, bottom=0)
+        # increment the ID to get unique IDs for each tag in this class instance
+        self.tag_id += 1
 
         self.update()
+
+        # focus back on the text field so that you don't have to click it again manually.
+        # despite autofocus being on, this still needs to be here in order for it to actually focus.
         self.textfield.focus()
-
-
 
 
 class UploadPage:
@@ -212,9 +213,7 @@ class UploadPage:
         #     label="song band",
         # )
 
-        self.song_band_textbox = AutoFocusTextfield(
-            width=500,
-        )
+        self.song_band_textbox = TagInput()
 
     def _initialize_genre_tag_textbox(self):
         self.selected_genres_textbox = ft.TextField(
