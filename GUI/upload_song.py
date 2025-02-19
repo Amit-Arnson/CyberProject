@@ -7,7 +7,7 @@ from GUI.navigation_sidebar import NavigationSidebar
 
 
 class TagInput(ft.Container):
-    def __init__(self, tag_color: ft.Colors = ft.Colors.GREEN_300, tag_height: int = 40, **kwargs):
+    def __init__(self, tag_color: ft.Colors = ft.Colors.GREEN_300, tag_height: int = 40, tag_spacing: int = None, **kwargs):
         super().__init__(**kwargs)
 
         # to keep track of the tags when they are removed (so we can accurately remove the value from the self.values)
@@ -19,10 +19,18 @@ class TagInput(ft.Container):
         # list[(tag ID, tag text value)]
         self.values: list[tuple[int, str]] = []
 
-        self.value_row = ft.Row()
+        self.value_row = ft.Row(
+            spacing=tag_spacing
+        )
+
         self.textfield = ft.TextField(
             on_submit=self.on_finish,
+            # removes the border
             border_width=0,
+
+            # removes the tiny bit of padding that is defaulted in all text fields
+            content_padding=0,
+
             autofocus=True,
         )
 
@@ -38,7 +46,7 @@ class TagInput(ft.Container):
                 self.value_row,
                 self.textfield
             ],
-            spacing=1
+            spacing=tag_spacing,
         )
 
     def get_values(self) -> list[str]:
@@ -219,7 +227,10 @@ class UploadPage:
         self.song_band_textbox = TagInput(
             border_radius=5,
             border=ft.border.all(color=ft.Colors.BLACK),
-            padding=0
+            padding=ft.Padding(
+                right=0, top=0, bottom=0, left=2
+            ),
+            tag_spacing=4,
         )
 
     def _initialize_genre_tag_textbox(self):
