@@ -8,7 +8,8 @@ from GUI.navigation_sidebar import NavigationSidebar
 
 # todo: find a way to manage the wrapping function for the rows, so that the tag input can be used with higher containers
 class TagInput(ft.Container):
-    def __init__(self, tag_color: ft.Colors = ft.Colors.GREEN_300, tag_height: int = 40, tag_spacing: int = None, **kwargs):
+    def __init__(self, tag_color: ft.Colors = ft.Colors.GREEN_300, tag_height: int = 40, tag_spacing: int = None,
+                 scroll: ft.ScrollMode = ft.ScrollMode.AUTO, auto_scroll: bool = False, **kwargs):
         super().__init__(**kwargs)
 
         # to keep track of the tags when they are removed (so we can accurately remove the value from the self.values)
@@ -21,7 +22,9 @@ class TagInput(ft.Container):
         self.values: list[tuple[int, str]] = []
 
         self.value_row = ft.Row(
-            spacing=tag_spacing
+            spacing=tag_spacing,
+            auto_scroll=auto_scroll,
+            scroll=scroll
         )
 
         self.textfield = ft.TextField(
@@ -35,6 +38,16 @@ class TagInput(ft.Container):
             autofocus=True,
         )
 
+        self.main_row = ft.Row(
+            [
+                self.value_row,
+                self.textfield
+            ],
+            spacing=tag_spacing,
+            auto_scroll=False,
+            scroll=scroll
+        )
+
         # setting the clip to hard edge means that anything inside of this container that goes outside the bounds gets cut off
         self.clip_behavior = ft.ClipBehavior.HARD_EDGE
 
@@ -42,13 +55,7 @@ class TagInput(ft.Container):
         chosen_padding = kwargs.get("padding")
         self.padding = chosen_padding if chosen_padding is not None else 5
 
-        self.content = ft.Row(
-            [
-                self.value_row,
-                self.textfield
-            ],
-            spacing=tag_spacing,
-        )
+        self.content = self.main_row
         self.alignment = ft.Alignment(-1, -1)
 
     def get_values(self) -> list[str]:
