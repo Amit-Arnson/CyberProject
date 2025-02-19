@@ -6,6 +6,7 @@ from pseudo_http_protocol import ClientMessage
 from GUI.navigation_sidebar import NavigationSidebar
 
 
+# todo: find a way to manage the wrapping function for the rows, so that the tag input can be used with higher containers
 class TagInput(ft.Container):
     def __init__(self, tag_color: ft.Colors = ft.Colors.GREEN_300, tag_height: int = 40, tag_spacing: int = None, **kwargs):
         super().__init__(**kwargs)
@@ -48,6 +49,7 @@ class TagInput(ft.Container):
             ],
             spacing=tag_spacing,
         )
+        self.alignment = ft.Alignment(-1, -1)
 
     def get_values(self) -> list[str]:
         """
@@ -230,7 +232,7 @@ class UploadPage:
             padding=ft.Padding(
                 right=0, top=0, bottom=0, left=2
             ),
-            tag_spacing=4,
+            tag_spacing=5,
         )
 
     def _initialize_genre_tag_textbox(self):
