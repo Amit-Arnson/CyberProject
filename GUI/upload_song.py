@@ -29,7 +29,10 @@ class TagInput(ft.Container):
         # setting the clip to hard edge means that anything inside of this container that goes outside the bounds gets cut off
         self.clip_behavior = ft.ClipBehavior.HARD_EDGE
 
-        self.padding = 5
+        # if the user chose their own padding, then it doesn't override it. if no padding was chosen, it defaults to 5
+        chosen_padding = kwargs.get("padding")
+        self.padding = chosen_padding if chosen_padding is not None else 5
+
         self.content = ft.Row(
             [
                 self.value_row,
@@ -213,7 +216,11 @@ class UploadPage:
         #     label="song band",
         # )
 
-        self.song_band_textbox = TagInput()
+        self.song_band_textbox = TagInput(
+            border_radius=5,
+            border=ft.border.all(color=ft.Colors.BLACK),
+            padding=0
+        )
 
     def _initialize_genre_tag_textbox(self):
         self.selected_genres_textbox = ft.TextField(
