@@ -6,10 +6,9 @@ from pseudo_http_protocol import ClientMessage
 from GUI.navigation_sidebar import NavigationSidebar
 
 
-# todo: find a way to manage the wrapping function for the rows, so that the tag input can be used with higher containers
 class TagInput(ft.Container):
     def __init__(self, tag_color: ft.Colors = ft.Colors.GREEN_300, tag_height: int = 40, tag_spacing: int = None,
-                 scroll: ft.ScrollMode = ft.ScrollMode.AUTO, auto_scroll: bool = False, **kwargs):
+                 scroll: ft.ScrollMode = ft.ScrollMode.AUTO, auto_scroll: bool = False, wrap: bool = True, **kwargs):
         super().__init__(**kwargs)
 
         # to keep track of the tags when they are removed (so we can accurately remove the value from the self.values)
@@ -24,29 +23,26 @@ class TagInput(ft.Container):
         self.value_row = ft.Row(
             spacing=tag_spacing,
             auto_scroll=auto_scroll,
-            scroll=scroll
+            scroll=scroll,
+
+            expand_loose=True,
+            wrap=wrap,
         )
 
         self.textfield = ft.TextField(
-            on_submit=self.on_finish,
+            on_submit=self._on_finish,
             # removes the border
             border_width=0,
 
             # removes the tiny bit of padding that is defaulted in all text fields
             content_padding=0,
-
+            width=100,
+            expand_loose=True,
             autofocus=True,
         )
 
-        self.main_row = ft.Row(
-            [
-                self.value_row,
-                self.textfield
-            ],
-            spacing=tag_spacing,
-            auto_scroll=False,
-            scroll=scroll
-        )
+        # add the initial text field to the row
+        self.value_row.controls.append(self.textfield)
 
         # setting the clip to hard edge means that anything inside of this container that goes outside the bounds gets cut off
         self.clip_behavior = ft.ClipBehavior.HARD_EDGE
@@ -55,7 +51,7 @@ class TagInput(ft.Container):
         chosen_padding = kwargs.get("padding")
         self.padding = chosen_padding if chosen_padding is not None else 5
 
-        self.content = self.main_row
+        self.content = self.value_row
         self.alignment = ft.Alignment(-1, -1)
 
     def get_values(self) -> list[str]:
@@ -68,7 +64,15 @@ class TagInput(ft.Container):
             value for tag_id, value in self.values
         ]
 
+    def _add_tag(self, tag: ft.Container):
+        """inserts a tag into the value row right before the textfield"""
+
+        # the reason we need to .insert instead of .append is because we want the textfield to always be the last value
+        self.value_row.controls.insert(-1, tag)
+
     def _remove_tag(self, e: ft.ControlEvent):
+        """removes the tag from the viewable row and from the value list"""
+
         tag: ft.Container = e.control
 
         removed_tag_id: int = tag.data["id"]
@@ -86,7 +90,11 @@ class TagInput(ft.Container):
 
         self.update()
 
-    def on_finish(self, e):
+    def _on_finish(self, e):
+        """
+            this function creates a tag using the current value inside of the textfield, as well as adds it to the viewable
+            row and to the value list.
+        """
         value = self.textfield.value
 
         self.values.append(
@@ -98,9 +106,10 @@ class TagInput(ft.Container):
         self.textfield.value = None
 
         tag = ft.Container(
+            width=len(value) * 9 + 30,
             content=ft.Row(
                 [
-                    ft.Text(value),
+                    ft.Text(value, width=len(value) * 9),
                     ft.Container(
                         content=ft.Icon(
                             ft.Icons.CLOSE,
@@ -124,7 +133,7 @@ class TagInput(ft.Container):
             }
         )
 
-        self.value_row.controls.append(tag)
+        self._add_tag(tag)
 
         # increment the ID to get unique IDs for each tag in this class instance
         self.tag_id += 1
@@ -237,7 +246,7 @@ class UploadPage:
             border_radius=5,
             border=ft.border.all(color=ft.Colors.BLACK),
             padding=ft.Padding(
-                right=0, top=0, bottom=0, left=2
+                right=0, top=2, bottom=2, left=2
             ),
             tag_spacing=5,
         )
