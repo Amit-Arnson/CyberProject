@@ -49,6 +49,10 @@ class TagInput(ft.Container):
         self.content = self.value_row
         self.alignment = ft.Alignment(-1, -1)
 
+        # we focus on the textfield whenever the container is clicked, so that it seems like the textfield itself is
+        # expanded when it actually isn't
+        self.on_click = self._focus_textfield
+
     def get_values(self) -> list[str]:
         """
         :returns: the current values that are inputted in the text field
@@ -58,6 +62,10 @@ class TagInput(ft.Container):
         return [
             value for tag_id, value in self.values
         ]
+
+    # the *args exist so that this can be used in an on_... event
+    def _focus_textfield(self, *args):
+        self.textfield.focus()
 
     def _add_tag(self, tag: ft.Container):
         """inserts a tag into the value row right before the textfield"""
@@ -137,4 +145,4 @@ class TagInput(ft.Container):
 
         # focus back on the text field so that you don't have to click it again manually.
         # despite autofocus being on, this still needs to be here in order for it to actually focus.
-        self.textfield.focus()
+        self._focus_textfield()
