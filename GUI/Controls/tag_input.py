@@ -7,13 +7,13 @@ class TagInput(ft.Container):
         super().__init__(**kwargs)
 
         # to keep track of the tags when they are removed (so we can accurately remove the value from the self.values)
-        self.tag_id = 0
+        self._tag_id = 0
+
+        # list[(tag ID, tag text value)]
+        self._values: list[tuple[int, str]] = []
 
         self.tag_color = tag_color
         self.tag_height = tag_height
-
-        # list[(tag ID, tag text value)]
-        self.values: list[tuple[int, str]] = []
 
         self.value_row = ft.Row(
             spacing=tag_spacing,
@@ -60,7 +60,7 @@ class TagInput(ft.Container):
 
         # returns only the value and ignores the tag ID completely
         return [
-            value for tag_id, value in self.values
+            value for tag_id, value in self._values
         ]
 
     # the *args exist so that this can be used in an on_... event
@@ -82,7 +82,7 @@ class TagInput(ft.Container):
         removed_tag_value: str = tag.data["value"]
 
         # removes the ID-value pair from the values list
-        self.values.remove(
+        self._values.remove(
             (
                 removed_tag_id, removed_tag_value
             )
@@ -100,9 +100,9 @@ class TagInput(ft.Container):
         """
         value = self.textfield.value
 
-        self.values.append(
+        self._values.append(
             (
-                self.tag_id, value
+                self._tag_id, value
             )
         )
 
@@ -131,7 +131,7 @@ class TagInput(ft.Container):
 
             # adding the ID and value so that i can easily find and remove it for the on_click event
             data={
-                "id": self.tag_id,
+                "id": self._tag_id,
                 "value": value,
             }
         )
@@ -139,7 +139,7 @@ class TagInput(ft.Container):
         self._add_tag(tag)
 
         # increment the ID to get unique IDs for each tag in this class instance
-        self.tag_id += 1
+        self._tag_id += 1
 
         self.update()
 
