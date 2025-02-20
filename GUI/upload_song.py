@@ -100,22 +100,18 @@ class UploadPage:
             label="song album",
         )
 
-        # self.song_band_textbox = ft.TextField(
-        #     label="song band",
-        # )
+        self.song_band_textbox = ft.TextField(
+            label="song band",
+        )
 
-        self.song_band_textbox = TagInput(
+    def _initialize_genre_tag_textbox(self):
+        self.selected_genres_textbox = TagInput(
             border_radius=5,
             border=ft.border.all(color=ft.Colors.BLACK),
             padding=ft.Padding(
                 right=0, top=2, bottom=2, left=2
             ),
             tag_spacing=5,
-        )
-
-    def _initialize_genre_tag_textbox(self):
-        self.selected_genres_textbox = ft.TextField(
-            label="genres",
         )
 
     def _initialize_description_textbox(self):
