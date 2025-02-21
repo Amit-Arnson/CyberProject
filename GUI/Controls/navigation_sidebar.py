@@ -68,8 +68,6 @@ class NavigationSidebar(ft.Container):
         print("went to Ai chat")
 
     def _initialize_sidebar_items(self):
-        from GUI.upload_song import UploadPage
-
         item_height = self.page_height / 10
 
         self.goto_tempo_finder = ft.Container(
