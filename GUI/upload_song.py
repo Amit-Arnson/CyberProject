@@ -41,6 +41,9 @@ class UploadPage:
     def _initialize_sidebar_top(self):
         self.sidebar.top_part.margin = ft.Margin(top=10, bottom=0, right=0, left=0)
 
+        # override the on_click method so that clicking on the button does not reset the information already input
+        self.sidebar.goto_upload_song.on_click = lambda _: _
+
         self.sidebar.top_part.content = ft.Container(
             ft.Stack(
                 [
