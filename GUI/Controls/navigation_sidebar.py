@@ -49,11 +49,31 @@ class NavigationSidebar(ft.Container):
 
         item.update()
 
+    def _switch_to_upload_song(self, e: ft.ControlEvent):
+        """switches the page to the "upload song" page"""
+        from GUI.upload_song import UploadPage
+
+        UploadPage(self.page).show()
+
+    def _switch_to_tempo_finder(self, e: ft.ControlEvent):
+        """switches the page to the "tempo finder" page"""
+
+        # todo: implement tempo finder
+        print("went to tempo finder")
+
+    def _switch_to_ai_chat(self, e: ft.ControlEvent):
+        """switches the page to the "AI chat" page"""
+
+        # todo: implement AI chat
+        print("went to Ai chat")
+
     def _initialize_sidebar_items(self):
+        from GUI.upload_song import UploadPage
+
         item_height = self.page_height / 10
 
         self.goto_tempo_finder = ft.Container(
-            on_click=lambda _: print("went to tempo finder"),
+            on_click=self._switch_to_tempo_finder,
             on_hover=self._sidebar_item_hover,
             height=item_height,
             width=self.sidebar_width,
@@ -67,7 +87,7 @@ class NavigationSidebar(ft.Container):
         )
 
         self.goto_ai_chat = ft.Container(
-            on_click=lambda _: print("went to ai chat"),
+            on_click=self._switch_to_ai_chat,
             on_hover=self._sidebar_item_hover,
             height=item_height,
             width=self.sidebar_width,
@@ -81,7 +101,7 @@ class NavigationSidebar(ft.Container):
         )
 
         self.goto_upload_song = ft.Container(
-            on_click=lambda _: print("went to upload song"),
+            on_click=self._switch_to_upload_song,
             on_hover=self._sidebar_item_hover,
             height=item_height,
             width=self.sidebar_width,
