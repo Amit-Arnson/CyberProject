@@ -1,9 +1,8 @@
 import flet as ft
 
 from encryptions import EncryptedTransport
-from pseudo_http_protocol import ClientMessage
 
-from GUI.navigation_sidebar import NavigationSidebar
+from GUI.Controls.navigation_sidebar import NavigationSidebar
 from GUI.Controls.tag_input import TagInput
 
 
