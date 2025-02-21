@@ -15,17 +15,26 @@ class UploadPage:
         self.page_width = 1200
         self.page_height = 700
 
+        self.selected_song_path: str = ""
+        self.selected_sheet_paths: list[str] = []
+
         self.transport: EncryptedTransport | None = None
         if hasattr(page, "transport"):
             self.transport: EncryptedTransport = page.transport
 
         self.sidebar = NavigationSidebar()
 
-        self.file_picker = ft.FilePicker()
-        self.file_picker.on_result = self._on_finish_select
+        # we define 2 different file pickers so that we can point the on_result to different functions in order to make
+        # sorting between images and audio files easier
+        self.sound_file_picker = ft.FilePicker()
+        self.sound_file_picker.on_result = self._on_finish_sound_select
+
+        self.image_file_picker = ft.FilePicker()
+        self.image_file_picker.on_result = self._on_finish_image_select
 
         # add the file picker control to the page
-        self.page.overlay.append(self.file_picker)
+        self.page.overlay.append(self.sound_file_picker)
+        self.page.overlay.append(self.image_file_picker)
 
         self._initialize_controls()
 
@@ -61,19 +70,25 @@ class UploadPage:
         )
 
     def _select_sound_files(self, e: ft.ControlEvent):
-        self.file_picker.pick_files(
+        self.sound_file_picker.pick_files(
             allow_multiple=False,
             file_type=ft.FilePickerFileType.AUDIO
         )
 
     def _select_image_files(self, e: ft.ControlEvent):
-        self.file_picker.pick_files(
+        self.image_file_picker.pick_files(
             allow_multiple=True,
             file_type=ft.FilePickerFileType.IMAGE
         )
 
-    def _on_finish_select(self, e: ft.FilePickerUploadEvent):
-        print(e)
+    def _on_finish_sound_select(self, e: ft.FilePickerResultEvent):
+        selected_files = e.files
+        print(e.files)
+        print("selected audio")
+
+    def _on_finish_image_select(self, e: ft.FilePickerResultEvent):
+        print(e.files)
+        print("selected image")
 
     def _initialize_file_selectors(self):
         self.song_selector = ft.Container(
