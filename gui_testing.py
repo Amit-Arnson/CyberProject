@@ -5,6 +5,7 @@ import functools
 import typing
 
 import flet as ft
+from GUI.Controls.navigation_sidebar import NavigationSidebar
 
 
 class SimpleClicker:
@@ -273,40 +274,14 @@ class MainPage:
             ]
         )
 
-        column2 = ft.Column(
-            auto_scroll=False,
-            key="fwf",
-            controls=[
-                ft.Container(
-                    expand_loose=True,
-                    height=self.page.height / 10,
-                    bgcolor=ft.Colors.ORANGE
-                ),
-
-                ft.Container(
-                    expand=True,
-                    content=lv
-                ),
-
-                ft.Container(
-                    expand_loose=True,
-                    height=self.page.height / 10,
-                    bgcolor=ft.Colors.TEAL
-                ),
-            ]
-        )
+        sidebar = NavigationSidebar()
 
         rows = ft.Row(
             key="main_page",
             expand=True,
             auto_scroll=False,
             controls=[
-                ft.Container(
-                    content=column2,
-                    bgcolor=ft.Colors.GREEN,
-                    expand_loose=True,
-                    width=self.page.width / 10
-                ),
+                sidebar,
                 ft.Container(
                     key="main_column1",
                     content=column1,
@@ -330,7 +305,7 @@ class MainPage:
 def main(page: ft.Page):
     page.has = "has"
 
-    SimpleClicker(page=page).show()
+    MainPage(page=page).start()
 
 
 if __name__ == "__main__":
