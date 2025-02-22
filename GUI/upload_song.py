@@ -12,8 +12,9 @@ class UploadPage:
         self.page.padding = 0
         self.page.theme_mode = ft.ThemeMode.LIGHT
 
-        self.page_width = 1200
-        self.page_height = 700
+        # these are the max available size of the screen
+        self.page_width = page.window.width
+        self.page_height = page.window.height
 
         self.selected_song_path: str = ""
         self.selected_sheet_paths: list[str] = []
