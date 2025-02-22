@@ -16,6 +16,11 @@ class UploadPage:
         self.page_width = page.window.width
         self.page_height = page.window.height
 
+        # since page.window doesn't give width and height information when running on web
+        if self.page.web:
+            self.page_width = self.page.width
+            self.page_height = self.page.height
+
         self.selected_song_path: str = ""
         self.selected_sheet_paths: list[str] = []
 
@@ -49,16 +54,16 @@ class UploadPage:
             ft.Stack(
                 [
                     ft.Container(
-                        width=90,
+                        width=self.page_width/14,
                         height=75,
                         bgcolor=ft.Colors.BLUE_900,
                         shape=ft.BoxShape.CIRCLE,
                         right=-1,
                     ),
                     ft.Container(
-                        width=320,
+                        width=self.page_width/3.7,
                         # this is the closest ive managed to make it look like 1 piece
-                        height=75.19,
+                        height=75.2,
                         bgcolor=ft.Colors.BLUE_900,
                         left=0,
                         content=ft.Text(

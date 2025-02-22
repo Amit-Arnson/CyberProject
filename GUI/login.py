@@ -17,6 +17,11 @@ class LoginPage:
         self.page_width = page.window.width
         self.page_height = page.window.height
 
+        # since page.window doesn't give width and height information when running on web
+        if self.page.web:
+            self.page_width = self.page.width
+            self.page_height = self.page.height
+
         self.textbox_size = 55
 
         # since the "password" type text fields have an eye icon to be able to turn off visible/invisible password,

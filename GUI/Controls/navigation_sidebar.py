@@ -10,6 +10,11 @@ class NavigationSidebar(ft.Container):
         self.page_width = self.page.window.width
         self.page_height = self.page.window.height
 
+        # since page.window doesn't give width and height information when running on web
+        if self.page.web:
+            self.page_width = self.page.width
+            self.page_height = self.page.height
+
         self.sidebar_width = self.page_width / 3.3
 
         self.item_text_values = {
