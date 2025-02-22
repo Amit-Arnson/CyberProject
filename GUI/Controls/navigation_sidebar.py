@@ -2,8 +2,9 @@ import flet as ft
 
 
 class NavigationSidebar(ft.Container):
-    def __init__(self):
+    def __init__(self, page: ft.Page):
         super().__init__()
+        self.page = page
 
         # these are the max available size of the screen
         self.page_width = self.page.window.width

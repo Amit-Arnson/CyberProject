@@ -274,7 +274,7 @@ class MainPage:
             ]
         )
 
-        sidebar = NavigationSidebar()
+        sidebar = NavigationSidebar(page=self.page)
 
         rows = ft.Row(
             key="main_page",

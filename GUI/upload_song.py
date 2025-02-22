@@ -23,7 +23,7 @@ class UploadPage:
         if hasattr(page, "transport"):
             self.transport: EncryptedTransport = page.transport
 
-        self.sidebar = NavigationSidebar()
+        self.sidebar = NavigationSidebar(page=page)
 
         # we define 2 different file pickers so that we can point the on_result to different functions in order to make
         # sorting between images and audio files easier
