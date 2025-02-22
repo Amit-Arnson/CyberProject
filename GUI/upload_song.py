@@ -12,14 +12,9 @@ class UploadPage:
         self.page.padding = 0
         self.page.theme_mode = ft.ThemeMode.LIGHT
 
-        # these are the max available size of the screen
-        self.page_width = page.window.width
-        self.page_height = page.window.height
-
-        # since page.window doesn't give width and height information when running on web
-        if self.page.web:
-            self.page_width = self.page.width
-            self.page_height = self.page.height
+        # these sizes are the optimal ratio for the average PC screen
+        self.page_width = 1280
+        self.page_height = 720
 
         self.selected_song_path: str = ""
         self.selected_sheet_paths: list[str] = []
@@ -54,14 +49,14 @@ class UploadPage:
             ft.Stack(
                 [
                     ft.Container(
-                        width=self.page_width/14,
+                        width=90,
                         height=75,
                         bgcolor=ft.Colors.BLUE_900,
                         shape=ft.BoxShape.CIRCLE,
                         right=-1,
                     ),
                     ft.Container(
-                        width=self.page_width/3.7,
+                        width=345,
                         # this is the closest ive managed to make it look like 1 piece
                         height=75.2,
                         bgcolor=ft.Colors.BLUE_900,
