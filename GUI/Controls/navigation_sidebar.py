@@ -151,9 +151,9 @@ class NavigationSidebar(ft.Container):
         self._initialize_sidebar_bottom_item()
 
         self.top_part = ft.Container(
-            height=80,
-            width=self.sidebar_width,
-            alignment=ft.Alignment(0, 0)
+            #height=80,
+            #width=self.sidebar_width,
+            expand=2,
         )
 
         self.middle_part = ft.Container(
@@ -164,8 +164,7 @@ class NavigationSidebar(ft.Container):
                     self.goto_tempo_finder
                 ]
             ),
-            expand=True,
-            alignment=ft.Alignment(0, 0)
+            expand=10,
         )
 
         self.bottom_part = ft.Container(
@@ -175,5 +174,5 @@ class NavigationSidebar(ft.Container):
                     self.logout
                 ]
             ),
-            width=self.sidebar_width,
+            bgcolor=ft.Colors.RED
         )

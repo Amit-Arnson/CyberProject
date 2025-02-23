@@ -312,22 +312,22 @@ class SignupPage:
             [
                 # the empty containers are there for the spacing of the items, so that the signup content will be
                 # in the middle of the right side.
-                ft.Container(height=70, width=self.page_width/3),
+                ft.Container(height=70, expand=3,),
                 self.signup_content,
-                ft.Container(height=180, width=self.page_width/3, expand=True, )
+                ft.Container(height=180, expand=10,)
             ],
             alignment=ft.MainAxisAlignment.START,
         )
 
         self.left_side = ft.Container(
             content=self.spaced_content,
-            expand=False,
+            expand=3,
             bgcolor=ft.Colors.WHITE,
             padding=0,
         )
 
         self.right_side = ft.Container(
-            expand=True,
+            expand=10,
             bgcolor=ft.Colors.BLUE_900,
             padding=0,
         )

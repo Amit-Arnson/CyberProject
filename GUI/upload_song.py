@@ -49,6 +49,7 @@ class UploadPage:
             ft.Stack(
                 [
                     ft.Container(
+                        expand=2,
                         width=90,
                         height=75,
                         bgcolor=ft.Colors.BLUE_900,
@@ -56,7 +57,8 @@ class UploadPage:
                         right=-1,
                     ),
                     ft.Container(
-                        width=345,
+                        expand=1,
+                        #width=345,
                         # this is the closest ive managed to make it look like 1 piece
                         height=75.2,
                         bgcolor=ft.Colors.BLUE_900,
@@ -67,11 +69,15 @@ class UploadPage:
                         ),
                         alignment=ft.Alignment(0, 0)
                     ),
-                ]
+                ],
+                expand=1,
+                fit=ft.StackFit.EXPAND
             ),
-            width=500,
-            height=100,
+            expand=4
         )
+
+        # the sidebar is set to 2 and the right side of the page is set to 10. this means the sidebar takes 20% of the available screen
+        self.sidebar.expand = 2
 
     def _select_sound_files(self, e: ft.ControlEvent):
         self.sound_file_picker.pick_files(
@@ -147,7 +153,7 @@ class UploadPage:
 
         # this is just a temporary container so that something takes that space up
         aa = ft.Container(
-            expand=True,
+            expand=10,
             content=ft.Column(
                 [
                     self.song_selector,
