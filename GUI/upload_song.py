@@ -46,34 +46,15 @@ class UploadPage:
         self.sidebar.goto_upload_song.on_click = lambda _: _
 
         self.sidebar.top_part.content = ft.Container(
-            ft.Stack(
-                [
-                    ft.Container(
-                        expand=2,
-                        width=90,
-                        height=75,
-                        bgcolor=ft.Colors.BLUE_900,
-                        shape=ft.BoxShape.CIRCLE,
-                        right=-1,
-                    ),
-                    ft.Container(
-                        expand=1,
-                        #width=345,
-                        # this is the closest ive managed to make it look like 1 piece
-                        height=75.2,
-                        bgcolor=ft.Colors.BLUE_900,
-                        left=0,
-                        content=ft.Text(
-                            "Upload Song", size=25, color=ft.Colors.BLUE_700,
-                            weight=ft.FontWeight.BOLD
-                        ),
-                        alignment=ft.Alignment(0, 0)
-                    ),
-                ],
-                expand=1,
-                fit=ft.StackFit.EXPAND
+            expand=True,
+            # this is the closest ive managed to make it look like 1 piece
+            height=75.2,
+            bgcolor=ft.Colors.BLUE_900,
+            content=ft.Text(
+                "Upload Song", size=25, color=ft.Colors.BLUE_700,
+                weight=ft.FontWeight.BOLD
             ),
-            expand=4
+            alignment=ft.Alignment(0, 0)
         )
 
         # the sidebar is set to 2 and the right side of the page is set to 10. this means the sidebar takes 20% of the available screen
