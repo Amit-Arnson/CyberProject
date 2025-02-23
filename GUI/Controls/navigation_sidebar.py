@@ -174,5 +174,4 @@ class NavigationSidebar(ft.Container):
                     self.logout
                 ]
             ),
-            bgcolor=ft.Colors.RED
         )
