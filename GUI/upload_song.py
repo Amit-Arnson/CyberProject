@@ -47,8 +47,7 @@ class UploadPage:
 
         self.sidebar.top_part.content = ft.Container(
             expand=True,
-            # this is the closest ive managed to make it look like 1 piece
-            height=75.2,
+            height=75,
             bgcolor=ft.Colors.BLUE_900,
             content=ft.Text(
                 "Upload Song", size=25, color=ft.Colors.BLUE_700,
