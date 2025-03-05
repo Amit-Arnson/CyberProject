@@ -5,6 +5,8 @@ from encryptions import EncryptedTransport
 from GUI.Controls.navigation_sidebar import NavigationSidebar
 from GUI.Controls.tag_input import TagInput
 
+from Caches.user_cache import ClientSideUserCache
+
 
 class UploadPage:
     def __init__(self, page: ft.Page):
@@ -22,6 +24,11 @@ class UploadPage:
         self.transport: EncryptedTransport | None = None
         if hasattr(page, "transport"):
             self.transport: EncryptedTransport = page.transport
+
+        # this holds the session token (which is the authentication)
+        self.user_cache: ClientSideUserCache | None = None
+        if hasattr(page, "user_cache"):
+            self.user_cache: ClientSideUserCache = page.user_cache
 
         self.sidebar = NavigationSidebar(page=page)
 
