@@ -5,6 +5,17 @@ from Caches.client_cache import Address
 
 @dataclass
 class UserCacheItem:
+    """
+    address - Address (ip-port tuple)
+    aes_key - bytes
+    iv - bytes
+    dhe_base - int
+    dhe_mod - int
+    dhe_exponent - int
+    session_token - str
+    user_id -str
+    """
+
     address: Address
     aes_key: bytes | None = None
     iv: bytes | None = None
