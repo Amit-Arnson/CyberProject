@@ -86,7 +86,7 @@ async def send_chunk(
         request_id=request_id
     )
 
-    # sends all of the images
+    # sends all the images
     for image_bytes, image_id in zip(image_bytes_list, image_ids):
         await send_file_chunks(
             transport=transport,
@@ -134,13 +134,15 @@ async def send_file_chunks(
     # splits the chunks equally based on chunk size
     for chunk_number, start in enumerate(range(0, file_size, chunk_size)):
         chunk = file[start:start + chunk_size]
+        is_last_chunk = (start + chunk_size >= file_size)
 
         payload = {
             "request_id": request_id,
             "file_type": file_type,
             "file_id": file_id,
             "chunk": chunk,
-            "chunk_number": chunk_number
+            "chunk_number": chunk_number,
+            "is_last_chunk": is_last_chunk
         }
 
         transport.write(
