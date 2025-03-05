@@ -9,14 +9,16 @@ from DHE.dhe import DHE
 
 import asqlite
 
-from secure_user_credentials import generate_hashed_password, authenticate_password, generate_user_id, generate_session_token
+from secure_user_credentials import generate_hashed_password, authenticate_password, generate_user_id, \
+    generate_session_token
 
 import queries
 
 from Errors.raised_errors import NoEncryption, InvalidCredentials, TooLong, UserExists, InvalidPayload, TooShort
 
 
-async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage, user_cache: UserCache):
+async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage,
+                              user_cache: UserCache):
     """
     this function is used to finish transferring the key using dhe.
 
@@ -89,7 +91,8 @@ async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, cl
     #     ).encode())
 
 
-async def user_signup_and_login(db_pool: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage, user_cache: UserCache):
+async def user_signup_and_login(db_pool: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage,
+                                user_cache: UserCache):
     """
     this function is used to create a new user account, and automatically logs the user in
 
@@ -137,7 +140,8 @@ async def user_signup_and_login(db_pool: asqlite.Pool, client_package: ClientPac
         display_name = payload["display_name"]
     except KeyError:
         payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
-        raise InvalidPayload(f"Invalid payload passed. expected keys \"username\", \"passwor\", \"display_name\", instead got {payload_keys}")
+        raise InvalidPayload(
+            f"Invalid payload passed. expected keys \"username\", \"passwor\", \"display_name\", instead got {payload_keys}")
 
     hashed_password, salt = generate_hashed_password(password=password)
     user_id = generate_user_id(username=username)
@@ -164,7 +168,6 @@ async def user_signup_and_login(db_pool: asqlite.Pool, client_package: ClientPac
     async with db_pool.acquire() as connection:
         # using a transaction since im creating 2 queries that rely on each other
         async with connection.transaction():
-
             # making sure that the user doesn't already exist
             user_exists = await queries.User.user_exists(connection=connection, username=username)
 
@@ -191,21 +194,22 @@ async def user_signup_and_login(db_pool: asqlite.Pool, client_package: ClientPac
     # sends the client the session token and the user ID
     client.write(
         ServerMessage(
-                status={
-                    "code": 200,
-                    "message": "success"
-                },
-                method="respond",
-                endpoint="user/login",
-                payload={
-                    "session_token": user_session_token,
-                    "user_id": user_id,
-                }
+            status={
+                "code": 200,
+                "message": "success"
+            },
+            method="respond",
+            endpoint="user/login",
+            payload={
+                "session_token": user_session_token,
+                "user_id": user_id,
+            }
         ).encode()
     )
 
 
-async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage, _: UserCache):
+async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage,
+                      _: UserCache):
     """
     this function is used to create a new user account, however it does NOT automatically log the user in (for now, may change)
 
@@ -248,7 +252,8 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
         display_name = payload["display_name"]
     except KeyError:
         payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
-        raise InvalidPayload(f"Invalid payload passed. expected keys \"username\", \"passwor\", \"display_name\", instead got {payload_keys}")
+        raise InvalidPayload(
+            f"Invalid payload passed. expected keys \"username\", \"passwor\", \"display_name\", instead got {payload_keys}")
 
     hashed_password, salt = generate_hashed_password(password=password)
     user_id = generate_user_id(username=username)
@@ -275,7 +280,6 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
     async with db_pool.acquire() as connection:
         # using a transaction since im creating 2 queries that rely on each other
         async with connection.transaction():
-
             # making sure that the user doesn't already exist
             user_exists = await queries.User.user_exists(connection=connection, username=username)
 
@@ -294,20 +298,21 @@ async def user_signup(db_pool: asqlite.Pool, client_package: ClientPackage, clie
     # sends a message to the client to show that the account creation was successful and sends the user ID to the client
     client.write(
         ServerMessage(
-                status={
-                    "code": 200,
-                    "message": "success"
-                },
-                method="respond",
-                endpoint="user/signup",
-                payload={
-                    "user_id": user_id,
-                }
+            status={
+                "code": 200,
+                "message": "success"
+            },
+            method="respond",
+            endpoint="user/signup",
+            payload={
+                "user_id": user_id,
+            }
         ).encode()
     )
 
 
-async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage, user_cache: UserCache):
+async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage,
+                     user_cache: UserCache):
     """
     this function is used to log a user in, by accepting a password and username (then checking that they are valid)
     and generating a session token and returns the user id.
@@ -356,7 +361,8 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
         password = payload["password"]
     except KeyError:
         payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
-        raise InvalidPayload(f"Invalid payload passed. expected key \"username\", \"password\", instead got {payload_keys}")
+        raise InvalidPayload(
+            f"Invalid payload passed. expected key \"username\", \"password\", instead got {payload_keys}")
 
     async with db_pool.acquire() as connection:
         user = await queries.User.fetch_user(
@@ -384,15 +390,137 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
     # sends the client the session token and the user ID
     client.write(
         ServerMessage(
-                status={
-                    "code": 200,
-                    "message": "success"
-                },
-                method="respond",
-                endpoint="user/login",
-                payload={
-                    "session_token": user_session_token,
-                    "user_id": user_id,
-                }
+            status={
+                "code": 200,
+                "message": "success"
+            },
+            method="respond",
+            endpoint="user/login",
+            payload={
+                "session_token": user_session_token,
+                "user_id": user_id,
+            }
         ).encode()
     )
+
+
+class UploadSong:
+    def __init__(self):
+
+        # gotten from song/upload
+        # dict[
+        #     request_id, dict[
+        #                 "tags": list[str],
+        #                 "artist_name": str,
+        #                 "album_name": str,
+        #                 "song_name": str,
+        #                 "song_id": str,
+        #                 "image_ids": list[str],
+        #                 "request_id": str
+        #     ]
+        # ]
+        self.song_information: dict[
+            str, dict[str, str | list[str]]
+        ]
+
+        # gotten from song/upload/file
+        # dict[
+        #     tuple[request_id, file_id]: dict[
+        #                                 chunks: list[bytes],
+        #                                 chunk_number: int,
+        #                                 file_type: str ("image" or "audio")
+        #     ]
+        # ]
+        self.files: dict[
+            tuple[str, str], dict[str, list[bytes] | int | str]
+        ] = {}
+
+    async def upload_song(
+            self,
+            db_pool: asqlite.Pool,
+            client_package: ClientPackage,
+            client_message: ClientMessage,
+            user_cache: UserCache
+    ):
+        """
+        this function is used in order to upload file INFORMATION (not bytes). this function also gathers all the
+        file_ids that are to-be-sent in order to organize and combine the chunks later
+
+        this function is tied to song/upload (POST)
+
+        expected payload:
+        {
+            "tags": list[str],
+            "artist_name": str,
+            "album_name": str,
+            "song_name": str,
+            "song_id": str,
+            "image_ids": list[str],
+            "request_id": str
+        }
+
+        expected output:
+        None
+
+        expected cache pre-function:
+        > address
+        > iv
+        > aes_key
+        > user_id
+        > session_token
+
+        expected cache post-function:
+        > address
+        > iv
+        > aes_key
+        > user_id
+        > session_token
+        """
+        pass
+
+    async def upload_song_file(
+            self,
+            db_pool: asqlite.Pool,
+            client_package: ClientPackage,
+            client_message: ClientMessage,
+            user_cache: UserCache
+    ):
+        """
+        this function is used in order to upload file bytes in chunks. it later uses the information gathered in order
+        to build the full file and save it
+
+        this function is tied to song/upload (POST)
+
+        expected payload:
+        {
+            "tags": list[str],
+            "artist_name": str,
+            "album_name": str,
+            "song_name": str,
+            "song_id": str,
+            "image_ids": list[str],
+            "request_id": str
+        }
+
+        expected output (after the last chunk):
+        {
+            "shazam_artist_name": str,
+            "shazam_album_name": str,
+            "shazam_song_name": str
+        }
+
+        expected cache pre-function:
+        > address
+        > iv
+        > aes_key
+        > user_id
+        > session_token
+
+        expected cache post-function:
+        > address
+        > iv
+        > aes_key
+        > user_id
+        > session_token
+        """
+        pass
