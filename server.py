@@ -117,6 +117,7 @@ class ServerProtocol(asyncio.Protocol):
         given_method = client_message.method
         client_session_token = client_message.authentication
 
+        # todo: validate authentication (session token)
         if EndPoint(endpoint=requested_endpoint, method=given_method, authentication=client_session_token) in self.endpoints:
             server_action_function = self.endpoints[requested_endpoint]
 
