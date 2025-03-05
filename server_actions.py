@@ -476,7 +476,53 @@ class UploadSong:
         > user_id
         > session_token
         """
-        pass
+
+        client = client_package.client
+        address = client_package.address
+
+        # checks if the client has completed the key exchange
+        if not client.key or not client.iv:
+            raise NoEncryption("missing encryption values: please re-authenticate")
+
+        client_user_cache: UserCacheItem = user_cache[address]
+        payload = client_message.payload
+
+        try:
+            tags: list[str] = payload["tags"]
+            artist_name: str = payload["artist_name"]
+            album_name: str = payload["album_name"]
+            song_name: str = payload["song_name"]
+            song_id: str = payload["song_id"]
+            image_ids: list[str] = payload["image_ids"]
+            request_id: str = payload["request_id"]
+        except KeyError:
+            payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+            raise InvalidPayload(
+                f"Invalid payload passed. expected keys \"tags\", \"artist_name\", \"album_name\", \"song_name\", "
+                f"\"song_id\", \"image_ids\", \"request_id\", instead got {payload_keys}")
+
+        # checks for "too long" type inputs (too many items in a list or name too long)
+        if len(tags) > 5:
+            raise TooLong("too many tags given. maximum amount possible is 5", extra={"type": "tags"})
+        elif len(artist_name) > 100:
+            raise TooLong("artist name too long, must be shorter than 100 characters", extra={"type": "artist"})
+        elif len(album_name) > 100:
+            raise TooLong("album name too long, must be shorter than 100 characters", extra={"type": "album"})
+        elif len(song_name) > 100:
+            raise TooLong("artist name too long, must be shorter than 100 characters", extra={"type": "song"})
+
+        # checks for too short
+        if len(tags) < 1:
+            raise TooShort("too many tags given. minimum amount possible is 1", extra={"type": "tags"})
+        elif len(artist_name) < 1:
+            raise TooShort("artist name too short, must be longer than 1 character", extra={"type": "artist"})
+        elif len(album_name) < 1:
+            raise TooShort("album name too short, must be longer than 1 character", extra={"type": "album"})
+        elif len(song_name) < 1:
+            raise TooShort("artist name too short, must be longer than 1 character", extra={"type": "song"})
+
+
+
 
     async def upload_song_file(
             self,
