@@ -1,5 +1,11 @@
 from typing import Callable
-from server_actions import authenticate_client, user_signup, user_login, user_signup_and_login
+from server_actions import (
+    authenticate_client,
+    user_signup,
+    user_login,
+    user_signup_and_login,
+    UploadSong
+)
 
 from dataclasses import dataclass
 
@@ -31,6 +37,13 @@ class EndPoints:
     """
 
     def __init__(self):
+        # in order to easily gather all the chunks in the same location, we use a class that is created when we initialize
+        # the EndPoint class and it stores all of the information in the class so that it is easily accessed across
+        # different function calls.
+        # due to the way im initializing this, it means that any new instance of EndPoints will also make a new instance
+        # of the cache, this means we cannot create multiple instances of EndPoints to be used in the same application
+        upload_song_cache: UploadSong = UploadSong()
+
         # these are the endpoints where the client sends to the server
         self.endpoints: dict[str, tuple["EndPointRequires", Callable]] = {
             # authentication/key_exchange is used to share the encryption key between the server and client.
@@ -60,7 +73,13 @@ class EndPoints:
             # song/upload is used to upload: the song file, description, tabs (images), artist, name and genre tags.
             "song/upload": (
                 EndPointRequires(method="post", authentication=True),
-                # todo: create function to handle uploading songs
+                upload_song_cache.upload_song
+            ),
+
+            # song/upload/file is used to actually gather the chunks that are sent (related to song/upload)
+            "song/upload/file": (
+                EndPointRequires(method="post", authentication=True),
+                upload_song_cache.upload_song_file
             )
         }
         # endpoint -> (requirements, function)
