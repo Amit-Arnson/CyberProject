@@ -1,5 +1,7 @@
 import os
 
+import asyncio
+
 from pseudo_http_protocol import ClientMessage, ServerMessage
 from Caches.client_cache import ClientPackage
 from Caches.user_cache import UserCache, UserCacheItem
@@ -406,26 +408,29 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
 
 class UploadSong:
     def __init__(self):
+        # to prevent any data corruption/race conditions
+        self._lock = asyncio.Lock()
 
         # gotten from song/upload
         # dict[
         #     request_id, dict[
+        #                 "user_id": str
         #                 "tags": list[str],
         #                 "artist_name": str,
         #                 "album_name": str,
         #                 "song_name": str,
         #                 "song_id": str,
         #                 "image_ids": list[str],
-        #                 "request_id": str
         #     ]
         # ]
         self.song_information: dict[
             str, dict[str, str | list[str]]
-        ]
+        ] = {}
 
         # gotten from song/upload/file
         # dict[
         #     tuple[request_id, file_id]: dict[
+        #                                 "user_id": str
         #                                 chunks: list[bytes],
         #                                 chunk_number: int,
         #                                 file_type: str ("image" or "audio")
@@ -485,6 +490,8 @@ class UploadSong:
             raise NoEncryption("missing encryption values: please re-authenticate")
 
         client_user_cache: UserCacheItem = user_cache[address]
+        user_id: str = client_user_cache.user_id
+
         payload = client_message.payload
 
         try:
@@ -521,8 +528,21 @@ class UploadSong:
         elif len(song_name) < 1:
             raise TooShort("artist name too short, must be longer than 1 character", extra={"type": "song"})
 
+        # todo: decide whether i want to make only a set amount of tags available
 
+        if request_id in self.song_information:
+            raise # todo: check which error to raise
 
+        async with self._lock:
+            self.song_information[request_id] = {
+                "user_id": user_id,
+                "tags": tags,
+                "artist_name": artist_name,
+                "album_name": album_name,
+                "song_name": song_name,
+                "song_id": song_id,
+                "image_ids": image_ids
+            }
 
     async def upload_song_file(
             self,
@@ -539,13 +559,12 @@ class UploadSong:
 
         expected payload:
         {
-            "tags": list[str],
-            "artist_name": str,
-            "album_name": str,
-            "song_name": str,
-            "song_id": str,
-            "image_ids": list[str],
-            "request_id": str
+            "request_id": str,
+            "file_type": str,
+            "file_id": str,
+            "chunk": bytes,
+            "chunk_number": int,
+            "is_last_chunk": bool
         }
 
         expected output (after the last chunk):
@@ -569,4 +588,28 @@ class UploadSong:
         > user_id
         > session_token
         """
-        pass
+
+        client = client_package.client
+        address = client_package.address
+
+        # checks if the client has completed the key exchange
+        if not client.key or not client.iv:
+            raise NoEncryption("missing encryption values: please re-authenticate")
+
+        client_user_cache: UserCacheItem = user_cache[address]
+        user_id: str = client_user_cache.user_id
+
+        payload = client_message.payload
+
+        try:
+            request_id: list[str] = payload["request_id"]
+            file_type: str = payload["file_type"]
+            file_id: str = payload["file_id"]
+            chunk: bytes = payload["chunk"]
+            chunk_number: int = payload["chunk_number"]
+            is_last_chunk: bool = payload["is_last_chunk"]
+        except KeyError:
+            payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+            raise InvalidPayload(
+                f"Invalid payload passed. expected keys \"request_id\", \"file_type\", \"file_id\", \"chunk\", "
+                f"\"chunk_number\", \"is_last_chunk\", instead got {payload_keys}")
