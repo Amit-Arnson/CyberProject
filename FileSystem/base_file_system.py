@@ -8,7 +8,7 @@ import asqlite
 from FileSystem.file_extension import Extension
 
 # todo: deal with circular imports
-from FileSystem.audio_file import AudioFile
+# from FileSystem.audio_file import AudioFile
 
 from queries import FileSystem
 
@@ -166,13 +166,46 @@ class System:
 
         # todo: see if maybe automatic save to image/audio file tables. check doc-string for reference
 
+    async def get_id(self) -> tuple[str, str, str]:
+        """
+        creates/retrieves the save dir (which is the path of main_dir/cluster_id), a free cluster ID and creates a new file ID
+        :returns: tuple[save directory, cluster ID, file ID]
+        """
 
-    async def save_stream(self, chunk: bytes):
-        # todo: todo save chunks in file directly and not im memory
-        pass
+        # finds a free cluster's directory path. if a free cluster does not exist, it creates on.
+        save_directory, cluster_id = await self._find_free_cluster()
+
+        # create a random file ID to save the file under
+        file_id = await self._create_file_id()
+
+        print(f"created IDs: {save_directory}/{file_id}")
+
+        return save_directory, cluster_id, file_id
+
+    async def save_stream(self, chunk: "FileChunk", uploaded_by_id: str, total_size: int, is_last_chunk: bool):
+        try:
+            # saves the file under main_dir/cluster_dir/file_id
+            await chunk.save()
+        except Exception as e:
+            print(f"error: {e}: save dir: {chunk.save_directory}, file ID: {chunk.file_id}, user ID: {uploaded_by_id}")
+            raise e
+
+        # save the file in the database
+
+        if is_last_chunk:
+            async with self.db_pool.acquire() as connection:
+                await FileSystem.create_base_file(
+                    connection=connection,
+                    cluster_id=chunk.cluster_id,
+                    file_id=chunk.file_id,
+                    user_uploaded_id=uploaded_by_id,
+                    size=total_size
+                )
+
+        return chunk.file_id, chunk.save_directory
 
     async def save_audio(self,
-                         file: AudioFile,
+                         file: "AudioFile",
                          uploaded_by_id: str,
                          artist_name: str,
                          album_name: str,
@@ -214,6 +247,46 @@ class System:
             )
 
         return file_id, save_directory
+
+
+class FileChunk:
+    """
+    A class that represents a small part of a file (the "chunk" of a file), and is able to store the chunk's metadata
+    in order to easily handle it
+    """
+
+    def __init__(self, chunk: bytes, file_id: str, cluster_id: str, save_directory: str, chunk_number: int):
+        self.chunk = chunk
+
+        self.file_id = file_id
+        self.cluster_id = cluster_id
+        self.save_directory = save_directory
+        self.chunk_number = chunk_number
+
+        self.size = len(chunk)
+
+    async def save(self, last_chunk_number: int | None = None) -> str:
+        # combines the name (ID) of the file with the directory it should be saved under
+        # main_dir/cluster_id/file_name
+        path: str = os.path.join(self.save_directory, self.file_id)
+
+        # if we have a last_chunk_number available, and it is actually the previous number, OR if we don't have a
+        # last_chunk_number, it will be True (this is because, if we don't have a last chunk available we cant "insert" it
+        # into a position, so we assume it is in position already). otherwise, we say the chunks are unordered
+        chunk_in_order = True if last_chunk_number and last_chunk_number + 1 == self.chunk_number or not last_chunk_number else False
+
+        try:
+            if chunk_in_order:
+                async with aiofiles.open(path, "ab") as file:
+                    await file.write(self.chunk)
+            else:
+                # todo: make it be able to "insert" correctly
+                raise Exception(f"out of order chunks: {self.file_id}")
+        except Exception as e:
+            logging.error(e)
+            raise Exception(f"failed to save file \"{path}\" under file.save() (FileChunk)")
+
+        return path
 
 
 class BaseFile:
