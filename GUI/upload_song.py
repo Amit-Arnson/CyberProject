@@ -7,6 +7,9 @@ from GUI.Controls.tag_input import TagInput
 
 from Caches.user_cache import ClientSideUserCache
 
+from Utils.chunk import send_chunk
+import aiofiles
+
 
 class UploadPage:
     def __init__(self, page: ft.Page):
@@ -29,6 +32,8 @@ class UploadPage:
         self.user_cache: ClientSideUserCache | None = None
         if hasattr(page, "user_cache"):
             self.user_cache: ClientSideUserCache = page.user_cache
+
+        print(self.user_cache.session_token)
 
         self.sidebar = NavigationSidebar(page=page)
 
@@ -78,8 +83,36 @@ class UploadPage:
             file_type=ft.FilePickerFileType.IMAGE
         )
 
-    def _on_finish_sound_select(self, e: ft.FilePickerResultEvent):
+    async def _on_finish_sound_select(self, e: ft.FilePickerResultEvent):
         selected_files = e.files
+
+        if not selected_files:
+            return
+
+        session_token: str = self.user_cache.session_token
+        print(f"session token: {session_token}")
+
+        audio_file = selected_files[0]
+        file_path: str = audio_file.path
+
+        try:
+            async with aiofiles.open(file_path, "rb") as file:
+                file_bytes = await file.read()
+        except Exception as e:
+            print(e)
+
+        await send_chunk(
+            transport=self.transport,
+            session_token=session_token,
+            tags=["one", "two"],
+            artist_name="a",
+            album_name="b",
+            song_name="c",
+            song_path=file_path,
+        )
+
+        print(audio_file)
+        print(type(audio_file))
         print(e.files)
         print("selected audio")
 
