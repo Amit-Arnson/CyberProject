@@ -1,4 +1,5 @@
 # this file is used as a way to organize all the needed SQL queries
+import json
 import time
 
 from asqlite import ProxiedConnection
@@ -83,6 +84,33 @@ class FileSystem:
             await connection.execute(
                 """UPDATE clusters SET current_size = current_size + 1 WHERE cluster_id = ?""",
                 cluster_id
+            )
+
+    @staticmethod
+    async def create_audio_file(
+            connection: ProxiedConnection,
+            file_id: str,
+            user_uploaded_id: str,
+            artist_name: str,
+            album_name: str,
+            song_name: str,
+            song_length: int,
+            tags: list[str]
+    ) -> None:
+        tag_string: str = json.dumps(tags)
+
+        async with connection.transaction():
+            file_already_exists: bool = await FileSystem.does_file_exist(connection=connection, file_id=file_id)
+
+            if not file_already_exists:
+                raise Exception("file must exist in base case in order to save the audio file")
+
+            await connection.execute(
+                """
+                INSERT INTO audio_files
+                (file_id, user_id, artist_name, album_name, song_name, song_length, tags) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                file_id, user_uploaded_id, artist_name, album_name, song_name, song_length, tag_string
             )
 
     @staticmethod
