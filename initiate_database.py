@@ -64,15 +64,17 @@ class CreateTables:
 
     @staticmethod
     async def _create_audio_file_table(cursor: Cursor):
+        # note: tags, despite being text is actually a json.dumps of a list
         await cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS audio_files (
                 file_id PRIMARY KEY,
                 user_id NOT NULL,
-                author_name TEXT NOT NULL,
-                song_name TEXT NOT NULL,
-                album_name TEXT NOT NULL,   
+                artist_name TEXT NOT NULL,
+                album_name TEXT NOT NULL,
+                song_name TEXT NOT NULL,   
                 song_length INTEGER NOT NULL,
+                tags TEXT NOT NULL,
                 FOREIGN KEY (file_id) REFERENCES files(file_id),
                 FOREIGN KEY (user_id) REFERENCES files(user_uploaded_id)
             );
