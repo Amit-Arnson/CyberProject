@@ -110,7 +110,7 @@ async def send_file_chunks(
         file_type: FileTypes | str,
         file_id: str,
         request_id: str,
-        chunk_size: int = 4,
+        chunk_size: int = 32,
 ):
     """
     :param transport: the Encrypted Transport (which inherits from asyncio.transports.Transport) that represents a 
@@ -170,4 +170,4 @@ async def send_file_chunks(
                 ).encode()
             )
 
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.025)
