@@ -10,7 +10,18 @@ class AudioFile(BaseFile):
         )
 
         # 10 MB
-        self._max_size = 10000000
+        self._max_size: int = 10000000
+
+        # the length of the song in seconds (or milliseconds, dont know yet)
+        self._length: int | None = None
+
+    # it is async because it might need to .load() the file
+    async def get_length(self) -> int:
+        if self._length:
+            return self._length
+
+        # todo: implement logic
+        return 0
 
     def allowed_size(self) -> bool:
         """checks if the size of the file is less than the max file size that is allowed"""
