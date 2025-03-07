@@ -21,6 +21,10 @@ import queries
 
 from Errors.raised_errors import NoEncryption, InvalidCredentials, TooLong, UserExists, InvalidPayload, TooShort
 
+import gzip
+import zlib
+import io
+
 
 async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage,
                               user_cache: UserCache):
@@ -470,6 +474,33 @@ class UploadSong:
                     tuple[str, str]: dict[str: AudioFile | BaseFile | str | list[str]]
                     ] = {}
 
+    # todo: find a way to compress files without actually making them bigger
+    # due to me sending the information with chunks instead of full file, the compression actually makes the file
+    # be bigger (or only compresses it to like -2 bytes, which is not worth the compute time spent)
+    async def compress(self, data: bytes):
+        loop: asyncio.ProactorEventLoop = asyncio.get_event_loop()
+
+        compressed_data = loop.run_in_executor(None, self.compress_bytes, data)
+
+        return await compressed_data
+
+    @staticmethod
+    def compress_bytes(data):
+        """
+        Compresses the given bytes asynchronously using gzip and returns the compressed bytes.
+
+        :param data: Bytes to compress
+        :return: Compressed bytes
+        """
+
+        # with io.BytesIO() as compressed_buffer:
+        #     with gzip.GzipFile(fileobj=compressed_buffer, mode='wb') as gzip_file:
+        #         gzip_file.write(data)
+        #
+        #     return compressed_buffer.getvalue()
+
+        return zlib.compress(data, level=9)
+
     async def upload_song(
             self,
             db_pool: asqlite.Pool,
@@ -681,13 +712,13 @@ class UploadSong:
         async with self._lock:
             chunk_info = self.file_save_ids.get((request_id, file_id), {})
 
-        if not chunk_info:
-            async with self._lock:
-                print(f"created new file ID for request {request_id}")
-                save_directory, cluster_id, full_file_id = await file_system.get_id()
-                current_size = 0
+        current_size = 0
 
-                print((request_id, file_id) in self.file_save_ids)
+        if not chunk_info:
+            print(f"created new file ID for request {request_id}")
+            print((request_id, file_id) in self.file_save_ids)
+            async with self._lock:
+                save_directory, cluster_id, full_file_id = await file_system.get_id()
 
                 self.file_save_ids[(request_id, file_id)] = {
                     "paths":  (save_directory, cluster_id, full_file_id),
@@ -697,8 +728,13 @@ class UploadSong:
             save_directory, cluster_id, full_file_id = chunk_info["paths"]
             current_size = chunk_info["current_size"]
 
+        # see to do at the top of self.compress
+        # compressed_chunk = await self.compress(chunk)
+
         chunk_size = len(chunk)
         current_size += chunk_size
+
+        print(current_size)
 
         # print(f"chunk: {chunk}")
         # print(f"save: {save_directory}/{full_file_id}")
@@ -719,6 +755,7 @@ class UploadSong:
         )
 
         if is_last_chunk:
+            print("last chunk was sent. deleting info now")
             # todo: add saving the file to the audio/image table
             async with self._lock:
                 del self.file_save_ids[(request_id, file_id)]
