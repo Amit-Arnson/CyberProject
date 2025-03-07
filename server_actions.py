@@ -9,7 +9,7 @@ from Caches.user_cache import UserCache, UserCacheItem
 from AES_128 import cbc
 from DHE.dhe import DHE
 
-from FileSystem.base_file_system import FileSystem, BaseFile
+from FileSystem.base_file_system import System, BaseFile, FileChunk
 from FileSystem.audio_file import AudioFile
 
 import asqlite
@@ -414,9 +414,6 @@ class UploadSong:
         # to prevent any data corruption/race conditions
         self._lock = asyncio.Lock()
 
-        # we do not initialize the filesystem as the save dir should already be created when running server.py
-        self.file_system = FileSystem()
-
         # gotten from song/upload
         # dict[
         #     request_id, dict[
@@ -443,8 +440,19 @@ class UploadSong:
         #                                 "file_type": str ("image" or "audio")
         #     ]
         # ]
-        self.chunk_files: dict[
-            tuple[str, str], dict[str, list[bytes] | int | str]
+        # self.chunk_files: dict[
+        #     tuple[str, str], dict[str, list[bytes] | int | str]
+        # ] = {}
+
+        # dict[
+        #     tuple[request_id, file_id],
+        #     dict[
+        #         "paths": tuple[(actual) file_id, cluster_id, save_directory],
+        #         "current_size": int
+        #     ]
+        # ]
+        self.file_save_ids: dict[
+            tuple[str, str], dict[str, tuple[str, str, str] | int]
         ] = {}
 
         # dict[
@@ -459,8 +467,8 @@ class UploadSong:
         #     ]
         # ]
         self.files: dict[
-            tuple[str, str]: dict[str: AudioFile | BaseFile | str | list[str]]
-        ] = {}
+                    tuple[str, str]: dict[str: AudioFile | BaseFile | str | list[str]]
+                    ] = {}
 
     async def upload_song(
             self,
@@ -553,7 +561,7 @@ class UploadSong:
         # todo: decide whether i want to make only a set amount of tags available
 
         if request_id in self.song_information:
-            raise # todo: check which error to raise
+            raise  # todo: check which error to raise
 
         async with self._lock:
             self.song_information[request_id] = {
@@ -642,6 +650,9 @@ class UploadSong:
         > session_token
         """
 
+        # we do not initialize the filesystem as the save dir should already be created when running server.py
+        file_system = System(db_pool=db_pool)
+
         client = client_package.client
         address = client_package.address
 
@@ -667,43 +678,88 @@ class UploadSong:
                 f"Invalid payload passed. expected keys \"request_id\", \"file_type\", \"file_id\", \"chunk\", "
                 f"\"chunk_number\", \"is_last_chunk\", instead got {payload_keys}")
 
-        file_chunks = self.chunk_files.get((request_id, file_id))
-        expected_chunk = 0
+        async with self._lock:
+            chunk_info = self.file_save_ids.get((request_id, file_id), {})
 
-        if file_chunks:
-            expected_chunk = file_chunks["chunk_number"]
-
-        if expected_chunk != chunk_number:
-            raise # todo: see which error to raise
-
-        chunk_size = len(chunk)
-
-        if not file_chunks:
+        if not chunk_info:
             async with self._lock:
-                self.chunk_files[(request_id, file_id)] = {
-                    "user_id": user_id,
-                    # add the first chunk as a list[bytes]
-                    "chunks": [chunk],
-                    # the size of all the current chunks (in bytes)
-                    "current_size": chunk_size,
-                    # increment the chunk count (0 -> 1)
-                    "chunk_number": 1,
-                    "file_type": file_type
+                print(f"created new file ID for request {request_id}")
+                save_directory, cluster_id, full_file_id = await file_system.get_id()
+                current_size = 0
+
+                print((request_id, file_id) in self.file_save_ids)
+
+                self.file_save_ids[(request_id, file_id)] = {
+                    "paths":  (save_directory, cluster_id, full_file_id),
+                    "current_size": 0
                 }
         else:
-            async with self._lock:
-                all_file_chunks = self.chunk_files[(request_id, file_id)]
+            save_directory, cluster_id, full_file_id = chunk_info["paths"]
+            current_size = chunk_info["current_size"]
 
-                all_file_chunks["chunks"].append(chunk)
-                all_file_chunks["current_size"] += chunk_size
-                all_file_chunks["chunk_number"] += 1
+        chunk_size = len(chunk)
+        current_size += chunk_size
+
+        # print(f"chunk: {chunk}")
+        # print(f"save: {save_directory}/{full_file_id}")
+
+        file_chunk = FileChunk(
+            chunk=chunk,
+            cluster_id=cluster_id,
+            file_id=full_file_id,
+            save_directory=save_directory,
+            chunk_number=chunk_number
+        )
+
+        await file_system.save_stream(
+            chunk=file_chunk,
+            uploaded_by_id=user_id,
+            total_size=current_size,
+            is_last_chunk=is_last_chunk
+        )
 
         if is_last_chunk:
-            await self._chunks_to_file(
-                request_id=request_id,
-                file_id=file_id,
-                chunk_dict=all_file_chunks
-            )
-
+            # todo: add saving the file to the audio/image table
             async with self._lock:
-                del self.chunk_files[(request_id, file_id)]
+                del self.file_save_ids[(request_id, file_id)]
+
+        # file_chunks = self.chunk_files.get((request_id, file_id))
+        # expected_chunk = 0
+        #
+        # if file_chunks:
+        #     expected_chunk = file_chunks["chunk_number"]
+        #
+        # if expected_chunk != chunk_number:
+        #     raise # todo: see which error to raise
+        #
+        # chunk_size = len(chunk)
+        #
+        # if not file_chunks:
+        #     async with self._lock:
+        #         self.chunk_files[(request_id, file_id)] = {
+        #             "user_id": user_id,
+        #             # add the first chunk as a list[bytes]
+        #             "chunks": [chunk],
+        #             # the size of all the current chunks (in bytes)
+        #             "current_size": chunk_size,
+        #             # increment the chunk count (0 -> 1)
+        #             "chunk_number": 1,
+        #             "file_type": file_type
+        #         }
+        # else:
+        #     async with self._lock:
+        #         all_file_chunks = self.chunk_files[(request_id, file_id)]
+        #
+        #         all_file_chunks["chunks"].append(chunk)
+        #         all_file_chunks["current_size"] += chunk_size
+        #         all_file_chunks["chunk_number"] += 1
+        #
+        # if is_last_chunk:
+        #     await self._chunks_to_file(
+        #         request_id=request_id,
+        #         file_id=file_id,
+        #         chunk_dict=all_file_chunks
+        #     )
+        #
+        #     async with self._lock:
+        #         del self.chunk_files[(request_id, file_id)]
