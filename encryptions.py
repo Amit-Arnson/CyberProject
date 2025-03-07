@@ -1,9 +1,58 @@
+import base64
+
 import asyncio
 from typing import Optional
+
+import pyaes
 
 from AES_128 import cbc
 
 
+from Crypto.Cipher import AES
+
+
+def pad(plaintext):
+    """Pads the plaintext to make its length a multiple of 16 bytes (block size)."""
+    padding_length = 16 - (len(plaintext) % 16)
+    padding = chr(padding_length) * padding_length
+    return plaintext + padding.encode()
+
+def unpad(plaintext):
+    """Removes the padding from the plaintext."""
+    padding_length = plaintext[-1]  # The last byte represents the padding length
+    return plaintext[:-padding_length]
+
+def aes_cbc_encrypt(plaintext, key, iv):
+    """Encrypts plaintext using AES CBC mode."""
+
+    # Create AES cipher in CBC mode
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+
+    # Encrypt the padded plaintext
+    ciphertext = cipher.encrypt(pad(plaintext))
+
+    # Return the IV and ciphertext (both are needed for decryption)
+    return base64.b64encode(iv + ciphertext)  # Encode as Base64 for easier storage/transmission
+
+def aes_cbc_decrypt(ciphertext, key):
+    """Decrypts ciphertext using AES CBC mode."""
+    # Decode the Base64 encoded ciphertext
+    ciphertext = base64.b64decode(ciphertext)
+
+    iv = ciphertext[:16]
+    # Extract the IV (first 16 bytes) and the encrypted message
+    actual_ciphertext = ciphertext[16:]
+
+    # Create AES cipher in CBC mode with the extracted IV
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+
+    # Decrypt and unpad the plaintext
+    plaintext = cipher.decrypt(actual_ciphertext)
+    return unpad(plaintext)
+
+
+# todo: fix my cbc code and not use pycryptodome
+# issue: when sending over large data or data in general very fast, it breaks the padding and unpadding for some reason
 class EncryptedTransport(asyncio.Transport):
     def __init__(self, transport: asyncio.Transport, key: Optional[bytes] = None, iv: Optional[bytes] = None):
         super().__init__()
@@ -14,7 +63,7 @@ class EncryptedTransport(asyncio.Transport):
         if key and len(key) != 16:
             raise ValueError(f"expected 16 byte key, got {len(key)} bytes instead")
 
-        if key and len(iv) != 16:
+        if iv and len(iv) != 16:
             raise ValueError(f"expected 16 byte IV, got {len(iv)} bytes instead")
 
     def write(self, data: bytes) -> None:
@@ -23,7 +72,12 @@ class EncryptedTransport(asyncio.Transport):
         data is only encrypted if a key and iv are passed
         """
         if self.key and self.iv:
-            data = cbc.cbc_encrypt(data, key=self.key, iv=self.iv)
+            data = pad(data)
+
+            data = aes_cbc_encrypt(data, key=self.key, iv=self.iv)
+
+            #data = cbc.cbc_encrypt(data, key=self.key, iv=self.iv)
+            #data = aes.encrypt(data)
 
         self._transport.write(data)
 
@@ -34,7 +88,11 @@ class EncryptedTransport(asyncio.Transport):
         """
 
         if self.key and self.iv:
-            data = cbc.cbc_decrypt(data, key=self.key, iv=self.iv)
+            data = aes_cbc_decrypt(data, key=self.key)
+            data = unpad(data)
+
+            #data = cbc.cbc_decrypt(data, key=self.key, iv=self.iv)
+            #data = aes.decrypt(data)
 
         return data
 
