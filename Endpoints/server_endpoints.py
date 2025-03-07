@@ -16,7 +16,7 @@ class EndPointRequires:
 
     def __init__(self, method: str, authentication: bool):
         # which method it requires
-        self.method = method
+        self.method = method.lower()
         # if it requires authentication beforehand
         self.authentication = authentication
 
