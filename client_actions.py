@@ -96,6 +96,9 @@ async def user_login(page: Page, transport: EncryptedTransport, server_message: 
     user_cache.session_token = session_token
     user_cache.user_id = user_id
 
+    # todo: check why the class isnt updated globally despite classes being mutable
+    page.user_cache = user_cache
+
     # this is a temporary MainPage for testing purposes only
     MainPage(page).start()
 
