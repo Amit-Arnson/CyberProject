@@ -24,6 +24,47 @@ class MalformedMessage(Exception):
         self.code = 400
 
 
+def serialize_data(data: Any):
+    """
+    recursively encodes the data of a payload in order for it to be usable with JSON.
+    only bytes are actually encoded, any other type is left as it is.
+    """
+
+    if isinstance(data, bytes):
+        # Serialize bytes into a dictionary with the Base64 encoding and the type info
+        return {"__bytes__": b64encode(data).decode('utf-8'), "__type__": "bytes"}
+    # If it's a dictionary or list or tuple, recurse through its items to see if they also need encoding.
+    elif isinstance(data, dict):
+        return {key: serialize_data(value) for key, value in data.items()}
+    # the syntax for iterating through a list and through a tuple are the same, so we can combine them
+    elif isinstance(data, list | tuple):
+        return [serialize_data(item) for item in data]
+    else:
+        # For other types (int, bool, str, etc.), leave them as they are
+        return data
+
+
+# recursively decode the data of a payload
+def deserialize_data(data: Any):
+    """
+    recursively decodes the data of a payload. this should be used when creating an object .from_bytes(...).
+    """
+
+    if isinstance(data, dict):
+        # Check if it's the special bytes indicator (which is added when serializing the initial data)
+        if "__bytes__" in data and "__type__" in data and data["__type__"] == "bytes":
+            # Decode from Base64 and return as bytes
+            return b64decode(data["__bytes__"])
+        # Recurse through the dictionary
+        return {key: deserialize_data(value) for key, value in data.items()}
+    elif isinstance(data, list | tuple):
+        # Recurse through the list/tuple
+        return [deserialize_data(item) for item in data]
+    else:
+        # For other types, just return the value as is
+        return data
+
+
 @dataclass
 class ClientMessage:
     """
@@ -86,7 +127,15 @@ class ClientMessage:
         authentication = message_dict.get("authentication")
         endpoint = message_dict.get("endpoint")
         method = message_dict.get("method")
-        payload = message_dict.get("payload")
+
+        # if its in byte form, it means the payload is b64 encoded (see serialize_data())
+        # since payloads are allowed to be empty, if the payload doesn't exist we replace it with an empty dict
+        payload = message_dict.get("payload", {})
+
+        # payload IS allowed to be empty.
+
+        # decode the b64 values of the bytes.
+        deserialized_payload = deserialize_data(payload)
 
         if not all((endpoint, method, payload)):
             raise MalformedMessage("missing information")
@@ -95,7 +144,7 @@ class ClientMessage:
             authentication=authentication,
             endpoint=endpoint,
             method=method,
-            payload=payload
+            payload=deserialized_payload
         )
 
     def __bytes__(self) -> bytes:
@@ -106,7 +155,15 @@ class ClientMessage:
         """
         returns a dumped json of all the values (with regard for ascii)
         """
-        return json.dumps(self._dictionary(), ensure_ascii=False)
+        message_dictionary = self._dictionary()
+        message_payload = message_dictionary.get("payload", {})
+
+        # we b64 encode all the bytes in the payload, so that we can json.dumps() the payload dict.
+        json_serialized_payload = serialize_data(message_payload)
+
+        message_dictionary["payload"] = json_serialized_payload
+
+        return json.dumps(message_dictionary, ensure_ascii=False)
 
     def __getitem__(self, item: str) -> str | dict:
         """
@@ -132,48 +189,6 @@ class ServerMessage:
     payload: dict[str, Any] = None
 
     _encoded: bytes = None
-
-    # recursively encodes the data of a payload
-    @staticmethod
-    def serialize_data(data: Any):
-        """
-        recursively encodes the data of a payload in order for it to be usable with JSON.
-        only bytes are actually encoded, any other type is left as it is.
-        """
-
-        if isinstance(data, bytes):
-            # Serialize bytes into a dictionary with the Base64 encoding and the type info
-            return {"__bytes__": b64encode(data).decode('utf-8'), "__type__": "bytes"}
-        # If it's a dictionary or list or tuple, recurse through its items to see if they also need encoding.
-        elif isinstance(data, dict):
-            return {key: ServerMessage.serialize_data(value) for key, value in data.items()}
-        # the syntax for iterating through a list and through a tuple are the same, so we can combine them
-        elif isinstance(data, list | tuple):
-            return [ServerMessage.serialize_data(item) for item in data]
-        else:
-            # For other types (int, bool, str, etc.), leave them as they are
-            return data
-
-    # recursively decode the data of a payload
-    @staticmethod
-    def deserialize_data(data: Any):
-        """
-        recursively decodes the data of a payload. this should be used when creating an object .from_bytes(...).
-        """
-
-        if isinstance(data, dict):
-            # Check if it's the special bytes indicator (which is added when serializing the initial data)
-            if "__bytes__" in data and "__type__" in data and data["__type__"] == "bytes":
-                # Decode from Base64 and return as bytes
-                return b64decode(data["__bytes__"])
-            # Recurse through the dictionary
-            return {key: ServerMessage.deserialize_data(value) for key, value in data.items()}
-        elif isinstance(data, list | tuple):
-            # Recurse through the list/tuple
-            return [ServerMessage.deserialize_data(item) for item in data]
-        else:
-            # For other types, just return the value as is
-            return data
 
     def _dictionary(self):
         return {
@@ -224,7 +239,7 @@ class ServerMessage:
         endpoint = message_dict.get("endpoint")
         method = message_dict.get("method")
 
-        # if its in byte form, it means the payload is b64 encoded (see ServerMessage.serialize_data())
+        # if its in byte form, it means the payload is b64 encoded (see serialize_data())
         # since payloads are allowed to be empty, if the payload doesn't exist we replace it with an empty dict
         payload = message_dict.get("payload", {})
 
@@ -233,7 +248,7 @@ class ServerMessage:
             raise MalformedMessage("missing information")
 
         # decode the b64 values of the bytes.
-        deserialized_payload = ServerMessage.deserialize_data(payload)
+        deserialized_payload = deserialize_data(payload)
 
         return ServerMessage(
             status=status,
@@ -256,7 +271,7 @@ class ServerMessage:
         message_payload = message_dictionary.get("payload", {})
 
         # we b64 encode all the bytes in the payload, so that we can json.dumps() the payload dict.
-        json_serialized_payload = self.serialize_data(message_payload)
+        json_serialized_payload = serialize_data(message_payload)
 
         message_dictionary["payload"] = json_serialized_payload
         return json.dumps(message_dictionary, ensure_ascii=False)
