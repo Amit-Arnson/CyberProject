@@ -1,6 +1,9 @@
 import enum
 import os
 
+import aiofiles
+import asyncio
+
 from encryptions import EncryptedTransport
 from pseudo_http_protocol import ClientMessage
 
@@ -20,10 +23,10 @@ def fast_create_unique_id(*args: str) -> str:
     unique_id = []
 
     for arg in args:
-        unique_id.append(b64encode(arg).decode())
+        unique_id.append(b64encode(arg.encode()).decode())
 
     # adds the current time in order to reduce the chance of a collision
-    unique_id.append(b64encode(time().hex()).decode())
+    unique_id.append(b64encode(str(time()).encode()).decode())
 
     # adds random bytes in order to reduce the chance of collision
     unique_id.append(b64encode(os.urandom(8)).decode())
@@ -38,8 +41,8 @@ async def send_chunk(
         artist_name: str,
         album_name: str,
         song_name: str,
-        song_bytes: bytes,
-        image_bytes_list: list[bytes],
+        song_path: str,
+        image_path_list: list[str] = None,
 ):
     # todo: describe params
     """
@@ -80,48 +83,50 @@ async def send_chunk(
     await send_file_chunks(
         transport=transport,
         session_token=session_token,
-        file=song_bytes,
+        path=song_path,
         file_type=FileTypes.AUDIO,
         file_id=song_id,
         request_id=request_id
     )
 
-    # sends all the images
-    for image_bytes, image_id in zip(image_bytes_list, image_ids):
-        await send_file_chunks(
-            transport=transport,
-            session_token=session_token,
-            file=image_bytes,
-            file_type=FileTypes.IMAGE,
-            file_id=image_id,
-            request_id=request_id
-        )
+    if image_path_list:
+        # sends all the images
+        for image_path, image_id in zip(image_path_list, image_ids):
+            await send_file_chunks(
+                transport=transport,
+                session_token=session_token,
+                path=image_path,
+                file_type=FileTypes.IMAGE,
+                file_id=image_id,
+                request_id=request_id
+            )
 
 
 # todo: check if this function actually needs to be async
 async def send_file_chunks(
         transport: EncryptedTransport,
         session_token: str,
-        file: bytes,
+        path: str,
         file_type: FileTypes | str,
         file_id: str,
         request_id: str,
-        chunk_size: int = 16,
+        chunk_size: int = 4,
 ):
     """
     :param transport: the Encrypted Transport (which inherits from asyncio.transports.Transport) that represents a 
     transport where the client has authenticated with the server.
     :param session_token: the client authentication token.
-    :param file: the file's bytes which you want to send.
+    :param path: the file's path which you want to send.
     :param file_type: the type of file that you are chunking. either "image" or "audio".
     :param file_id: the personal ID of the file that is about to be sent. this is in order to group the file chunks with
     each-other without causing confusion. note: this is not the same file ID as what will be created server side in order
     to save and index the files.
     :param request_id: the unique ID of the request. this is used in order to group the chunks later on.
-    :param chunk_size: the size (in kilobytes) which you want to each chunk to be, default 16.
+    :param chunk_size: the size (in kilobytes) which you want to each chunk to be, default 4.
     
     sends to (endpoint): songs/upload/file (POST)
     """
+    file_type = file_type.value if isinstance(file_type, FileTypes) else file_type
 
     if file_type not in ("image", "audio"):
         raise ValueError(f"unknown file type: {file_type}")
@@ -129,27 +134,40 @@ async def send_file_chunks(
     # changes from a kilobyte amount (such as 16) into a kilobyte value (such as 16384)
     chunk_size: int = chunk_size * KILOBYTE
 
-    file_size: int = len(file)
+    # file_size: int = len(file)
 
     # splits the chunks equally based on chunk size
-    for chunk_number, start in enumerate(range(0, file_size, chunk_size)):
-        chunk = file[start:start + chunk_size]
-        is_last_chunk = (start + chunk_size >= file_size)
+    # for chunk_number, start in enumerate(range(0, file_size, chunk_size)):
 
-        payload = {
-            "request_id": request_id,
-            "file_type": file_type,
-            "file_id": file_id,
-            "chunk": chunk,
-            "chunk_number": chunk_number,
-            "is_last_chunk": is_last_chunk
-        }
+    async with aiofiles.open(path, "rb") as file:
+        chunk_number = 0
 
-        transport.write(
-            ClientMessage(
-                authentication=session_token,
-                method="POST",
-                endpoint="song/upload/file",
-                payload=payload
-            ).encode()
-        )
+        while True:
+            chunk = await file.read(chunk_size)
+
+            print(len(chunk))
+            if not chunk:
+                break
+
+            is_last_chunk = await file.peek(1) == b""
+            chunk_number += 1
+
+            payload = {
+                "request_id": request_id,
+                "file_type": file_type,
+                "file_id": file_id,
+                "chunk": chunk,
+                "chunk_number": chunk_number,
+                "is_last_chunk": is_last_chunk
+            }
+
+            transport.write(
+                ClientMessage(
+                    authentication=session_token,
+                    method="POST",
+                    endpoint="song/upload/file",
+                    payload=payload
+                ).encode()
+            )
+
+            await asyncio.sleep(0.1)
