@@ -7,6 +7,9 @@ import aiofiles
 import asqlite
 from FileSystem.file_extension import Extension
 
+# todo: deal with circular imports
+from FileSystem.audio_file import AudioFile
+
 from queries import FileSystem
 
 
@@ -65,7 +68,6 @@ class System:
         unique_file_id = ""
         exists = True
         while exists:
-
             unique_file_id = self._create_unique_id()
 
             async with self.db_pool.acquire() as connection:
@@ -83,7 +85,6 @@ class System:
         unique_cluster_id = ""
         exists = True
         while exists:
-
             unique_cluster_id = self._create_unique_id()
 
             async with self.db_pool.acquire() as connection:
@@ -164,6 +165,55 @@ class System:
         return file_id, save_directory
 
         # todo: see if maybe automatic save to image/audio file tables. check doc-string for reference
+
+
+    async def save_stream(self, chunk: bytes):
+        # todo: todo save chunks in file directly and not im memory
+        pass
+
+    async def save_audio(self,
+                         file: AudioFile,
+                         uploaded_by_id: str,
+                         artist_name: str,
+                         album_name: str,
+                         song_name: str,
+                         tags: list[str],
+                         ) -> tuple[str, str]:
+        """
+        accepts an audio file (which inherits from BaseFile) and saves it to both the base file table, and also
+        to the audio file table.
+
+        do not use .save() and .save_audio() on the same file, as .save_audio() already calls .save() for you
+
+        :param file: the file you want to save
+        :param uploaded_by_id: the user ID who uploaded the file
+        :param artist_name: the name of the artist of the song
+        :param album_name: the name of the album of the song
+        :param song_name: the name of the song
+        :param tags: the genre tags of the song
+
+        :returns: the saved file's ID and the save cluster ID
+        """
+        file_id, save_directory = self.save(file=file, uploaded_by_id=uploaded_by_id)
+
+        # in seconds
+        # todo: see if i can find it in seconds or in milliseconds
+        song_length = await file.get_length()
+
+        # save the file in the database
+        async with self.db_pool.acquire() as connection:
+            await FileSystem.create_audio_file(
+                connection=connection,
+                file_id=file_id,
+                user_uploaded_id=uploaded_by_id,
+                artist_name=artist_name,
+                album_name=album_name,
+                song_name=song_name,
+                song_length=song_length,
+                tags=tags,
+            )
+
+        return file_id, save_directory
 
 
 class BaseFile:
