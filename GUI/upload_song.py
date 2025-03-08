@@ -33,7 +33,11 @@ class UploadPage:
         if hasattr(page, "user_cache"):
             self.user_cache: ClientSideUserCache = page.user_cache
 
-        print(self.user_cache.session_token)
+        self.audio_file_path: str = ""
+        self.thumbnail_file_path: str = ""
+
+        self.sheet_image_container_id = 0
+        self.sheet_file_paths: dict[int, str] = {}
 
         self.sidebar = NavigationSidebar(page=page)
 
@@ -120,32 +124,172 @@ class UploadPage:
         print(e.files)
         print("selected image")
 
+        selected_files = e.files
+
+        if not selected_files:
+            return
+
+        # session_token: str = self.user_cache.session_token
+        # print(f"session token: {session_token}")
+
+        file_paths: list[str] = [file.path for file in selected_files]
+
+        self._add_music_sheets_to_row(file_paths)
+
+    def _remove_sheet_image(self, event: ft.ControlEvent):
+        image_container = event.control
+        image_unique_id: int = image_container.data
+
+        # removes the container from the sheet row
+        self.sheet_selector_row.controls.remove(image_container)
+
+        # removes the path from the dictionary, along with its ID key
+        del self.sheet_file_paths[image_unique_id]
+
+        self.sheet_selector_row.update()
+
+    @staticmethod
+    def _hover_sheet_image(event: ft.ControlEvent):
+        image_container = event.control
+        print(event.data)
+
+        if event.data == "true":
+            image: ft.Image = image_container.content
+
+            image_remove_overlay: ft.Stack = ft.Stack(
+                controls=[
+                    ft.Container(
+                        content=image,
+                        width=image_container.width,
+                        height=image_container.height,
+                    ),
+                    ft.Container(
+                        gradient=ft.LinearGradient(
+                            colors=[
+                                ft.Colors.with_opacity(0.6, ft.Colors.BLACK),
+                                ft.Colors.with_opacity(0.4, ft.Colors.BLACK),
+                                ft.Colors.with_opacity(0.3, ft.Colors.BLACK),
+                                ft.Colors.with_opacity(0.4, ft.Colors.BLACK),
+                                ft.Colors.with_opacity(0.6, ft.Colors.BLACK),
+                            ],
+                            begin=ft.alignment.top_center,
+                            end=ft.alignment.bottom_center
+                        ),
+                        width=image_container.width,
+                        height=image_container.height,
+                        padding=5,
+                    ),
+                    ft.Container(
+                        content=ft.Container(
+                            content=ft.Text("REMOVE", weight=ft.FontWeight.BOLD),
+                            width=image_container.width - 10,
+                            bgcolor=ft.Colors.RED_700,
+                            border_radius=10,
+                            expand_loose=True,
+                            alignment=ft.Alignment(0, 0)
+                        ),
+                        padding=5,
+                        height=40,
+                        bottom=0,
+                    ),
+                ],
+            )
+
+            image_container.content = image_remove_overlay
+        else:
+            image_remove_overlay: ft.Stack = image_container.content
+
+            image: ft.Image = image_remove_overlay.controls[0].content
+
+            image_container.content = image
+
+        image_container.update()
+
+    def _add_music_sheets_to_row(self, image_paths: list[str]):
+        image_containers: list[ft.Container] = []
+        for path in image_paths:
+            current_id = self.sheet_image_container_id
+
+            image_container = ft.Container(
+                width=150,
+                height=190,
+                content=ft.Image(
+                    src=path,
+                    fit=ft.ImageFit.FILL,
+                ),
+                border_radius=3,
+                data=current_id,
+                on_click=self._remove_sheet_image,
+                on_hover=self._hover_sheet_image,
+            )
+
+            # to be able to easily remove it later (when clicking on the image container), i made the saved paths into
+            # a dictionary with a unique ID (since the ID number increments every time, it will never be the same number)
+            self.sheet_file_paths[current_id] = path
+
+            self.sheet_image_container_id += 1
+
+            image_containers.append(image_container)
+
+        # i pop the current last item (which will always be the file selector), then append it to the end.
+        # this is done so that you dont need to scroll in order to get to the file selector
+        sheet_selector: ft.Container = self.sheet_selector_row.controls.pop()
+
+        image_containers.append(sheet_selector)
+
+        self.sheet_selector_row.controls.extend(image_containers)
+
+        self.sheet_selector_row.update()
+
     def _initialize_file_selectors(self):
         self.song_selector = ft.Container(
             on_click=self._select_sound_files,
-            width=100,
-            height=50,
+            expand=True,
+            expand_loose=True,
+            height=150,
             bgcolor=ft.Colors.RED
         )
 
         self.sheet_selector = ft.Container(
             on_click=self._select_image_files,
-            width=100,
-            height=50,
-            bgcolor=ft.Colors.GREY
+            width=150,
+            height=190,
+            content=ft.Icon(ft.Icons.ADD, color=ft.Colors.GREY_800),
+            alignment=ft.Alignment(0, 0),
+            border=ft.border.all(1, ft.Colors.GREY_800),
+            border_radius=3,
+            ink=True,
+            ink_color=ft.Colors.GREY
+        )
+
+        self.sheet_selector_row: ft.Row = ft.Row(
+            [
+                self.sheet_selector
+            ],
+            auto_scroll=True,
+            scroll=ft.ScrollMode.AUTO,
         )
 
     def _initialize_song_info_textbox(self):
         self.song_name_textbox = ft.TextField(
             label="song name",
+            expand=True,
         )
 
         self.song_album_textbox = ft.TextField(
             label="song album",
+            expand=True,
         )
 
-        self.song_band_textbox = ft.TextField(
+        self.song_artist_textbox = ft.TextField(
             label="song band",
+            expand=True,
+        )
+
+        self.song_info_row: ft.Row = ft.Row(
+            [
+                self.song_name_textbox, self.song_album_textbox, self.song_artist_textbox
+            ],
         )
 
     def _initialize_genre_tag_textbox(self):
@@ -156,6 +300,8 @@ class UploadPage:
                 right=0, top=2, bottom=2, left=2
             ),
             tag_spacing=5,
+            hint_text="add genre",
+            hint_text_padding=1
         )
 
     def _initialize_description_textbox(self):
@@ -173,18 +319,31 @@ class UploadPage:
 
         # this is just a temporary container so that something takes that space up
         aa = ft.Container(
-            expand=10,
+            padding=10,
+            expand=8,
             content=ft.Column(
                 [
                     self.song_selector,
-                    self.sheet_selector,
-                    self.song_name_textbox,
-                    self.song_album_textbox,
-                    self.song_band_textbox,
-                    self.description_textbox,
-                    self.selected_genres_textbox
-                ]
-            )
+
+                    ft.Divider(),
+
+                    self.song_info_row,
+                    # self.description_textbox,
+                    self.selected_genres_textbox,
+
+                    ft.Divider(),
+
+                    ft.Text("Add Music Sheets", weight=ft.FontWeight.BOLD),
+                    self.sheet_selector_row,
+
+                    ft.Divider(),
+
+                ],
+                expand=True,
+                scroll=ft.ScrollMode.ALWAYS,
+                auto_scroll=True
+            ),
+            alignment=ft.Alignment(-1, -1)
         )
 
         self.page_view = ft.Row(
