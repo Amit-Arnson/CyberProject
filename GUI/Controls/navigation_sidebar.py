@@ -77,7 +77,8 @@ class NavigationSidebar(ft.Container):
             on_click=self._switch_to_tempo_finder,
             on_hover=self._sidebar_item_hover,
             height=item_height,
-            width=self.sidebar_width,
+            expand=True,
+            expand_loose=True,
             content=ft.Row(
                 [
                     ft.Icon(ft.Icons.MUSIC_NOTE, **self.item_icon_values),
@@ -91,7 +92,8 @@ class NavigationSidebar(ft.Container):
             on_click=self._switch_to_ai_chat,
             on_hover=self._sidebar_item_hover,
             height=item_height,
-            width=self.sidebar_width,
+            expand=True,
+            expand_loose=True,
             content=ft.Row(
                 [
                     ft.Icon(ft.Icons.CHAT, **self.item_icon_values),
@@ -105,7 +107,8 @@ class NavigationSidebar(ft.Container):
             on_click=self._switch_to_upload_song,
             on_hover=self._sidebar_item_hover,
             height=item_height,
-            width=self.sidebar_width,
+            expand=True,
+            expand_loose=True,
             content=ft.Row(
                 [
                     ft.Icon(ft.Icons.UPLOAD_FILE, **self.item_icon_values),
@@ -122,7 +125,8 @@ class NavigationSidebar(ft.Container):
             on_click=lambda _: print("went to settings"),
             on_hover=self._sidebar_item_hover,
             height=item_height,
-            width=self.sidebar_width,
+            expand=True,
+            expand_loose=True,
             content=ft.Row(
                 [
                     ft.Icon(ft.Icons.SETTINGS, **self.item_icon_values),
@@ -136,7 +140,8 @@ class NavigationSidebar(ft.Container):
             on_click=lambda _: print("went to logout"),
             on_hover=self._sidebar_item_hover,
             height=item_height,
-            width=self.sidebar_width,
+            expand=True,
+            expand_loose=True,
             content=ft.Row(
                 [
                     ft.Icon(ft.Icons.LOGOUT, **self.item_icon_values),
