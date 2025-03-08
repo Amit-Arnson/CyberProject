@@ -2,8 +2,17 @@ import flet as ft
 
 
 class TagInput(ft.Container):
-    def __init__(self, tag_color: ft.Colors = ft.Colors.GREEN_300, tag_height: int = 40, tag_spacing: int = None,
-                 scroll: ft.ScrollMode = ft.ScrollMode.AUTO, auto_scroll: bool = False, wrap: bool = True, **kwargs):
+    def __init__(self,
+                 tag_color: ft.Colors = ft.Colors.GREEN_300,
+                 tag_height: int = 40,
+                 tag_spacing: int = None,
+                 hint_text: str = None,
+                 hint_text_padding: int = 0,
+                 scroll: ft.ScrollMode = ft.ScrollMode.AUTO,
+                 auto_scroll: bool = False,
+                 wrap: bool = True,
+                 **kwargs
+                 ):
         super().__init__(**kwargs)
 
         # to keep track of the tags when they are removed (so we can accurately remove the value from the self.values)
@@ -33,7 +42,7 @@ class TagInput(ft.Container):
             content_padding=0,
             width=100,
             expand_loose=True,
-            autofocus=True,
+            hint_text=f"{' '*hint_text_padding}{hint_text}",
         )
 
         # add the initial text field to the row
