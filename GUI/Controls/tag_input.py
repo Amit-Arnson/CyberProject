@@ -102,6 +102,35 @@ class TagInput(ft.Container):
 
         self.update()
 
+    @staticmethod
+    def _word_to_length(word: str) -> int:
+        # todo: experiment with the sizes in order to get the best fit
+        letter_to_pixel_size = {
+            'a': 10, 'b': 11, 'c': 9, 'd': 11, 'e': 10, 'f': 6,
+            'g': 11, 'h': 11, 'i': 6, 'j': 5, 'k': 10, 'l': 6,
+            'm': 16, 'n': 11, 'o': 11, 'p': 11, 'q': 11, 'r': 7,
+            's': 9, 't': 6, 'u': 11, 'v': 10, 'w': 15, 'x': 10,
+            'y': 10, 'z': 9,
+
+            # Capital letters
+            'A': 12, 'B': 13, 'C': 12, 'D': 13, 'E': 12, 'F': 11,
+            'G': 13, 'H': 13, 'I': 6, 'J': 7, 'K': 12, 'L': 10,
+            'M': 18, 'N': 14, 'O': 13, 'P': 12, 'Q': 13, 'R': 13,
+            'S': 12, 'T': 11, 'U': 13, 'V': 12, 'W': 18, 'X': 12,
+            'Y': 12, 'Z': 12
+        }
+
+        size = 0
+
+        for letter in word:
+            size += letter_to_pixel_size.get(letter, 10)
+
+            # this is done so that i can easily change the size of certain "small" letters without having to change
+            # the value for all of them manually
+            size -= 2 if letter not in ["i", "l", "j", "f", "I"] else 1
+
+        return size
+
     def _on_finish(self, e):
         """
             this function creates a tag using the current value inside of the textfield, as well as adds it to the viewable
@@ -117,11 +146,13 @@ class TagInput(ft.Container):
 
         self.textfield.value = None
 
+        value_word_length = self._word_to_length(value)
+
         tag = ft.Container(
-            width=len(value) * 9 + 30,
+            width=value_word_length + 30,
             content=ft.Row(
                 [
-                    ft.Text(value, width=len(value) * 9),
+                    ft.Text(value, width=value_word_length),
                     ft.Container(
                         content=ft.Icon(
                             ft.Icons.CLOSE,
