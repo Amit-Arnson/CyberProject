@@ -133,8 +133,9 @@ class UploadPage:
         # print(f"session token: {session_token}")
 
         file_paths: list[str] = [file.path for file in selected_files]
+        file_names: list[str] = [file.name for file in selected_files]
 
-        self._add_music_sheets_to_row(file_paths)
+        self._add_music_sheets_to_row(file_paths, file_names)
 
     def _remove_sheet_image(self, event: ft.ControlEvent):
         image_container = event.control
@@ -151,10 +152,11 @@ class UploadPage:
     @staticmethod
     def _hover_sheet_image(event: ft.ControlEvent):
         image_container = event.control
-        print(event.data)
 
         if event.data == "true":
             image: ft.Image = image_container.content
+
+            image_name: str = image.data
 
             image_remove_overlay: ft.Stack = ft.Stack(
                 controls=[
@@ -166,11 +168,11 @@ class UploadPage:
                     ft.Container(
                         gradient=ft.LinearGradient(
                             colors=[
-                                ft.Colors.with_opacity(0.6, ft.Colors.BLACK),
                                 ft.Colors.with_opacity(0.4, ft.Colors.BLACK),
-                                ft.Colors.with_opacity(0.3, ft.Colors.BLACK),
+                                ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
+                                ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
+                                ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
                                 ft.Colors.with_opacity(0.4, ft.Colors.BLACK),
-                                ft.Colors.with_opacity(0.6, ft.Colors.BLACK),
                             ],
                             begin=ft.alignment.top_center,
                             end=ft.alignment.bottom_center
@@ -181,12 +183,36 @@ class UploadPage:
                     ),
                     ft.Container(
                         content=ft.Container(
-                            content=ft.Text("REMOVE", weight=ft.FontWeight.BOLD),
+                            content=ft.Icon(
+                                ft.Icons.CLOSE,
+                                color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE),
+                            ),
+                            #padding=5,
+                            width=image_container.width / 5,
+                            bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.GREY),
+                            border_radius=180,
+                            expand_loose=True,
+                            alignment=ft.Alignment(0, 0),
+                        ),
+                        padding=5,
+                        height=40,
+                        top=0,
+                        left=0
+                    ),
+                    ft.Container(
+                        content=ft.Container(
+                            content=ft.Text(
+                                f"{image_name}",
+                                weight=ft.FontWeight.BOLD,
+                                color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE),
+                                overflow=ft.TextOverflow.ELLIPSIS
+                            ),
+                            padding=5,
                             width=image_container.width - 10,
-                            bgcolor=ft.Colors.RED_700,
+                            bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.GREY),
                             border_radius=10,
                             expand_loose=True,
-                            alignment=ft.Alignment(0, 0)
+                            alignment=ft.Alignment(0, 0),
                         ),
                         padding=5,
                         height=40,
@@ -205,9 +231,10 @@ class UploadPage:
 
         image_container.update()
 
-    def _add_music_sheets_to_row(self, image_paths: list[str]):
+    def _add_music_sheets_to_row(self, image_paths: list[str], image_names: list[str]):
         image_containers: list[ft.Container] = []
-        for path in image_paths:
+
+        for path, name in zip(image_paths, image_names):
             current_id = self.sheet_image_container_id
 
             image_container = ft.Container(
@@ -216,6 +243,7 @@ class UploadPage:
                 content=ft.Image(
                     src=path,
                     fit=ft.ImageFit.FILL,
+                    data=name
                 ),
                 border_radius=3,
                 data=current_id,
