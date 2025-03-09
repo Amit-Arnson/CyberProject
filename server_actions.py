@@ -698,6 +698,11 @@ class UploadSong:
 
         try:
             request_id: str = payload["request_id"]
+            # todo: use file_type in order to correctly save the file info into the db
+            # "audio" for the song itself
+            # "image" for the sheet music
+            # "thumbnail" for the song thumbnail (which is also "image" but should have it's own table
+            # todo: create "thumbnail" table in db
             file_type: str = payload["file_type"]
             file_id: str = payload["file_id"]
             chunk: bytes = payload["chunk"]
@@ -710,27 +715,35 @@ class UploadSong:
                 f"\"chunk_number\", \"is_last_chunk\", instead got {payload_keys}")
 
         async with self._lock:
+            # checks if the file chunks have already started, or if the current chunk is the first of the file
             chunk_info = self.file_save_ids.get((request_id, file_id), {})
 
+        # current size of the total file (in bytes)
         current_size = 0
 
         if not chunk_info:
             print(f"created new file ID for request {request_id}")
             print((request_id, file_id) in self.file_save_ids)
             async with self._lock:
+                # creates a new file ID and finds/creates a cluster ID
                 save_directory, cluster_id, full_file_id = await file_system.get_id()
 
+                # sets the current request-file ID pair to have the path values. on top of that it sets the current_size
+                # to 0 so that it can start growing from later chunks
                 self.file_save_ids[(request_id, file_id)] = {
                     "paths":  (save_directory, cluster_id, full_file_id),
-                    "current_size": 0
+                    "current_size": 0,
                 }
         else:
+            # loads the values from the dictionary, so that they can be transferred into the FileChunk in order to be
+            # saved onto the disc later on
             save_directory, cluster_id, full_file_id = chunk_info["paths"]
             current_size = chunk_info["current_size"]
 
         # see to do at the top of self.compress
         # compressed_chunk = await self.compress(chunk)
 
+        # adds the chunk size (in Bytes) to the total file size
         chunk_size = len(chunk)
         current_size += chunk_size
 
@@ -747,6 +760,7 @@ class UploadSong:
             chunk_number=chunk_number
         )
 
+        # saves the current chunk into its respective place in the file-system
         await file_system.save_stream(
             chunk=file_chunk,
             uploaded_by_id=user_id,
