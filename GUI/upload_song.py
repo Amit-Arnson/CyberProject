@@ -269,6 +269,9 @@ class UploadPage:
 
         self.sheet_selector_row.update()
 
+        # scrolls to end (where the sheet_selector is)
+        self.sheet_selector_row.scroll_to(offset=-1, duration=1000, curve=ft.AnimationCurve.EASE_IN_OUT)
+
     def _initialize_file_selectors(self):
         self.song_selector = ft.Container(
             on_click=self._select_sound_files,
@@ -294,8 +297,9 @@ class UploadPage:
             [
                 self.sheet_selector
             ],
-            auto_scroll=True,
-            scroll=ft.ScrollMode.AUTO,
+            auto_scroll=False,
+            scroll=ft.ScrollMode.ALWAYS,
+            height=220,
         )
 
     def _initialize_song_info_textbox(self):
