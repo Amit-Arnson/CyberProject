@@ -22,4 +22,10 @@ class PageError:
             open=True
         )
 
-        self.page.add(error_alert)
+        # adds the error to the page's class "page_view" parameter (check the classes under the GUI dir for a better understanding)
+
+        if hasattr(self.page, "view"):
+            self.page.view.append_error(error_alert)
+        else:
+            # todo: think of a better way to handle it
+            raise Exception("page has no attribute \"view\"")

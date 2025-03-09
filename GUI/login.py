@@ -342,6 +342,9 @@ class LoginPage:
             )
             self._raise_error_banner(error_text)
 
+    def append_error(self, error_control: ft.Control):
+        self.page_view.controls.append(error_control)
+
     def show(self, clear: bool = True):
         """:param clear: whether to clear the page before trying to add the page's content or not."""
 

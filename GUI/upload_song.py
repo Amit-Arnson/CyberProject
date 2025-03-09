@@ -368,8 +368,7 @@ class UploadPage:
                     ft.Text("Add Music Sheets", weight=ft.FontWeight.BOLD),
                     self.sheet_selector_row,
 
-                    ft.Divider(),
-
+                    ft.Divider()
                 ],
                 expand=True,
                 scroll=ft.ScrollMode.ALWAYS,
@@ -386,6 +385,9 @@ class UploadPage:
             spacing=0,
             expand=True
         )
+
+    def append_error(self, error_control: ft.Control):
+        self.page_view.controls.append(error_control)
 
     def show(self, clear: bool = True):
         """:param clear: whether to clear the page before trying to add the page's content or not."""
