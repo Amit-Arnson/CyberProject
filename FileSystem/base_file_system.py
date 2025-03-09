@@ -255,7 +255,7 @@ class FileChunk:
     in order to easily handle it
     """
 
-    def __init__(self, chunk: bytes, file_id: str, cluster_id: str, save_directory: str, chunk_number: int):
+    def __init__(self, chunk: bytes, file_id: str, cluster_id: str, save_directory: str, chunk_number: int, file_extension: str = None):
         self.chunk = chunk
 
         self.file_id = file_id
@@ -264,6 +264,41 @@ class FileChunk:
         self.chunk_number = chunk_number
 
         self.size = len(chunk)
+
+        self._given_file_extension = file_extension
+
+        self.file_type, self.file_extension = self._get_chunk_type()
+
+    def _get_chunk_type(self) -> tuple[str, str] | tuple[None, None | str]:
+        # if it isn't the first chunk (where the magic numbers are usually saved), there is no need to check for the
+        # file type and extension
+        if self.chunk_number != 1:
+            return None, self._given_file_extension
+
+        extensions = {
+            b'\xff\xd8\xff': ('image', 'jpeg'),  # JPEG
+            b'\x89PNG\r\n\x1a\n': ('image', 'png'),  # PNG
+            b'GIF87a': ('image', 'gif'),  # GIF (old version)
+            b'GIF89a': ('image', 'gif'),  # GIF (new version)
+            b'\x52\x49\x46\x46\x57\x45\x42\x50': ('image', 'webp'),  # WebP (based on the RIFF format)
+            b'\x42\x4D': ('image', 'bmp'),  # BMP (Windows bitmap)
+            b'\x89WEBP': ('image', 'webp'),  # WebP (based on the WEBP signature)
+
+            # Audio formats
+            b'\x52\x49\x46\x46\x57\x41\x56\x45': ('audio', 'wav'),  # WAV (RIFF header)
+            b'ID3': ('audio', 'mp3'),  # MP3
+            b'\x66\x4C\x61\x43': ('audio', 'flac'),  # FLAC
+            b'OggS': ('audio', 'ogg'),  # OGG
+            b'\x66\x74\x79\x70\x4D\x34\x41': ('audio', 'm4a'),  # M4A (MP4 audio)
+            b'\x46\x4F\x52\x4D': ('audio', 'aiff'),  # AIFF
+            b'\x30\x26\xB2\x75\x8E\x66\xCF': ('audio', 'wma'),  # WMA
+        }
+
+        for magic, file_type in extensions.items():
+            if self.chunk.startswith(magic):
+                return file_type
+
+        return None, None
 
     async def save(self, last_chunk_number: int | None = None) -> str:
         # combines the name (ID) of the file with the directory it should be saved under
