@@ -183,6 +183,11 @@ class System:
         return save_directory, cluster_id, file_id
 
     async def save_stream(self, chunk: "FileChunk", uploaded_by_id: str, total_size: int, is_last_chunk: bool):
+        # due to how chunks are processed before arriving here, all the chunks should have a valid file extension
+        if not chunk.file_extension:
+            # todo: see if it is needed to create a better error message
+            raise Exception(f"chunk file ID {chunk.file_id} #{chunk.chunk_number} is missing file extension")
+
         try:
             # saves the file under main_dir/cluster_dir/file_id
             await chunk.save()
@@ -265,15 +270,33 @@ class FileChunk:
 
         self.size = len(chunk)
 
-        self._given_file_extension = file_extension
+        # both file_type and extension are lower case for consistency
+        self._given_file_extension = file_extension.lower()
 
         self.file_type, self.file_extension = self._get_chunk_type()
 
+    # if a file extension doesn't appear in this dict, it means that the server does not accept it as a possible type
+    # and therefor should not be saved to the server
     def _get_chunk_type(self) -> tuple[str, str] | tuple[None, None | str]:
         # if it isn't the first chunk (where the magic numbers are usually saved), there is no need to check for the
         # file type and extension
         if self.chunk_number != 1:
-            return None, self._given_file_extension
+            mine_to_type: dict[str, str] = {
+                "jpeg": "image",
+                "png": "image",
+                "gif": "image",
+                "webp": "image",
+
+                "wav": "audio",
+                "mp3": "audio",
+                "flac": "audio",
+                "ogg": "audio",
+                "m4a": "audio",
+                "aiff": "audio",
+                "wma": "audio"
+            }
+
+            return mine_to_type.get(self._given_file_extension), self._given_file_extension
 
         extensions = {
             b'\xff\xd8\xff': ('image', 'jpeg'),  # JPEG
@@ -281,7 +304,6 @@ class FileChunk:
             b'GIF87a': ('image', 'gif'),  # GIF (old version)
             b'GIF89a': ('image', 'gif'),  # GIF (new version)
             b'\x52\x49\x46\x46\x57\x45\x42\x50': ('image', 'webp'),  # WebP (based on the RIFF format)
-            b'\x42\x4D': ('image', 'bmp'),  # BMP (Windows bitmap)
             b'\x89WEBP': ('image', 'webp'),  # WebP (based on the WEBP signature)
 
             # Audio formats
