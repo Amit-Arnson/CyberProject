@@ -452,11 +452,12 @@ class UploadSong:
         #     tuple[request_id, file_id],
         #     dict[
         #         "paths": tuple[(actual) file_id, cluster_id, save_directory],
-        #         "current_size": int
+        #         "current_size": int,
+        #         "file_extension": str
         #     ]
         # ]
         self.file_save_ids: dict[
-            tuple[str, str], dict[str, tuple[str, str, str] | int]
+            tuple[str, str], dict[str, tuple[str, str, str] | int | str]
         ] = {}
 
         # dict[
@@ -720,6 +721,7 @@ class UploadSong:
 
         # current size of the total file (in bytes)
         current_size = 0
+        file_extension: str | None = None
 
         if not chunk_info:
             print(f"created new file ID for request {request_id}")
@@ -733,12 +735,14 @@ class UploadSong:
                 self.file_save_ids[(request_id, file_id)] = {
                     "paths":  (save_directory, cluster_id, full_file_id),
                     "current_size": 0,
+                    "file_extension": None
                 }
         else:
             # loads the values from the dictionary, so that they can be transferred into the FileChunk in order to be
             # saved onto the disc later on
             save_directory, cluster_id, full_file_id = chunk_info["paths"]
             current_size = chunk_info["current_size"]
+            file_extension: str = chunk_info["file_extension"]
 
         # see to do at the top of self.compress
         # compressed_chunk = await self.compress(chunk)
@@ -760,7 +764,26 @@ class UploadSong:
             chunk_number=chunk_number
         )
 
-        # saves the current chunk into its respective place in the file-system
+        # checks if the "extension reader" is able to detect the file extension of the chunk
+        if file_chunk.file_extension:
+            # if it does exist it means:
+            # 1) the chunk is a valid chunk (as in, the extension is of a type that the server can accept)
+            # 2) the chunk is indeed the first chunk
+            async with self._lock:
+                self.file_save_ids[(request_id, file_id)]["file_extension"] = file_chunk.file_extension
+        else:
+            # if the chunk's extension isn't found it means:
+            # 1) either the chunk is not valid
+            # 2) it isn't the first chunk
+
+            # we then set the current chunk's extension to whatever we have saved before (if any)
+            file_chunk.file_extension = file_extension
+
+        # note that if the chunk goes to be saved and has **no file extension** (None), the whole file may be dismissed
+        # as invalid
+
+        # todo: add the above comment as functional code
+
         await file_system.save_stream(
             chunk=file_chunk,
             uploaded_by_id=user_id,
