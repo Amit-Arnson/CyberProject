@@ -765,7 +765,8 @@ class UploadSong:
             file_id=full_file_id,
             save_directory=save_directory,
             chunk_number=chunk_number,
-            current_file_size=current_size
+            current_file_size=current_size,
+            file_extension=file_extension
         )
 
         # checks if the "extension reader" is able to detect the file extension of the chunk
