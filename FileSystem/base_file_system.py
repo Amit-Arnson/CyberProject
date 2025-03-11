@@ -190,7 +190,7 @@ class System:
 
         return save_directory, cluster_id, file_id
 
-    async def save_stream(self, chunk: "FileChunk", uploaded_by_id: str, total_size: int, is_last_chunk: bool):
+    async def save_stream(self, chunk: "FileChunk", uploaded_by_id: str, is_last_chunk: bool):
         # due to how chunks are processed before arriving here, all the chunks should have a valid file extension
         if not chunk.file_extension:
             # todo: see if it is needed to create a better error message
@@ -211,11 +211,20 @@ class System:
                 # a .opus file extension is one of the best extensions for making large files small whilst keeping
                 # the audio quality
                 compressed_extension = "opus"
-                await compress_and_replace(file_extension=chunk.file_extension, compressed_extension=compressed_extension, input_file=f"{chunk.file_id}", directory=chunk.save_directory)
+
+                total_size = await compress_and_replace(
+                    file_extension=chunk.file_extension,
+                    compressed_extension=compressed_extension,
+                    input_file=f"{chunk.file_id}",
+                    directory=chunk.save_directory
+                )
 
                 final_file_id = f"{chunk.file_id}.{compressed_extension}"
             else:
                 final_file_id = f"{chunk.file_id}.{chunk.file_extension}"
+
+                # if the file was not compressed, we just use the total_size that we have in the FileChunk
+                total_size = chunk.total_file_size
 
             async with self.db_pool.acquire() as connection:
                 await FileSystem.create_base_file(
@@ -279,7 +288,8 @@ class FileChunk:
     in order to easily handle it
     """
 
-    def __init__(self, current_file_size: int, chunk: bytes, file_id: str, cluster_id: str, save_directory: str, chunk_number: int, file_extension: str = None):
+    def __init__(self, current_file_size: int, chunk: bytes, file_id: str, cluster_id: str, save_directory: str,
+                 chunk_number: int, file_extension: str = None):
         self.chunk = chunk
 
         self.file_id = file_id
