@@ -751,6 +751,9 @@ class UploadSong:
         chunk_size = len(chunk)
         current_size += chunk_size
 
+        async with self._lock:
+            chunk_info["current_size"] = current_size
+
         print(current_size)
 
         # print(f"chunk: {chunk}")
@@ -761,7 +764,8 @@ class UploadSong:
             cluster_id=cluster_id,
             file_id=full_file_id,
             save_directory=save_directory,
-            chunk_number=chunk_number
+            chunk_number=chunk_number,
+            current_file_size=current_size
         )
 
         # checks if the "extension reader" is able to detect the file extension of the chunk
