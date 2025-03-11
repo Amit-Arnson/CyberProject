@@ -53,9 +53,11 @@ async def compress_audio(input_file: str, output_file: str, **kwargs):
         logging.error(f"An unexpected error occurred: {ex}")
 
 
-async def compress_and_replace(file_extension: str, compressed_extension: str, directory: str, input_file, **kwargs):
+async def compress_and_replace(file_extension: str, compressed_extension: str, directory: str, input_file, **kwargs) -> int:
     """
     Compress the input file, save it to a temporary file, and replace the original file with the compressed version.
+
+    :returns: the size (in bytes) of the compressed file
     """
 
     temp_file = os.path.join(directory, f"temp_{input_file}.{compressed_extension}")
@@ -74,6 +76,11 @@ async def compress_and_replace(file_extension: str, compressed_extension: str, d
 
         # async rename temporary file
         await aos.rename(temp_file, new_file)
+
+        file_info = await aos.stat(new_file)
+        new_file_size = file_info.st_size
+
+        return new_file_size
     except Exception as e:
         if os.path.exists(temp_file):
             os.remove(temp_file)  # Clean up temp file in case of failure
