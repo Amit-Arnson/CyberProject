@@ -754,11 +754,6 @@ class UploadSong:
         async with self._lock:
             chunk_info["current_size"] = current_size
 
-        print(current_size)
-
-        # print(f"chunk: {chunk}")
-        # print(f"save: {save_directory}/{full_file_id}")
-
         file_chunk = FileChunk(
             chunk=chunk,
             cluster_id=cluster_id,
@@ -792,7 +787,6 @@ class UploadSong:
         await file_system.save_stream(
             chunk=file_chunk,
             uploaded_by_id=user_id,
-            total_size=current_size,
             is_last_chunk=is_last_chunk
         )
 
