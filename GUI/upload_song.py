@@ -39,6 +39,70 @@ class UploadPage:
         self.sheet_image_container_id = 0
         self.sheet_file_paths: dict[int, str] = {}
 
+        upload_cover_default_size_values: dict[str, int] = {
+            "width": 25,
+            "height": 25
+        }
+
+        upload_cover_default_border_value = ft.BorderSide(color=ft.Colors.BLUE, width=2)
+
+        self.upload_cover_art_default_content: ft.Stack = ft.Stack(
+            [
+                ft.Container(
+                    content=ft.Text(
+                        spans=[
+                            ft.TextSpan("ADD\n"),
+                            ft.TextSpan("COVER")
+                        ],
+                        text_align=ft.TextAlign.CENTER,
+                        weight=ft.FontWeight.BOLD,
+                        color=ft.Colors.BLUE
+                    ),
+                    height=150,
+                    width=120,
+                    bgcolor=ft.Colors.with_opacity(0.1, ft.Colors.BLUE),
+                    alignment=ft.Alignment(0, 0)
+                ),
+                ft.Container(
+                    **upload_cover_default_size_values,
+                    border=ft.Border(
+                        right=upload_cover_default_border_value,
+                        bottom=upload_cover_default_border_value
+                    ),
+                    bottom=0,
+                    right=0
+                ),
+                ft.Container(
+                    height=25,
+                    width=25,
+                    border=ft.Border(
+                        left=upload_cover_default_border_value,
+                        bottom=upload_cover_default_border_value
+                    ),
+                    bottom=0,
+                    left=0
+                ),
+                ft.Container(
+                    **upload_cover_default_size_values,
+                    border=ft.Border(
+                        right=upload_cover_default_border_value,
+                        top=upload_cover_default_border_value
+                    ),
+                    top=0,
+                    right=0
+                ),
+                ft.Container(
+                    **upload_cover_default_size_values,
+                    border=ft.Border(
+                        left=upload_cover_default_border_value,
+                        top=upload_cover_default_border_value
+                    ),
+                    top=0,
+                    left=0
+                )
+            ]
+        )
+
         self.sidebar = NavigationSidebar(page=page)
 
         # we define 2 different file pickers so that we can point the on_result to different functions in order to make
@@ -120,6 +184,7 @@ class UploadPage:
         print(e.files)
         print("selected audio")
 
+    # ---- image (sheet music) selection related stuff ----
     def _on_finish_image_select(self, e: ft.FilePickerResultEvent):
         print(e.files)
         print("selected image")
@@ -187,7 +252,7 @@ class UploadPage:
                                 ft.Icons.CLOSE,
                                 color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE),
                             ),
-                            #padding=5,
+                            # padding=5,
                             width=image_container.width / 5,
                             bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.GREY),
                             border_radius=180,
@@ -272,13 +337,64 @@ class UploadPage:
         # scrolls to end (where the sheet_selector is)
         self.sheet_selector_row.scroll_to(offset=-1, duration=1000, curve=ft.AnimationCurve.EASE_IN_OUT)
 
+    # -------------------------------------------------------
+
     def _initialize_file_selectors(self):
         self.song_selector = ft.Container(
+            content=ft.Icon(ft.Icons.UPLOAD_ROUNDED, color=ft.Colors.GREY_800),
             on_click=self._select_sound_files,
             expand=True,
             expand_loose=True,
             height=150,
-            bgcolor=ft.Colors.RED
+            border=ft.border.all(1, ft.Colors.GREY_800),
+            border_radius=3,
+            alignment=ft.Alignment(0, 0)
+        )
+
+        self.song_selector_row: ft.Row = ft.Row(
+            [
+                ft.Container(
+                    self.upload_cover_art_default_content,
+                ),
+                ft.Column(
+                    [
+                        ft.Container(
+                            content=ft.Text("Upload Song", expand_loose=True),
+                            height=75,
+                            expand=True,
+                            expand_loose=True,
+                            bgcolor=ft.Colors.GREEN
+                        ),
+                        ft.Container(
+                            content=ft.Row(
+                                [
+                                    ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_900, size=40),
+                                    ft.Text(spans=[
+                                        ft.TextSpan("0:00"), ft.TextSpan("/"), ft.TextSpan("0:00")
+                                    ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_900),
+                                    ft.ProgressBar(
+                                        value=0.01,
+                                        height=5,
+                                        expand_loose=True,
+                                        expand=True,
+                                        color=ft.Colors.GREY_900,
+                                        bgcolor=ft.Colors.GREY_600,
+                                        border_radius=10,
+                                    )
+                                ]
+                            ),
+                            border_radius=90,
+                            padding=10,
+                            height=75,
+                            expand=True,
+                            bgcolor=ft.Colors.BLUE_700,
+                        ),
+                    ],
+                    height=150,
+                    expand_loose=True,
+                    expand=True,
+                )
+            ],
         )
 
         self.sheet_selector = ft.Container(
@@ -350,7 +466,7 @@ class UploadPage:
         self._initialize_genre_tag_textbox()
 
         # this is just a temporary container so that something takes that space up
-        aa = ft.Container(
+        song_info_parameters = ft.Container(
             padding=10,
             expand=8,
             content=ft.Column(
@@ -380,7 +496,7 @@ class UploadPage:
         self.page_view = ft.Row(
             [
                 self.sidebar,
-                aa,
+                song_info_parameters,
             ],
             spacing=0,
             expand=True
