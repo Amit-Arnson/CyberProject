@@ -1,10 +1,11 @@
 import os
-import subprocess
+import asyncio
+
+import aiofiles.os as aos
 
 import logging
 
 
-# todo: make this async friendly
 async def compress_audio(input_file: str, output_file: str, **kwargs):
     """
     Compresses the input audio file to the specified output file using FFmpeg asynchronously.
@@ -14,7 +15,7 @@ async def compress_audio(input_file: str, output_file: str, **kwargs):
     ffmpeg_cmd = r".\ffmpeg\bin\ffmpeg.exe"
 
     if not os.path.exists(ffmpeg_cmd):
-        raise Exception(f"couldn't find the ffmpeg executable in {ffmpeg_cmd}")
+        raise Exception(f"Couldn't find the FFmpeg executable in {ffmpeg_cmd}")
 
     try:
         # Command to convert the audio file using FFmpeg
@@ -22,24 +23,32 @@ async def compress_audio(input_file: str, output_file: str, **kwargs):
             ffmpeg_cmd,
             "-loglevel", "quiet",  # Suppress FFmpeg logs
             "-i", input_file,  # Input file
-            "-c:a", "libopus",
-            "-b:a", "32k",
+            "-c:a", "libopus",  # Use Opus codec
+            "-b:a", "32k",  # Set bitrate to 32kbps
         ]
 
         for flag, value in kwargs.items():
             command.append(str(flag))
             command.append(str(value))
 
-        # to make sure it is the last thing in the command
+        # Append the output file to the command
         command.append(output_file)
 
-        # Run the FFmpeg command
-        subprocess.run(command, check=True)
+        # Run the FFmpeg command asynchronously
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await process.communicate()
+
+        if process.returncode != 0:
+            raise Exception(f"FFmpeg error: {stderr.decode()}")
+
         print(f"Conversion successful! Output saved as: {output_file}")
     except FileNotFoundError:
         logging.error("FFmpeg is not installed or not found in the system PATH.")
-    except subprocess.CalledProcessError as e:
-        logging.error(f"FFmpeg encountered an error: {e}")
     except Exception as ex:
         logging.error(f"An unexpected error occurred: {ex}")
 
@@ -56,12 +65,17 @@ async def compress_and_replace(file_extension: str, compressed_extension: str, d
         # Compress the file
         await compress_audio(full_input_path, temp_file, **kwargs)
 
-        # Replace the original file
+        # despite path.exists() NOT being async, it shouldn't matter all that much because it isn't very resource-intensive
         if os.path.exists(full_input_path):
-            os.remove(full_input_path)  # Delete original file
+            # async deletes the original file, as it isn't needed anymore
+            await aos.remove(full_input_path)
 
-        true_file = os.path.join(directory, f"{input_file}.{compressed_extension}")
+        new_file = os.path.join(directory, f"{input_file}.{compressed_extension}")
 
-        os.rename(temp_file, true_file)  # Rename temporary file
+        # async rename temporary file
+        await aos.rename(temp_file, new_file)
     except Exception as e:
+        if os.path.exists(temp_file):
+            os.remove(temp_file)  # Clean up temp file in case of failure
+
         raise e
