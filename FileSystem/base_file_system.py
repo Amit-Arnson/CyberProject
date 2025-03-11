@@ -207,7 +207,7 @@ class System:
 
         if is_last_chunk:
             # if the chunk is under ~200KB, compressing it may cause it to grow bigger
-            if chunk.total_file_size > 200_000 and chunk.file_type == "image":
+            if chunk.total_file_size > 200_000 and chunk.file_type == "audio":
                 # a .opus file extension is one of the best extensions for making large files small whilst keeping
                 # the audio quality
                 compressed_extension = "opus"
@@ -302,7 +302,7 @@ class FileChunk:
         # if it isn't the first chunk (where the magic numbers are usually saved), there is no need to check for the
         # file type and extension
         if self.chunk_number != 1:
-            mine_to_type: dict[str, str] = {
+            mime_to_type: dict[str, str] = {
                 "jpeg": "image",
                 "png": "image",
                 "gif": "image",
@@ -317,7 +317,7 @@ class FileChunk:
                 "wma": "audio"
             }
 
-            return mine_to_type.get(self._given_file_extension), self._given_file_extension
+            return mime_to_type.get(self._given_file_extension), self._given_file_extension
 
         extensions = {
             b'\xff\xd8\xff': ('image', 'jpeg'),  # JPEG
