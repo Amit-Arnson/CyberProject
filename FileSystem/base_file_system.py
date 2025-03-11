@@ -206,8 +206,10 @@ class System:
         # save the file in the database
 
         if is_last_chunk:
-            print(f"total: {chunk.total_file_size}\n\n\n")
-            if chunk.total_file_size > 200_000:
+            # if the chunk is under ~200KB, compressing it may cause it to grow bigger
+            if chunk.total_file_size > 200_000 and chunk.file_type == "image":
+                # a .opus file extension is one of the best extensions for making large files small whilst keeping
+                # the audio quality
                 compressed_extension = "opus"
                 await compress_and_replace(file_extension=chunk.file_extension, compressed_extension=compressed_extension, input_file=f"{chunk.file_id}", directory=chunk.save_directory)
 
@@ -317,8 +319,6 @@ class FileChunk:
 
             return mine_to_type.get(self._given_file_extension), self._given_file_extension
 
-        print("trying to create extension")
-
         extensions = {
             b'\xff\xd8\xff': ('image', 'jpeg'),  # JPEG
             b'\x89PNG\r\n\x1a\n': ('image', 'png'),  # PNG
@@ -339,8 +339,6 @@ class FileChunk:
             b'\x46\x4F\x52\x4D': ('audio', 'aiff'),  # AIFF
             b'\x30\x26\xB2\x75\x8E\x66\xCF': ('audio', 'wma'),  # WMA
         }
-
-        print(self.chunk[0:20])
 
         for magic, file_type in extensions.items():
             if self.chunk.startswith(magic):
