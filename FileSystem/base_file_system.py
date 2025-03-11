@@ -1,3 +1,4 @@
+import base64
 import logging
 import os
 import asyncio
@@ -11,6 +12,8 @@ from FileSystem.file_extension import Extension
 # from FileSystem.audio_file import AudioFile
 
 from queries import FileSystem
+
+from Compress.audio import compress_and_replace
 
 
 class System:
@@ -57,9 +60,14 @@ class System:
 
         # we hex both of them since cluster ID is a string that is basically a dir
 
-        unique_cluster_id = f"{current_time_hex}_{random_bytes_hex}"
+        unique_id = f"{random_bytes_hex}_{current_time_hex}".encode()
 
-        return unique_cluster_id
+        padding_length = (3 - len(unique_id) % 3) % 3  # Calculate how many bytes to add
+        b64_padding_remove = b"0" * padding_length
+
+        unique_id = base64.b64encode(unique_id + b64_padding_remove).decode()
+
+        return unique_id
 
     # todo: i might want to add the user_upload_id to the _create_file_id and therefore for now it is a different function than _create_cluster_id
     async def _create_file_id(self) -> str:
@@ -198,11 +206,20 @@ class System:
         # save the file in the database
 
         if is_last_chunk:
+            print(f"total: {chunk.total_file_size}\n\n\n")
+            if chunk.total_file_size > 200_000:
+                compressed_extension = "opus"
+                await compress_and_replace(file_extension=chunk.file_extension, compressed_extension=compressed_extension, input_file=f"{chunk.file_id}", directory=chunk.save_directory)
+
+                final_file_id = f"{chunk.file_id}.{compressed_extension}"
+            else:
+                final_file_id = f"{chunk.file_id}.{chunk.file_extension}"
+
             async with self.db_pool.acquire() as connection:
                 await FileSystem.create_base_file(
                     connection=connection,
                     cluster_id=chunk.cluster_id,
-                    file_id=chunk.file_id,
+                    file_id=final_file_id,
                     user_uploaded_id=uploaded_by_id,
                     size=total_size
                 )
@@ -260,7 +277,7 @@ class FileChunk:
     in order to easily handle it
     """
 
-    def __init__(self, chunk: bytes, file_id: str, cluster_id: str, save_directory: str, chunk_number: int, file_extension: str = None):
+    def __init__(self, current_file_size: int, chunk: bytes, file_id: str, cluster_id: str, save_directory: str, chunk_number: int, file_extension: str = None):
         self.chunk = chunk
 
         self.file_id = file_id
@@ -270,8 +287,10 @@ class FileChunk:
 
         self.size = len(chunk)
 
+        self.total_file_size = current_file_size + self.size
+
         # both file_type and extension are lower case for consistency
-        self._given_file_extension = file_extension.lower()
+        self._given_file_extension = file_extension.lower() if file_extension else None
 
         self.file_type, self.file_extension = self._get_chunk_type()
 
@@ -298,23 +317,30 @@ class FileChunk:
 
             return mine_to_type.get(self._given_file_extension), self._given_file_extension
 
+        print("trying to create extension")
+
         extensions = {
             b'\xff\xd8\xff': ('image', 'jpeg'),  # JPEG
             b'\x89PNG\r\n\x1a\n': ('image', 'png'),  # PNG
             b'GIF87a': ('image', 'gif'),  # GIF (old version)
             b'GIF89a': ('image', 'gif'),  # GIF (new version)
-            b'\x52\x49\x46\x46\x57\x45\x42\x50': ('image', 'webp'),  # WebP (based on the RIFF format)
-            b'\x89WEBP': ('image', 'webp'),  # WebP (based on the WEBP signature)
+            b'\x52\x49\x46\x46\x57\x45\x42\x50': ('image', 'webp'),  # WebP (RIFF format)
+            b'\x89WEBP': ('image', 'webp'),  # WebP (alternative signature)
 
             # Audio formats
             b'\x52\x49\x46\x46\x57\x41\x56\x45': ('audio', 'wav'),  # WAV (RIFF header)
-            b'ID3': ('audio', 'mp3'),  # MP3
+            b'ID3': ('audio', 'mp3'),  # MP3 (ID3 metadata tag)
+            b'\xFF\xFB': ('audio', 'mp3'),  # MP3 (frame header sync word)
+            b'\xFF\xF3': ('audio', 'mp3'),  # MP3 (alternative sync word for MPEG-2 Layer III)
+            b'\xFF\xF2': ('audio', 'mp3'),  # MP3 (alternative sync word for MPEG-2 Layer III)
             b'\x66\x4C\x61\x43': ('audio', 'flac'),  # FLAC
             b'OggS': ('audio', 'ogg'),  # OGG
             b'\x66\x74\x79\x70\x4D\x34\x41': ('audio', 'm4a'),  # M4A (MP4 audio)
             b'\x46\x4F\x52\x4D': ('audio', 'aiff'),  # AIFF
             b'\x30\x26\xB2\x75\x8E\x66\xCF': ('audio', 'wma'),  # WMA
         }
+
+        print(self.chunk[0:20])
 
         for magic, file_type in extensions.items():
             if self.chunk.startswith(magic):
@@ -325,7 +351,7 @@ class FileChunk:
     async def save(self, last_chunk_number: int | None = None) -> str:
         # combines the name (ID) of the file with the directory it should be saved under
         # main_dir/cluster_id/file_name
-        path: str = os.path.join(self.save_directory, self.file_id)
+        path: str = os.path.join(self.save_directory, self.file_id + f'.{self.file_extension}')
 
         # if we have a last_chunk_number available, and it is actually the previous number, OR if we don't have a
         # last_chunk_number, it will be True (this is because, if we don't have a last chunk available we cant "insert" it
