@@ -1,3 +1,4 @@
+import logging
 import os
 
 import asqlite
@@ -142,6 +143,8 @@ class ServerProtocol(asyncio.Protocol):
         if action.exception():
             # raise action.exception()
             error = action.exception()
+
+            logging.error(action.exception())
             print(f"Task failed with exception: {action.exception()}")
 
             # if the error is not a custom error, then it is assumed that it is an internal server error.
