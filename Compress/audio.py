@@ -6,6 +6,49 @@ import aiofiles.os as aos
 import logging
 
 
+import asyncio
+
+
+async def is_valid_file(file_path: str) -> bool:
+    """
+    Validates a file's integrity. If the file is corrupted or uses false data, this function will return False, else True
+    """
+
+    ffprobe_cmd = r".\ffmpeg\bin\ffprobe.exe"  # Update this to the correct path
+
+    try:
+        # Build the ffprobe command
+        command = [
+            ffprobe_cmd,
+            "-show_format",      # Check file format
+            "-show_streams",     # Check streams
+            file_path            # The file to validate
+        ]
+
+        # Run ffprobe asynchronously
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await process.communicate()
+
+        # If ffprobe fails, stderr will contain an error message
+        if process.returncode != 0:
+            return False
+
+        # If everything is okay
+        return True
+
+    except FileNotFoundError:
+        print("ffprobe executable not found. Make sure it's in the specified path.")
+        return False
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return False
+
+
 async def compress_audio(input_file: str, output_file: str, **kwargs):
     """
     Compresses the input audio file to the specified output file using FFmpeg asynchronously.

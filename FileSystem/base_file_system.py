@@ -13,7 +13,7 @@ from FileSystem.file_extension import Extension
 
 from queries import FileSystem
 
-from Compress.audio import compress_and_replace
+from Compress.audio import compress_and_replace, is_valid_file
 
 
 class System:
@@ -206,12 +206,29 @@ class System:
         # save the file in the database
 
         if is_last_chunk:
+            # todo: check if ffmpeg actually works for all cases and not just audio (i might have been misled)
+            final_file_id = f"{chunk.file_id}.{chunk.file_extension}"
+
+            # if the file was not compressed, we just use the total_size that we have in the FileChunk
+            total_size = chunk.total_file_size
+
+            final_file_path = os.path.join(chunk.save_directory, final_file_id)
+
+            # we check that the file's integrity is valid and that there is no corrupt data
+            # todo: make this check for both audio (which it already does) and images (which it might but im not sure)
+            file_is_valid: bool = await is_valid_file(final_file_path)
+
+            if not file_is_valid:
+                # todo: work on the error
+                raise Exception("Invalid file given and was rejected")
+
             # if the chunk is under ~200KB, compressing it may cause it to grow bigger
             if chunk.total_file_size > 200_000 and chunk.file_type == "audio":
                 # a .opus file extension is one of the best extensions for making large files small whilst keeping
                 # the audio quality
                 compressed_extension = "opus"
 
+                # we change the total size to the new size of the compressed file
                 total_size = await compress_and_replace(
                     file_extension=chunk.file_extension,
                     compressed_extension=compressed_extension,
@@ -220,11 +237,6 @@ class System:
                 )
 
                 final_file_id = f"{chunk.file_id}.{compressed_extension}"
-            else:
-                final_file_id = f"{chunk.file_id}.{chunk.file_extension}"
-
-                # if the file was not compressed, we just use the total_size that we have in the FileChunk
-                total_size = chunk.total_file_size
 
             async with self.db_pool.acquire() as connection:
                 await FileSystem.create_base_file(
