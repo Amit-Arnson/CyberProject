@@ -66,8 +66,8 @@ async def compress_audio(input_file: str, output_file: str, **kwargs):
             ffmpeg_cmd,
             "-loglevel", "quiet",  # Suppress FFmpeg logs
             "-i", input_file,  # Input file
-            "-c:a", "libopus",  # Use Opus codec
-            "-b:a", "32k",  # Set bitrate to 32kbps
+            "-c:a", "aac_mf",  # Use AAC (acc_mf is hardware accelerated on windows)
+            "-b:a", "64k",  # Set bitrate to 32kbps
         ]
 
         for flag, value in kwargs.items():
@@ -89,22 +89,23 @@ async def compress_audio(input_file: str, output_file: str, **kwargs):
         if process.returncode != 0:
             raise Exception(f"FFmpeg error: {stderr.decode()}")
 
-        print(f"Conversion successful! Output saved as: {output_file}")
     except FileNotFoundError:
         logging.error("FFmpeg is not installed or not found in the system PATH.")
+        raise FileNotFoundError("FFmpeg is not installed or not found in the system PATH.")
     except Exception as ex:
         logging.error(f"An unexpected error occurred: {ex}")
+        raise ex
 
 
-async def compress_and_replace(file_extension: str, compressed_extension: str, directory: str, input_file, **kwargs) -> int:
+async def compress_and_replace(file_codec: str, compressed_codec: str, directory: str, input_file, **kwargs) -> int:
     """
     Compress the input file, save it to a temporary file, and replace the original file with the compressed version.
 
     :returns: the size (in bytes) of the compressed file
     """
 
-    temp_file = os.path.join(directory, f"temp_{input_file}.{compressed_extension}")
-    full_input_path = os.path.join(directory, f"{input_file}.{file_extension}")
+    temp_file = os.path.join(directory, f"temp_{input_file}.{compressed_codec}")
+    full_input_path = os.path.join(directory, f"{input_file}.{file_codec}")
 
     try:
         # Compress the file
@@ -115,7 +116,7 @@ async def compress_and_replace(file_extension: str, compressed_extension: str, d
             # async deletes the original file, as it isn't needed anymore
             await aos.remove(full_input_path)
 
-        new_file = os.path.join(directory, f"{input_file}.{compressed_extension}")
+        new_file = os.path.join(directory, f"{input_file}.{compressed_codec}")
 
         # async rename temporary file
         await aos.rename(temp_file, new_file)
