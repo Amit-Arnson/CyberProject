@@ -1,3 +1,4 @@
+import logging
 import os
 
 import asyncio
@@ -9,8 +10,7 @@ from Caches.user_cache import UserCache, UserCacheItem
 from AES_128 import cbc
 from DHE.dhe import DHE
 
-from FileSystem.base_file_system import System, BaseFile, FileChunk
-from FileSystem.audio_file import AudioFile
+from FileSystem.base_file_system import System, FileChunk
 
 import asqlite
 
@@ -20,10 +20,6 @@ from secure_user_credentials import generate_hashed_password, authenticate_passw
 import queries
 
 from Errors.raised_errors import NoEncryption, InvalidCredentials, TooLong, UserExists, InvalidPayload, TooShort
-
-import gzip
-import zlib
-import io
 
 
 async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage,
@@ -453,54 +449,14 @@ class UploadSong:
         #     dict[
         #         "paths": tuple[(actual) file_id, cluster_id, save_directory],
         #         "current_size": int,
-        #         "file_extension": str
+        #         "file_extension": str,
+        #         "previous_chunk": int,
+        #         "lock": asyncio.Lock,
         #     ]
         # ]
         self.file_save_ids: dict[
-            tuple[str, str], dict[str, tuple[str, str, str] | int | str]
+            tuple[str, str], dict[str, tuple[str, str, str] | int | str | asyncio.Lock]
         ] = {}
-
-        # dict[
-        #     tuple[request_id, file_id]: dict[
-        #         "file": AudioFile.from_bytes() | BaseFile.from_bytes(),
-        #         "user_id": str,
-        #         "tags": list[str],
-        #         "artist_name": str,
-        #         "album_name": str,
-        #         "song_name": str,
-        #         "file_type": str ("image" or "audio")
-        #     ]
-        # ]
-        self.files: dict[
-                    tuple[str, str]: dict[str: AudioFile | BaseFile | str | list[str]]
-                    ] = {}
-
-    # todo: find a way to compress files without actually making them bigger
-    # due to me sending the information with chunks instead of full file, the compression actually makes the file
-    # be bigger (or only compresses it to like -2 bytes, which is not worth the compute time spent)
-    async def compress(self, data: bytes):
-        loop: asyncio.ProactorEventLoop = asyncio.get_event_loop()
-
-        compressed_data = loop.run_in_executor(None, self.compress_bytes, data)
-
-        return await compressed_data
-
-    @staticmethod
-    def compress_bytes(data):
-        """
-        Compresses the given bytes asynchronously using gzip and returns the compressed bytes.
-
-        :param data: Bytes to compress
-        :return: Compressed bytes
-        """
-
-        # with io.BytesIO() as compressed_buffer:
-        #     with gzip.GzipFile(fileobj=compressed_buffer, mode='wb') as gzip_file:
-        #         gzip_file.write(data)
-        #
-        #     return compressed_buffer.getvalue()
-
-        return zlib.compress(data, level=9)
 
     async def upload_song(
             self,
@@ -606,37 +562,6 @@ class UploadSong:
                 "image_ids": image_ids
             }
 
-    async def _chunks_to_file(self, request_id, file_id, chunk_dict: dict[str, list[bytes] | int | str]):
-        chunks = chunk_dict["chunks"]
-        file_type = chunk_dict["file_type"]
-
-        file_info = self.song_information[request_id]
-
-        user_id = file_info["user_id"]
-        tags = file_info["tags"]
-        artist_name = file_info["artist_name"]
-        album_name = file_info["album_name"]
-        song_name = file_info["song_name"]
-
-        file_bytes = b"".join(chunks)
-
-        # todo: create a ImageFile instead of using BaseFile for the images
-        if file_type == "audio":
-            file = AudioFile.from_bytes(file_bytes)
-        else:
-            file = BaseFile.from_bytes(file_bytes)
-
-        async with self._lock:
-            self.files[(request_id, file_id)] = {
-                "file": file,
-                "user_id": user_id,
-                "tags": tags,
-                "artist_name": artist_name,
-                "album_name": album_name,
-                "song_name": song_name,
-                "file_type": file_type
-            }
-
     async def upload_song_file(
             self,
             db_pool: asqlite.Pool,
@@ -719,42 +644,64 @@ class UploadSong:
             # checks if the file chunks have already started, or if the current chunk is the first of the file
             chunk_info = self.file_save_ids.get((request_id, file_id), {})
 
-        # current size of the total file (in bytes)
-        current_size = 0
-        file_extension: str | None = None
-
         if not chunk_info:
             print(f"created new file ID for request {request_id}")
             print((request_id, file_id) in self.file_save_ids)
+            # creates a new file ID and finds/creates a cluster ID
+
             async with self._lock:
-                # creates a new file ID and finds/creates a cluster ID
                 save_directory, cluster_id, full_file_id = await file_system.get_id()
 
                 # sets the current request-file ID pair to have the path values. on top of that it sets the current_size
                 # to 0 so that it can start growing from later chunks
                 self.file_save_ids[(request_id, file_id)] = {
-                    "paths":  (save_directory, cluster_id, full_file_id),
+                    "paths": (save_directory, cluster_id, full_file_id),
                     "current_size": 0,
-                    "file_extension": None
+                    "file_extension": None,
+                    "previous_chunk": 0,
+                    "lock": asyncio.Lock(),
                 }
+
+                chunk_info = self.file_save_ids[(request_id, file_id)]
+
+            # current size of the total file (in bytes)
+            current_size = 0
+            file_extension: str | None = chunk_info["file_extension"]
+            previous_chunk: int = chunk_info["previous_chunk"]
+            file_lock: asyncio.Lock = chunk_info["lock"]
         else:
             # loads the values from the dictionary, so that they can be transferred into the FileChunk in order to be
             # saved onto the disc later on
             save_directory, cluster_id, full_file_id = chunk_info["paths"]
             current_size = chunk_info["current_size"]
             file_extension: str = chunk_info["file_extension"]
+            previous_chunk: int = chunk_info["previous_chunk"]
+            file_lock: asyncio.Lock = chunk_info["lock"]
 
-        # see to do at the top of self.compress
-        # compressed_chunk = await self.compress(chunk)
+        print(f"chunk number: {chunk_number}")
+        print(f"previous chunk: {previous_chunk} (-> {previous_chunk + 1})")
+        print(previous_chunk + 1 != chunk_number)
+        if previous_chunk + 1 != chunk_number:
+            raise Exception(f"current chunk has skipped previous chunks. {previous_chunk} -> {chunk_number}")
+        else:
+            # see to do at the top of self.compress
+            # compressed_chunk = await self.compress(chunk)
 
-        # adds the chunk size (in Bytes) to the total file size
-        chunk_size = len(chunk)
-        current_size += chunk_size
+            # adds the chunk size (in Bytes) to the total file size
+            chunk_size = len(chunk)
+            current_size += chunk_size
 
-        async with self._lock:
-            chunk_info["current_size"] = current_size
+            print(current_size)
+
+            async with self._lock:
+                # change the previous chunk to be the current chunk so that we can check it for the next chunk
+                self.file_save_ids[(request_id, file_id)]["previous_chunk"] = previous_chunk + 1
+                print(f"made previous chunk # go up to {chunk_info['previous_chunk']}")
+
+                self.file_save_ids[(request_id, file_id)]["current_size"] = current_size
 
         file_chunk = FileChunk(
+            asyncio_lock=file_lock,
             chunk=chunk,
             cluster_id=cluster_id,
             file_id=full_file_id,
@@ -779,60 +726,33 @@ class UploadSong:
             # we then set the current chunk's extension to whatever we have saved before (if any)
             file_chunk.file_extension = file_extension
 
+        print(f"#{chunk_number}: {file_chunk.file_extension}")
+
         # note that if the chunk goes to be saved and has **no file extension** (None), the whole file may be dismissed
         # as invalid
 
         # todo: add the above comment as functional code
 
-        await file_system.save_stream(
-            chunk=file_chunk,
-            uploaded_by_id=user_id,
-            is_last_chunk=is_last_chunk
-        )
+        try:
+            await file_system.save_stream(
+                chunk=file_chunk,
+                uploaded_by_id=user_id,
+                is_last_chunk=is_last_chunk,
+                previous_chunk_number=previous_chunk
+            )
+        except Exception as e:
+
+            # removes any current data about the chunks
+            async with self._lock:
+                del self.file_save_ids[(request_id, file_id)]
+
+            # todo: add a system that deletes the previously saved chunks
+
+            logging.error(e, exc_info=True)
+            raise e
 
         if is_last_chunk:
             print("last chunk was sent. deleting info now")
             # todo: add saving the file to the audio/image table
             async with self._lock:
                 del self.file_save_ids[(request_id, file_id)]
-
-        # file_chunks = self.chunk_files.get((request_id, file_id))
-        # expected_chunk = 0
-        #
-        # if file_chunks:
-        #     expected_chunk = file_chunks["chunk_number"]
-        #
-        # if expected_chunk != chunk_number:
-        #     raise # todo: see which error to raise
-        #
-        # chunk_size = len(chunk)
-        #
-        # if not file_chunks:
-        #     async with self._lock:
-        #         self.chunk_files[(request_id, file_id)] = {
-        #             "user_id": user_id,
-        #             # add the first chunk as a list[bytes]
-        #             "chunks": [chunk],
-        #             # the size of all the current chunks (in bytes)
-        #             "current_size": chunk_size,
-        #             # increment the chunk count (0 -> 1)
-        #             "chunk_number": 1,
-        #             "file_type": file_type
-        #         }
-        # else:
-        #     async with self._lock:
-        #         all_file_chunks = self.chunk_files[(request_id, file_id)]
-        #
-        #         all_file_chunks["chunks"].append(chunk)
-        #         all_file_chunks["current_size"] += chunk_size
-        #         all_file_chunks["chunk_number"] += 1
-        #
-        # if is_last_chunk:
-        #     await self._chunks_to_file(
-        #         request_id=request_id,
-        #         file_id=file_id,
-        #         chunk_dict=all_file_chunks
-        #     )
-        #
-        #     async with self._lock:
-        #         del self.chunk_files[(request_id, file_id)]
