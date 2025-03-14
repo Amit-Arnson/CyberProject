@@ -678,9 +678,6 @@ class UploadSong:
             previous_chunk: int = chunk_info["previous_chunk"]
             file_lock: asyncio.Lock = chunk_info["lock"]
 
-        print(f"chunk number: {chunk_number}")
-        print(f"previous chunk: {previous_chunk} (-> {previous_chunk + 1})")
-        print(previous_chunk + 1 != chunk_number)
         if previous_chunk + 1 != chunk_number:
             raise Exception(f"current chunk has skipped previous chunks. {previous_chunk} -> {chunk_number}")
         else:
@@ -691,12 +688,9 @@ class UploadSong:
             chunk_size = len(chunk)
             current_size += chunk_size
 
-            print(current_size)
-
             async with self._lock:
                 # change the previous chunk to be the current chunk so that we can check it for the next chunk
                 self.file_save_ids[(request_id, file_id)]["previous_chunk"] = previous_chunk + 1
-                print(f"made previous chunk # go up to {chunk_info['previous_chunk']}")
 
                 self.file_save_ids[(request_id, file_id)]["current_size"] = current_size
 
@@ -725,8 +719,6 @@ class UploadSong:
 
             # we then set the current chunk's extension to whatever we have saved before (if any)
             file_chunk.file_extension = file_extension
-
-        print(f"#{chunk_number}: {file_chunk.file_extension}")
 
         # note that if the chunk goes to be saved and has **no file extension** (None), the whole file may be dismissed
         # as invalid
