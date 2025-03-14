@@ -370,7 +370,9 @@ class FileChunk:
             ("single", (0, 4), b'OggS'): ('audio', 'ogg'),  # OGG
             ("single", (0, 7), b'\x66\x74\x79\x70\x4D\x34\x41'): ('audio', 'm4a'),  # M4A
             ("single", (0, 4), b'\x46\x4F\x52\x4D'): ('audio', 'aiff'),  # AIFF
-            ("single", (0, 7), b'\x30\x26\xB2\x75\x8E\x66\xCF'): ('audio', 'wma')  # WMA
+            ("single", (0, 7), b'\x30\x26\xB2\x75\x8E\x66\xCF'): ('audio', 'wma'),  # WMA
+            ("single", (0, 2), b'\xFF\xF1'): ('audio', 'aac'),  # ADTS AAC (raw AAC stream)
+            ("single", (0, 4), b'\x00\x00\x00\x18'): ('audio', 'aac'),  # MP4/M4A container with AAC audio (ftyp box start)
 
         }
 
