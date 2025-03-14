@@ -190,7 +190,8 @@ class System:
 
         return save_directory, cluster_id, file_id
 
-    async def save_stream(self, chunk: "FileChunk", uploaded_by_id: str, is_last_chunk: bool):
+    async def save_stream(self, chunk: "FileChunk", uploaded_by_id: str, is_last_chunk: bool,
+                          previous_chunk_number: int | None = None):
         # due to how chunks are processed before arriving here, all the chunks should have a valid file extension
         if not chunk.file_extension:
             # todo: see if it is needed to create a better error message
@@ -198,7 +199,7 @@ class System:
 
         try:
             # saves the file under main_dir/cluster_dir/file_id
-            await chunk.save()
+            await chunk.save(last_chunk_number=previous_chunk_number)
         except Exception as e:
             print(f"error: {e}: save dir: {chunk.save_directory}, file ID: {chunk.file_id}, user ID: {uploaded_by_id}")
             raise e
@@ -224,14 +225,14 @@ class System:
 
             # if the chunk is under ~200KB, compressing it may cause it to grow bigger
             if chunk.total_file_size > 200_000 and chunk.file_type == "audio":
-                # a .opus file extension is one of the best extensions for making large files small whilst keeping
+                # a .aac file extension is one of the best extensions for making large files small whilst keeping
                 # the audio quality
-                compressed_extension = "opus"
+                compressed_extension = "aac"
 
                 # we change the total size to the new size of the compressed file
                 total_size = await compress_and_replace(
-                    file_extension=chunk.file_extension,
-                    compressed_extension=compressed_extension,
+                    file_codec=chunk.file_extension,
+                    compressed_codec=compressed_extension,
                     input_file=f"{chunk.file_id}",
                     directory=chunk.save_directory
                 )
@@ -300,8 +301,18 @@ class FileChunk:
     in order to easily handle it
     """
 
-    def __init__(self, current_file_size: int, chunk: bytes, file_id: str, cluster_id: str, save_directory: str,
-                 chunk_number: int, file_extension: str = None):
+    def __init__(
+            self,
+            current_file_size: int,
+            chunk: bytes,
+            file_id: str,
+            cluster_id: str,
+            save_directory: str,
+            chunk_number: int,
+            asyncio_lock: asyncio.Lock,
+            file_extension: str = None,
+    ):
+        self._lock = asyncio_lock
         self.chunk = chunk
 
         self.file_id = file_id
@@ -341,32 +352,61 @@ class FileChunk:
 
             return mime_to_type.get(self._given_file_extension), self._given_file_extension
 
-        extensions = {
-            b'\xff\xd8\xff': ('image', 'jpeg'),  # JPEG
-            b'\x89PNG\r\n\x1a\n': ('image', 'png'),  # PNG
-            b'GIF87a': ('image', 'gif'),  # GIF (old version)
-            b'GIF89a': ('image', 'gif'),  # GIF (new version)
-            b'\x52\x49\x46\x46\x57\x45\x42\x50': ('image', 'webp'),  # WebP (RIFF format)
-            b'\x89WEBP': ('image', 'webp'),  # WebP (alternative signature)
+        extensions: dict[tuple[str, tuple[int], bytes] | tuple[str, tuple[tuple[int], bytes], ...], tuple[str, str]] = {
+            # Image formats
+            ("single", (0, 3), b'\xff\xd8\xff'): ('image', 'jpeg'),  # JPEG
+            ("single", (0, 8), b'\x89PNG\r\n\x1a\n'): ('image', 'png'),  # PNG
+            ("single", (0, 6), b'GIF87a'): ('image', 'gif'),  # GIF (old version)
+            ("single", (0, 6), b'GIF89a'): ('image', 'gif'),  # GIF (new version)
+            ("split", ((0, 4), b'\x52\x49\x46\x46'), ((8, 12), b'\x57\x45\x42\x50')): ('image', 'webp'),  # WebP
+            ("single", (0, 5), b'\x89WEBP'): ('image', 'webp'),  # WebP (alternative)
 
             # Audio formats
-            b'\x52\x49\x46\x46\x57\x41\x56\x45': ('audio', 'wav'),  # WAV (RIFF header)
-            b'ID3': ('audio', 'mp3'),  # MP3 (ID3 metadata tag)
-            b'\xFF\xFB': ('audio', 'mp3'),  # MP3 (frame header sync word)
-            b'\xFF\xF3': ('audio', 'mp3'),  # MP3 (alternative sync word for MPEG-2 Layer III)
-            b'\xFF\xF2': ('audio', 'mp3'),  # MP3 (alternative sync word for MPEG-2 Layer III)
-            b'\x66\x4C\x61\x43': ('audio', 'flac'),  # FLAC
-            b'OggS': ('audio', 'ogg'),  # OGG
-            b'\x66\x74\x79\x70\x4D\x34\x41': ('audio', 'm4a'),  # M4A (MP4 audio)
-            b'\x46\x4F\x52\x4D': ('audio', 'aiff'),  # AIFF
-            b'\x30\x26\xB2\x75\x8E\x66\xCF': ('audio', 'wma'),  # WMA
+            ("split", ((0, 4), b'\x52\x49\x46\x46'), ((8, 12), b'\x57\x41\x56\x45')): ('audio', 'wav'),  # WAV
+            ("single", (0, 3), b'ID3'): ('audio', 'mp3'),  # MP3 with ID3 metadata
+            ("single", (0, 2), b'\xFF\xFB'): ('audio', 'mp3'),  # MP3 (frame header sync word)
+            ("single", (0, 2), b'\xFF\xF3'): ('audio', 'mp3'),  # MP3 (MPEG-2 Layer III)
+            ("single", (0, 4), b'\x66\x4C\x61\x43'): ('audio', 'flac'),  # FLAC
+            ("single", (0, 4), b'OggS'): ('audio', 'ogg'),  # OGG
+            ("single", (0, 7), b'\x66\x74\x79\x70\x4D\x34\x41'): ('audio', 'm4a'),  # M4A
+            ("single", (0, 4), b'\x46\x4F\x52\x4D'): ('audio', 'aiff'),  # AIFF
+            ("single", (0, 7), b'\x30\x26\xB2\x75\x8E\x66\xCF'): ('audio', 'wma')  # WMA
+
         }
 
         for magic, file_type in extensions.items():
-            if self.chunk.startswith(magic):
-                return file_type
+            # this gets the type of magic number "type" that we need to look for
+            # single - this means that it is a few bytes at the very start of the file (meaning we can use "startswith")
+            # split - this means that it is like "magic-bytes... other data... magic-bytes", meaning we need to look
+            # over multiple areas of the chunk
+            magic_index_type = magic[0]
+
+            if magic_index_type == "split":
+                matches = True
+
+                # creates a tuple without the "magic type" in it, so that it can iterate over the tuple
+                new_magic_tuple: tuple[tuple[int, int], bytes] = magic[1::]
+
+                for indexes, magic_value_bytes in new_magic_tuple:
+                    if not self.chunk[indexes[0]:indexes[1]] == magic_value_bytes:
+                        matches = False
+                        break
+
+                if matches:
+                    return file_type
+            else:
+                # gets the actual magic bytes themselves (magic type, (index, index), magic bytes)
+                magic_bytes: bytes = magic[2]
+
+                # In case of a "single"
+                if self.chunk.startswith(magic_bytes):
+                    return file_type
 
         return None, None
+
+    async def _write(self, path: str):
+        async with aiofiles.open(path, "ab") as file:
+            await file.write(self.chunk)
 
     async def save(self, last_chunk_number: int | None = None) -> str:
         # combines the name (ID) of the file with the directory it should be saved under
@@ -380,13 +420,15 @@ class FileChunk:
 
         try:
             if chunk_in_order:
-                async with aiofiles.open(path, "ab") as file:
-                    await file.write(self.chunk)
+                # we need to lock the file while it is being written to so that multiple chunks do not try to
+                # override each-other (despite it being in "append bytes" mode)
+                async with self._lock:
+                    await self._write(path)
             else:
                 # todo: make it be able to "insert" correctly
                 raise Exception(f"out of order chunks: {self.file_id}")
         except Exception as e:
-            logging.error(e)
+            logging.error(e, exc_info=True)
             raise Exception(f"failed to save file \"{path}\" under file.save() (FileChunk)")
 
         return path
@@ -459,7 +501,7 @@ class BaseFile:
             async with aiofiles.open(path, "wb") as file:
                 await file.write(self._file)
         except Exception as e:
-            logging.error(e)
+            logging.error(e, exc_info=True)
 
             # todo: check code consistency to see if we need an error class instead of base exception. (error code: 500)
             raise Exception(f"failed to save file \"{path}\" under file.save() (BaseFile)")
