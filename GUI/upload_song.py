@@ -163,12 +163,6 @@ class UploadPage:
         audio_file = selected_files[0]
         file_path: str = audio_file.path
 
-        try:
-            async with aiofiles.open(file_path, "rb") as file:
-                file_bytes = await file.read()
-        except Exception as e:
-            print(e)
-
         await send_chunk(
             transport=self.transport,
             session_token=session_token,
@@ -185,6 +179,26 @@ class UploadPage:
         print("selected audio")
 
     # ---- image (sheet music) selection related stuff ----
+    async def _upload_images(self, e):
+        session_token: str = self.user_cache.session_token
+        print(f"session token: {session_token}")
+
+        image_paths: list[str] = list(self.sheet_file_paths.values())
+
+        await send_chunk(
+            transport=self.transport,
+            session_token=session_token,
+            tags=["one", "two"],
+            artist_name="a",
+            album_name="b",
+            song_name="c",
+            song_path="",
+            image_path_list=image_paths
+        )
+
+        print(f"uploaded {image_paths}")
+
+
     def _on_finish_image_select(self, e: ft.FilePickerResultEvent):
         print(e.files)
         print("selected image")
@@ -252,7 +266,6 @@ class UploadPage:
                                 ft.Icons.CLOSE,
                                 color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE),
                             ),
-                            # padding=5,
                             width=image_container.width / 5,
                             bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.GREY),
                             border_radius=180,
@@ -484,7 +497,20 @@ class UploadPage:
                     ft.Text("Add Music Sheets", weight=ft.FontWeight.BOLD),
                     self.sheet_selector_row,
 
-                    ft.Divider()
+                    ft.Divider(),
+
+                    # todo: clean up the code, and make it one button for an "everything upload"
+                    # currently it is only for testing
+                    ft.Container(
+                        height=50,
+                        expand_loose=True,
+                        expand=True,
+                        bgcolor=ft.Colors.BLUE,
+                        border_radius=10,
+                        content=ft.Text("UPLOAD"),
+                        alignment=ft.Alignment(0, 0),
+                        on_click=self._upload_images
+                    )
                 ],
                 expand=True,
                 scroll=ft.ScrollMode.ALWAYS,
