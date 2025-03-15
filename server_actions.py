@@ -640,9 +640,9 @@ class UploadSong:
                 f"Invalid payload passed. expected keys \"request_id\", \"file_type\", \"file_id\", \"chunk\", "
                 f"\"chunk_number\", \"is_last_chunk\", instead got {payload_keys}")
 
-        async with self._lock:
-            # checks if the file chunks have already started, or if the current chunk is the first of the file
-            chunk_info = self.file_save_ids.get((request_id, file_id), {})
+        #async with self._lock:
+        # checks if the file chunks have already started, or if the current chunk is the first of the file
+        chunk_info = self.file_save_ids.get((request_id, file_id), {})
 
         if not chunk_info:
             print(f"created new file ID for request {request_id}")
@@ -663,23 +663,20 @@ class UploadSong:
                 }
 
                 chunk_info = self.file_save_ids[(request_id, file_id)]
-
-            # current size of the total file (in bytes)
-            current_size = 0
-            file_extension: str | None = chunk_info["file_extension"]
-            previous_chunk: int = chunk_info["previous_chunk"]
-            file_lock: asyncio.Lock = chunk_info["lock"]
         else:
             # loads the values from the dictionary, so that they can be transferred into the FileChunk in order to be
             # saved onto the disc later on
             save_directory, cluster_id, full_file_id = chunk_info["paths"]
-            current_size = chunk_info["current_size"]
-            file_extension: str = chunk_info["file_extension"]
-            previous_chunk: int = chunk_info["previous_chunk"]
-            file_lock: asyncio.Lock = chunk_info["lock"]
+
+        current_size = chunk_info["current_size"]
+        file_extension: str = chunk_info["file_extension"]
+        previous_chunk: int = chunk_info["previous_chunk"]
+        file_lock: asyncio.Lock = chunk_info["lock"]
 
         if previous_chunk + 1 != chunk_number:
-            raise Exception(f"current chunk has skipped previous chunks. {previous_chunk} -> {chunk_number}")
+            await self._delete_chunk_info(request_id, file_id)
+
+            raise Exception(f"current chunk for {request_id}-{file_id} has skipped previous chunks. {previous_chunk} -> {chunk_number}")
         else:
             # see to do at the top of self.compress
             # compressed_chunk = await self.compress(chunk)
@@ -688,11 +685,11 @@ class UploadSong:
             chunk_size = len(chunk)
             current_size += chunk_size
 
-            async with self._lock:
-                # change the previous chunk to be the current chunk so that we can check it for the next chunk
-                self.file_save_ids[(request_id, file_id)]["previous_chunk"] = previous_chunk + 1
+            #async with self._lock:
+            # change the previous chunk to be the current chunk so that we can check it for the next chunk
+            chunk_info["previous_chunk"] = previous_chunk + 1
 
-                self.file_save_ids[(request_id, file_id)]["current_size"] = current_size
+            chunk_info["current_size"] = current_size
 
         file_chunk = FileChunk(
             asyncio_lock=file_lock,
@@ -710,8 +707,8 @@ class UploadSong:
             # if it does exist it means:
             # 1) the chunk is a valid chunk (as in, the extension is of a type that the server can accept)
             # 2) the chunk is indeed the first chunk
-            async with self._lock:
-                self.file_save_ids[(request_id, file_id)]["file_extension"] = file_chunk.file_extension
+            #async with self._lock:
+            chunk_info["file_extension"] = file_chunk.file_extension
         else:
             # if the chunk's extension isn't found it means:
             # 1) either the chunk is not valid
@@ -735,8 +732,7 @@ class UploadSong:
         except Exception as e:
 
             # removes any current data about the chunks
-            async with self._lock:
-                del self.file_save_ids[(request_id, file_id)]
+            await self._delete_chunk_info(request_id, file_id)
 
             # todo: add a system that deletes the previously saved chunks
 
@@ -746,5 +742,13 @@ class UploadSong:
         if is_last_chunk:
             print("last chunk was sent. deleting info now")
             # todo: add saving the file to the audio/image table
-            async with self._lock:
+            await self._delete_chunk_info(request_id, file_id)
+
+    async def _delete_chunk_info(self, request_id: str, file_id: str):
+        """tries to delete the information saved about a specific file's chunks"""
+
+        async with self._lock:
+            try:
                 del self.file_save_ids[(request_id, file_id)]
+            except KeyError:
+                pass
