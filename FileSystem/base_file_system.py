@@ -13,10 +13,8 @@ from FileSystem.file_extension import Extension
 
 from queries import FileSystem
 
-from Compress.ffmpeg import is_valid_file, FFmpegAudio, FFmpegImage, Codec
-from Compress.files import compress_and_replace
-
-from Compress.audio import compress_to_acc
+from Compress.ffmpeg import is_valid_file
+from Compress.audio import compress_to_aac
 
 
 class System:
@@ -229,7 +227,7 @@ class System:
             # if the chunk is under ~200KB, compressing it may cause it to grow bigger
             if chunk.total_file_size > 200_000 and chunk.file_type == "audio":
                 # we change the total size to the new size of the compressed file
-                total_size, compressed_extension = await compress_to_acc(
+                total_size, compressed_extension = await compress_to_aac(
                     file_extension=chunk.file_extension,
                     input_file=f"{chunk.file_id}",
                     directory=chunk.save_directory,

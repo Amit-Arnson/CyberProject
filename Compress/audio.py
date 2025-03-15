@@ -2,7 +2,7 @@ from Compress.files import compress_and_replace
 from Compress.ffmpeg import FFmpegAudio, Codec
 
 
-async def compress_to_acc(
+async def compress_to_aac(
         file_extension: str,
         directory: str,
         input_file: str,
