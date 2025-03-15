@@ -15,6 +15,7 @@ from queries import FileSystem
 
 from Compress.ffmpeg import is_valid_file
 from Compress.audio import compress_to_aac
+from Compress.images import compress_to_webp
 
 
 class System:
@@ -228,6 +229,14 @@ class System:
             if chunk.total_file_size > 200_000 and chunk.file_type == "audio":
                 # we change the total size to the new size of the compressed file
                 total_size, compressed_extension = await compress_to_aac(
+                    file_extension=chunk.file_extension,
+                    input_file=f"{chunk.file_id}",
+                    directory=chunk.save_directory,
+                )
+
+                final_file_id = f"{chunk.file_id}.{compressed_extension}"
+            elif chunk.file_type == "image":
+                total_size, compressed_extension = await compress_to_webp(
                     file_extension=chunk.file_extension,
                     input_file=f"{chunk.file_id}",
                     directory=chunk.save_directory,
