@@ -1,4 +1,5 @@
 import enum
+import logging
 import os
 
 import aiofiles
@@ -14,7 +15,7 @@ KILOBYTE: int = 1024
 
 
 class FileTypes(enum.Enum):
-    IMAGE = "image",
+    IMAGE = "image"
     AUDIO = "audio"
 
 
@@ -55,7 +56,11 @@ async def send_chunk(
 
     song_id: str = fast_create_unique_id("song", request_id)
 
-    image_ids: list[str] = [fast_create_unique_id("image", request_id)]
+    # if we don't have any images uploaded, we can set the image_ids to an empty list (to indicate that we had no images uploaded)
+    image_ids: list[str] = []
+
+    if image_path_list:
+        image_ids = [fast_create_unique_id("image", request_id, image_path.split("\\")[-1]) for image_path in image_path_list]
 
     # create the initial payload
     payload = {
@@ -126,6 +131,10 @@ async def send_file_chunks(
     
     sends to (endpoint): songs/upload/file (POST)
     """
+    if not path:
+        logging.error(f"missing \"path\" in chunk.send_file_chunks() for file_id {file_id}")
+        return
+
     file_type = file_type.value if isinstance(file_type, FileTypes) else file_type
 
     if file_type not in ("image", "audio"):
@@ -171,3 +180,4 @@ async def send_file_chunks(
             )
 
             await asyncio.sleep(0.025)
+            
