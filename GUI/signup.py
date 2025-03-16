@@ -453,6 +453,15 @@ class SignupPage:
             self._raise_error_banner(error_text)
 
     def append_error(self, error_control: ft.Control):
+        current_last_control_data = self.page_view.controls[-1].data
+
+        if isinstance(current_last_control_data, dict)\
+                and isinstance(error_control.data, dict)\
+                and current_last_control_data.get("error_type") == error_control.data.get("error_type"):
+            # removes the current last control if it is also an error message, this is done so that error messages
+            # don't stack
+            self.page_view.controls.pop()
+
         self.page_view.controls.append(error_control)
 
     def show(self, clear: bool = True):
