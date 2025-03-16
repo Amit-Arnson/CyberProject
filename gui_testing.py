@@ -106,7 +106,7 @@ class MainPage:
         self.page = page
         self.page.auto_scroll = False
 
-        self.page.on_resized = self._page_resize
+        # self.page.on_resized = self._page_resize
 
         self.file_picker = ft.FilePicker()
         self.file_picker.on_result = self._finished_picking_file
