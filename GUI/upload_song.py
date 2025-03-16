@@ -179,11 +179,30 @@ class UploadPage:
         print("selected audio")
 
     # ---- image (sheet music) selection related stuff ----
+    def _add_blocking_overlay(self):
+        self.page.overlay.append(
+            ft.Container(
+                expand=True,
+                bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+                content=ft.Text("Uploading", size=35, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                alignment=ft.Alignment(0, 0)
+            )
+        )
+
+        self.page.update()
+
+    def _remove_blocking_overlay(self):
+        self.page.overlay.pop()
+
+        self.page.update()
+
     async def _upload_images(self, e):
         session_token: str = self.user_cache.session_token
         print(f"session token: {session_token}")
 
         image_paths: list[str] = list(self.sheet_file_paths.values())
+
+        self._add_blocking_overlay()
 
         await send_chunk(
             transport=self.transport,
@@ -195,6 +214,8 @@ class UploadPage:
             song_path="",
             image_path_list=image_paths
         )
+
+        self._remove_blocking_overlay()
 
         print(f"uploaded {image_paths}")
 
