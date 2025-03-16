@@ -19,7 +19,8 @@ class PageError:
             actions=[
                 ft.TextButton(text="OK", on_click=close_alert),
             ],
-            open=True
+            open=True,
+            data={"error_type": "alert"}
         )
 
         # adds the error to the page's class "page_view" parameter (check the classes under the GUI dir for a better understanding)
