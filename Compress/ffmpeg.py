@@ -19,6 +19,7 @@ class Codec(Enum):
     GIF = "gif"  # Graphics Interchange Format
     WEBP = "libwebp"  # WebP Codec
     TIFF = "tiff"  # Tagged Image File Format
+    AVIF = "libaom-av1"  # AV1 Image File Format
 
 
 class FFmpegAudio:
