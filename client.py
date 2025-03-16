@@ -144,6 +144,9 @@ class ClientProtocol(asyncio.Protocol):
 async def main(page: ft.Page):
     page.server_error = PageError(page).error
 
+    page.window.min_width = 1000
+    page.window.min_height = 600
+
     event_loop = asyncio.get_event_loop()
 
     # we use asyncio.Future to check for a connection loss so that the client will keep on running
