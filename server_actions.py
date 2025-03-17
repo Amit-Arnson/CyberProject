@@ -582,7 +582,8 @@ class UploadSong:
             "file_id": str,
             "chunk": bytes,
             "chunk_number": int,
-            "is_last_chunk": bool
+            "is_last_chunk": bool,
+            "expected_size": int
         }
 
         expected output (after the last chunk):
@@ -634,11 +635,12 @@ class UploadSong:
             chunk: bytes = payload["chunk"]
             chunk_number: int = payload["chunk_number"]
             is_last_chunk: bool = payload["is_last_chunk"]
+            expected_file_size: int = payload["expected_size"]
         except KeyError:
             payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
             raise InvalidPayload(
                 f"Invalid payload passed. expected keys \"request_id\", \"file_type\", \"file_id\", \"chunk\", "
-                f"\"chunk_number\", \"is_last_chunk\", instead got {payload_keys}")
+                f"\"chunk_number\", \"is_last_chunk\", \"expected_size\", instead got {payload_keys}")
 
         #async with self._lock:
         # checks if the file chunks have already started, or if the current chunk is the first of the file
@@ -740,6 +742,13 @@ class UploadSong:
             raise e
 
         if is_last_chunk:
+
+            if current_size != expected_file_size:
+                raise Exception("received file size was less or more than expected")
+                # todo: add a system to delete the files on error so we don't have necessary files
+                # i will also probably invalidate the entire request if any part of it errors, so that users will have
+                # to upload the whole request again instead of having missing information in the upload
+
             print("last chunk was sent. deleting info now")
             # todo: add saving the file to the audio/image table
             await self._delete_chunk_info(request_id, file_id)

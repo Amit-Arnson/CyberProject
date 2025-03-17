@@ -148,6 +148,8 @@ async def send_file_chunks(
     # splits the chunks equally based on chunk size
     # for chunk_number, start in enumerate(range(0, file_size, chunk_size)):
 
+    file_total_size = os.path.getsize(path)
+
     async with aiofiles.open(path, "rb") as file:
         chunk_number = 0
 
@@ -167,7 +169,8 @@ async def send_file_chunks(
                 "file_id": file_id,
                 "chunk": chunk,
                 "chunk_number": chunk_number,
-                "is_last_chunk": is_last_chunk
+                "is_last_chunk": is_last_chunk,
+                "expected_size": file_total_size,
             }
 
             transport.write(
