@@ -464,6 +464,8 @@ class SignupPage:
 
         self.page_view.controls.append(error_control)
 
+        self.page_view.update()
+
     def show(self, clear: bool = True):
         """:param clear: whether to clear the page before trying to add the page's content or not."""
 

@@ -11,6 +11,155 @@ from Utils.chunk import send_chunk
 import aiofiles
 
 
+# This section was moved to a class due to being hard to read when inside of a function
+class ImageRemoveHover(ft.Stack):
+    def __init__(self, image: ft.Image, image_name: str, width: int, height: int):
+        super().__init__()
+
+        self.image = image
+        self.image_name = image_name
+        self.width = width
+        self.height = height
+
+        # Define controls using helper methods for better organization
+        self.controls = [
+            self._create_image_container(),
+            self._create_gradient_overlay(),
+            self._create_close_icon_overlay(),
+            self._create_text_overlay(),
+        ]
+
+    def _create_image_container(self) -> ft.Container:
+        """Creates the container for the image."""
+        return ft.Container(
+            content=self.image,
+            width=self.width,
+            height=self.height,
+        )
+
+    def _create_gradient_overlay(self) -> ft.Container:
+        """Creates the gradient overlay container."""
+        return ft.Container(
+            gradient=ft.LinearGradient(
+                colors=[
+                    ft.Colors.with_opacity(0.4, ft.Colors.BLACK),
+                    ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
+                    ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
+                    ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
+                    ft.Colors.with_opacity(0.4, ft.Colors.BLACK),
+                ],
+                begin=ft.alignment.top_center,
+                end=ft.alignment.bottom_center,
+            ),
+            width=self.width,
+            height=self.height,
+            padding=5,
+        )
+
+    def _create_close_icon_overlay(self) -> ft.Container:
+        """Creates the close icon overlay container."""
+        return ft.Container(
+            content=ft.Container(
+                content=ft.Icon(
+                    ft.Icons.CLOSE,
+                    color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE),
+                ),
+                width=self.width / 5,
+                bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.GREY),
+                border_radius=180,
+                expand_loose=True,
+                alignment=ft.Alignment(0, 0),
+            ),
+            padding=5,
+            height=40,
+            top=0,
+            left=0,
+        )
+
+    def _create_text_overlay(self) -> ft.Container:
+        """Creates the text overlay container."""
+        return ft.Container(
+            content=ft.Container(
+                content=ft.Text(
+                    self.image_name,
+                    weight=ft.FontWeight.BOLD,
+                    color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE),
+                    overflow=ft.TextOverflow.ELLIPSIS,
+                ),
+                padding=5,
+                width=self.width - 10,
+                bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.GREY),
+                border_radius=10,
+                expand_loose=True,
+                alignment=ft.Alignment(0, 0),
+            ),
+            padding=5,
+            height=40,
+            bottom=0,
+        )
+
+
+class UploadCoverArtDefault(ft.Stack):
+    def __init__(self):
+        super().__init__()
+
+        # Default size values for containers
+        self.default_size_values: dict[str, int] = {
+            "width": 25,
+            "height": 25,
+        }
+
+        # Default border styling
+        self.default_border_value = ft.BorderSide(
+            color=ft.Colors.GREY_700, width=2
+        )
+
+        # Define controls for upload cover art
+        self.controls = [
+            self._create_main_text_container(),
+            self._create_corner_container(bottom=0, right=0, add_sides=["right", "bottom"]),
+            self._create_corner_container(bottom=0, left=0, add_sides=["left", "bottom"]),
+            self._create_corner_container(top=0, right=0, add_sides=["right", "top"]),
+            self._create_corner_container(top=0, left=0, add_sides=["left", "top"]),
+        ]
+
+    def _create_main_text_container(self) -> ft.Container:
+        """Creates the main text container."""
+        return ft.Container(
+            content=ft.Text(
+                spans=[
+                    ft.TextSpan("ADD\n"),
+                    ft.TextSpan("COVER"),
+                ],
+                text_align=ft.TextAlign.CENTER,
+                weight=ft.FontWeight.BOLD,
+                color=ft.Colors.GREY_500,
+            ),
+            height=150,
+            width=120,
+            bgcolor=ft.Colors.with_opacity(0.1, ft.Colors.GREY_500),
+            alignment=ft.Alignment(0, 0),
+        )
+
+    def _create_corner_container(self, **kwargs) -> ft.Container:
+        """
+        Creates a corner container with specified positioning and border sides.
+
+        :param kwargs: Positioning arguments (e.g., top, bottom, left, right).
+        :param add_sides: List of sides for which borders are added.
+        """
+        add_sides = kwargs.pop("add_sides", [])
+        border_kwargs = {
+            side: self.default_border_value for side in add_sides
+        }
+
+        return ft.Container(
+            **self.default_size_values,
+            border=ft.Border(**border_kwargs),
+            **kwargs,
+        )
+
+
 class UploadPage:
     def __init__(self, page: ft.Page):
         self.page = page
@@ -22,6 +171,7 @@ class UploadPage:
         self.page_height = 720
 
         self.selected_song_path: str = ""
+        self.selected_cover_art_path: str = ""
         self.selected_sheet_paths: list[str] = []
 
         self.transport: EncryptedTransport | None = None
@@ -39,69 +189,7 @@ class UploadPage:
         self.sheet_image_container_id = 0
         self.sheet_file_paths: dict[int, str] = {}
 
-        upload_cover_default_size_values: dict[str, int] = {
-            "width": 25,
-            "height": 25
-        }
-
-        upload_cover_default_border_value = ft.BorderSide(color=ft.Colors.BLUE, width=2)
-
-        self.upload_cover_art_default_content: ft.Stack = ft.Stack(
-            [
-                ft.Container(
-                    content=ft.Text(
-                        spans=[
-                            ft.TextSpan("ADD\n"),
-                            ft.TextSpan("COVER")
-                        ],
-                        text_align=ft.TextAlign.CENTER,
-                        weight=ft.FontWeight.BOLD,
-                        color=ft.Colors.BLUE
-                    ),
-                    height=150,
-                    width=120,
-                    bgcolor=ft.Colors.with_opacity(0.1, ft.Colors.BLUE),
-                    alignment=ft.Alignment(0, 0)
-                ),
-                ft.Container(
-                    **upload_cover_default_size_values,
-                    border=ft.Border(
-                        right=upload_cover_default_border_value,
-                        bottom=upload_cover_default_border_value
-                    ),
-                    bottom=0,
-                    right=0
-                ),
-                ft.Container(
-                    height=25,
-                    width=25,
-                    border=ft.Border(
-                        left=upload_cover_default_border_value,
-                        bottom=upload_cover_default_border_value
-                    ),
-                    bottom=0,
-                    left=0
-                ),
-                ft.Container(
-                    **upload_cover_default_size_values,
-                    border=ft.Border(
-                        right=upload_cover_default_border_value,
-                        top=upload_cover_default_border_value
-                    ),
-                    top=0,
-                    right=0
-                ),
-                ft.Container(
-                    **upload_cover_default_size_values,
-                    border=ft.Border(
-                        left=upload_cover_default_border_value,
-                        top=upload_cover_default_border_value
-                    ),
-                    top=0,
-                    left=0
-                )
-            ]
-        )
+        self.upload_cover_art_default_content: ft.Stack = UploadCoverArtDefault()
 
         self.sidebar = NavigationSidebar(page=page)
 
@@ -120,21 +208,8 @@ class UploadPage:
         self._initialize_controls()
 
     def _initialize_sidebar_top(self):
-        self.sidebar.top_part.margin = ft.Margin(top=10, bottom=0, right=0, left=0)
-
         # override the on_click method so that clicking on the button does not reset the information already input
-        self.sidebar.goto_upload_song.on_click = lambda _: _
-
-        self.sidebar.top_part.content = ft.Container(
-            expand=True,
-            height=75,
-            bgcolor=ft.Colors.BLUE_900,
-            content=ft.Text(
-                "Upload Song", size=25, color=ft.Colors.BLUE_700,
-                weight=ft.FontWeight.BOLD
-            ),
-            alignment=ft.Alignment(0, 0)
-        )
+        self.sidebar.goto_upload_song.on_click = None
 
         # the sidebar is set to 2 and the right side of the page is set to 10. this means the sidebar takes 20% of the available screen
         self.sidebar.expand = 2
@@ -163,6 +238,8 @@ class UploadPage:
         audio_file = selected_files[0]
         file_path: str = audio_file.path
 
+        self.selected_song_path = file_path
+
         await send_chunk(
             transport=self.transport,
             session_token=session_token,
@@ -172,11 +249,6 @@ class UploadPage:
             song_name="c",
             song_path=file_path,
         )
-
-        print(audio_file)
-        print(type(audio_file))
-        print(e.files)
-        print("selected audio")
 
     # ---- image (sheet music) selection related stuff ----
     def _add_blocking_overlay(self):
@@ -217,9 +289,6 @@ class UploadPage:
 
         self._remove_blocking_overlay()
 
-        print(f"uploaded {image_paths}")
-
-
     def _on_finish_image_select(self, e: ft.FilePickerResultEvent):
         print(e.files)
         print("selected image")
@@ -258,66 +327,11 @@ class UploadPage:
 
             image_name: str = image.data
 
-            image_remove_overlay: ft.Stack = ft.Stack(
-                controls=[
-                    ft.Container(
-                        content=image,
-                        width=image_container.width,
-                        height=image_container.height,
-                    ),
-                    ft.Container(
-                        gradient=ft.LinearGradient(
-                            colors=[
-                                ft.Colors.with_opacity(0.4, ft.Colors.BLACK),
-                                ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
-                                ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
-                                ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
-                                ft.Colors.with_opacity(0.4, ft.Colors.BLACK),
-                            ],
-                            begin=ft.alignment.top_center,
-                            end=ft.alignment.bottom_center
-                        ),
-                        width=image_container.width,
-                        height=image_container.height,
-                        padding=5,
-                    ),
-                    ft.Container(
-                        content=ft.Container(
-                            content=ft.Icon(
-                                ft.Icons.CLOSE,
-                                color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE),
-                            ),
-                            width=image_container.width / 5,
-                            bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.GREY),
-                            border_radius=180,
-                            expand_loose=True,
-                            alignment=ft.Alignment(0, 0),
-                        ),
-                        padding=5,
-                        height=40,
-                        top=0,
-                        left=0
-                    ),
-                    ft.Container(
-                        content=ft.Container(
-                            content=ft.Text(
-                                f"{image_name}",
-                                weight=ft.FontWeight.BOLD,
-                                color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE),
-                                overflow=ft.TextOverflow.ELLIPSIS
-                            ),
-                            padding=5,
-                            width=image_container.width - 10,
-                            bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.GREY),
-                            border_radius=10,
-                            expand_loose=True,
-                            alignment=ft.Alignment(0, 0),
-                        ),
-                        padding=5,
-                        height=40,
-                        bottom=0,
-                    ),
-                ],
+            image_remove_overlay: ft.Stack = ImageRemoveHover(
+                image=image,
+                image_name=image_name,
+                width=image_container.width,
+                height=image_container.height
             )
 
             image_container.content = image_remove_overlay
@@ -392,36 +406,31 @@ class UploadPage:
                 ),
                 ft.Column(
                     [
-                        ft.Container(
-                            content=ft.Text("Upload Song", expand_loose=True),
-                            height=75,
-                            expand=True,
-                            expand_loose=True,
-                            bgcolor=ft.Colors.GREEN
-                        ),
+                        self.song_selector,
                         ft.Container(
                             content=ft.Row(
                                 [
-                                    ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_900, size=40),
+                                    ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_600, size=40),
                                     ft.Text(spans=[
                                         ft.TextSpan("0:00"), ft.TextSpan("/"), ft.TextSpan("0:00")
-                                    ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_900),
+                                    ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
                                     ft.ProgressBar(
                                         value=0.01,
                                         height=5,
                                         expand_loose=True,
                                         expand=True,
-                                        color=ft.Colors.GREY_900,
-                                        bgcolor=ft.Colors.GREY_600,
+                                        color=ft.Colors.GREY_600,
+                                        bgcolor=ft.Colors.GREY_400,
                                         border_radius=10,
-                                    )
+                                    ),
+                                    ft.Icon(ft.Icons.VOLUME_UP_ROUNDED, ft.Colors.GREY_600, size=25),
                                 ]
                             ),
                             border_radius=90,
-                            padding=10,
+                            padding=15,
                             height=75,
                             expand=True,
-                            bgcolor=ft.Colors.BLUE_700,
+                            bgcolor=ft.Colors.with_opacity(0.7, ft.Colors.GREY_300),
                         ),
                     ],
                     height=150,
@@ -479,7 +488,7 @@ class UploadPage:
             border_radius=5,
             border=ft.border.all(color=ft.Colors.BLACK),
             padding=ft.Padding(
-                right=0, top=2, bottom=2, left=2
+                right=0, top=2, bottom=2, left=10
             ),
             tag_spacing=5,
             hint_text="add genre",
@@ -501,43 +510,112 @@ class UploadPage:
 
         # this is just a temporary container so that something takes that space up
         song_info_parameters = ft.Container(
-            padding=10,
-            expand=8,
-            content=ft.Column(
-                [
-                    self.song_selector,
-
-                    ft.Divider(),
-
-                    self.song_info_row,
-                    # self.description_textbox,
-                    self.selected_genres_textbox,
-
-                    ft.Divider(),
-
-                    ft.Text("Add Music Sheets", weight=ft.FontWeight.BOLD),
-                    self.sheet_selector_row,
-
-                    ft.Divider(),
-
-                    # todo: clean up the code, and make it one button for an "everything upload"
-                    # currently it is only for testing
-                    ft.Container(
-                        height=50,
-                        expand_loose=True,
-                        expand=True,
-                        bgcolor=ft.Colors.BLUE,
-                        border_radius=10,
-                        content=ft.Text("UPLOAD"),
-                        alignment=ft.Alignment(0, 0),
-                        on_click=self._upload_images
-                    )
-                ],
-                expand=True,
-                scroll=ft.ScrollMode.ALWAYS,
-                auto_scroll=True
+            padding=ft.Padding(
+                right=25,
+                left=25,
+                top=5,
+                bottom=5
             ),
-            alignment=ft.Alignment(-1, -1)
+            expand=8,
+            content=ft.Container(
+                padding=ft.Padding(
+                    right=25,
+                    left=25,
+                    top=0,
+                    bottom=0
+                ),
+                content=ft.Column(
+                    [
+                        ft.Container(
+                            content=ft.Text("UPLOAD SONG",
+                                            weight=ft.FontWeight.BOLD,
+                                            color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE),
+                                            size=35),
+                            expand=True,
+                            expand_loose=True,
+                            alignment=ft.Alignment(0, 0),
+                            padding=5,
+                            height=65,
+                            bgcolor=ft.Colors.BLUE_800,
+                            border_radius=10
+                        ),
+
+                        ft.Column(
+                            [
+                                ft.Column(
+                                    [
+                                        ft.Text("Details", weight=ft.FontWeight.BOLD),
+
+                                        self.song_selector_row,
+
+                                        ft.Divider(),
+                                    ]
+                                ),
+                                ft.Column(
+                                    [
+                                        self.song_info_row,
+                                        # self.description_textbox,
+                                        self.selected_genres_textbox,
+                                    ]
+                                ),
+                            ],
+                            spacing=20,
+                        ),
+
+                        ft.Divider(),
+
+                        ft.Column(
+                            [
+                                ft.Text("Add Music Sheets", weight=ft.FontWeight.BOLD),
+                                self.sheet_selector_row,
+                            ]
+                        ),
+
+                        ft.Divider(),
+
+                        # todo: clean up the code, and make it one button for an "everything upload"
+                        # currently it is only for testing
+                        ft.Row([
+                            ft.Container(
+                                height=55,
+                                width=150,
+                                border_radius=10,
+                                content=ft.Text(
+                                    "Clear information",
+                                    weight=ft.FontWeight.W_500,
+                                    color=ft.Colors.with_opacity(0.7, ft.Colors.RED_ACCENT_700),
+                                    size=15,
+                                ),
+                                alignment=ft.Alignment(0, 0),
+                                #bgcolor=ft.Colors.with_opacity(0.7, ft.Colors.RED_ACCENT_700)
+                            ),
+                            ft.Container(
+                                height=55,
+                                width=200,
+                                bgcolor=ft.Colors.BLUE_800,
+                                border_radius=10,
+                                content=ft.Text(
+                                    "Upload",
+                                    weight=ft.FontWeight.W_500,
+                                    color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE),
+                                    size=15,
+                                ),
+                                alignment=ft.Alignment(0, 0),
+                                on_click=self._upload_images
+                            ),
+                        ],
+                            alignment=ft.MainAxisAlignment.END
+                        )
+                    ],
+                    tight=False,
+                    spacing=20,
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    scroll=ft.ScrollMode.HIDDEN,
+                ),
+                expand=6,
+                alignment=ft.Alignment(-1, -0.95)
+            ),
+            alignment=ft.Alignment(0, 0),
         )
 
         self.page_view = ft.Row(
@@ -552,14 +630,16 @@ class UploadPage:
     def append_error(self, error_control: ft.Control):
         current_last_control_data = self.page_view.controls[-1].data
 
-        if isinstance(current_last_control_data, dict)\
-                and isinstance(error_control.data, dict)\
+        if isinstance(current_last_control_data, dict) \
+                and isinstance(error_control.data, dict) \
                 and current_last_control_data.get("error_type") == error_control.data.get("error_type"):
             # removes the current last control if it is also an error message, this is done so that error messages
             # don't stack
             self.page_view.controls.pop()
 
         self.page_view.controls.append(error_control)
+
+        self.page_view.update()
 
     def show(self, clear: bool = True):
         """:param clear: whether to clear the page before trying to add the page's content or not."""
