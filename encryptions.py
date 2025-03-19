@@ -51,6 +51,21 @@ def aes_cbc_decrypt(ciphertext, key):
     return unpad(plaintext)
 
 
+def aes_cfb_encrypt(plaintext: bytes, key: bytes, iv: bytes) -> bytes:
+    # Create an AES cipher object in CFB mode
+    cipher = AES.new(key, AES.MODE_CFB, iv)
+    # Encrypt the plaintext
+    ciphertext = cipher.encrypt(plaintext)
+    return ciphertext
+
+def aes_cfb_decrypt(ciphertext: bytes, key: bytes, iv: bytes) -> str:
+    # Create an AES cipher object in CFB mode
+    cipher = AES.new(key, AES.MODE_CFB, iv)
+    # Decrypt the ciphertext
+    plaintext = cipher.decrypt(ciphertext)
+    return plaintext.decode()
+
+
 # todo: fix my cbc code and not use pycryptodome
 # issue: when sending over large data or data in general very fast, it breaks the padding and unpadding for some reason
 class EncryptedTransport(asyncio.Transport):
@@ -72,12 +87,12 @@ class EncryptedTransport(asyncio.Transport):
         data is only encrypted if a key and iv are passed
         """
         if self.key and self.iv:
-            data = pad(data)
+            # data = pad(data)
+            # data = aes_cbc_encrypt(data, key=self.key, iv=self.iv)
 
-            data = aes_cbc_encrypt(data, key=self.key, iv=self.iv)
+            # data = cbc.cbc_encrypt(data, key=self.key, iv=self.iv)
 
-            #data = cbc.cbc_encrypt(data, key=self.key, iv=self.iv)
-            #data = aes.encrypt(data)
+            data = aes_cfb_encrypt(data, key=self.key, iv=self.iv)
 
         self._transport.write(data)
 
@@ -88,11 +103,12 @@ class EncryptedTransport(asyncio.Transport):
         """
 
         if self.key and self.iv:
-            data = aes_cbc_decrypt(data, key=self.key)
-            data = unpad(data)
+            # data = aes_cbc_decrypt(data, key=self.key)
+            # data = unpad(data)
 
-            #data = cbc.cbc_decrypt(data, key=self.key, iv=self.iv)
-            #data = aes.decrypt(data)
+            # data = cbc.cbc_decrypt(data, key=self.key, iv=self.iv)
+
+            data = aes_cfb_decrypt(data, key=self.key, iv=self.iv).encode()
 
         return data
 
