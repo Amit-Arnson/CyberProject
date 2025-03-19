@@ -3,8 +3,6 @@ import base64
 import asyncio
 from typing import Optional
 
-import pyaes
-
 from AES_128 import cbc
 
 
@@ -17,10 +15,12 @@ def pad(plaintext):
     padding = chr(padding_length) * padding_length
     return plaintext + padding.encode()
 
+
 def unpad(plaintext):
     """Removes the padding from the plaintext."""
     padding_length = plaintext[-1]  # The last byte represents the padding length
     return plaintext[:-padding_length]
+
 
 def aes_cbc_encrypt(plaintext, key, iv):
     """Encrypts plaintext using AES CBC mode."""
@@ -33,6 +33,7 @@ def aes_cbc_encrypt(plaintext, key, iv):
 
     # Return the IV and ciphertext (both are needed for decryption)
     return base64.b64encode(iv + ciphertext)  # Encode as Base64 for easier storage/transmission
+
 
 def aes_cbc_decrypt(ciphertext, key):
     """Decrypts ciphertext using AES CBC mode."""
@@ -51,22 +52,7 @@ def aes_cbc_decrypt(ciphertext, key):
     return unpad(plaintext)
 
 
-def aes_cfb_encrypt(plaintext: bytes, key: bytes, iv: bytes) -> bytes:
-    # Create an AES cipher object in CFB mode
-    cipher = AES.new(key, AES.MODE_CFB, iv)
-    # Encrypt the plaintext
-    ciphertext = cipher.encrypt(plaintext)
-    return ciphertext
-
-def aes_cfb_decrypt(ciphertext: bytes, key: bytes, iv: bytes) -> str:
-    # Create an AES cipher object in CFB mode
-    cipher = AES.new(key, AES.MODE_CFB, iv)
-    # Decrypt the ciphertext
-    plaintext = cipher.decrypt(ciphertext)
-    return plaintext.decode()
-
-
-# todo: fix my cbc code and not use pycryptodome
+# todo: fix my cbc code and not use pycryptodome, currently it seems that my code is simply too slow
 # issue: when sending over large data or data in general very fast, it breaks the padding and unpadding for some reason
 class EncryptedTransport(asyncio.Transport):
     def __init__(self, transport: asyncio.Transport, key: Optional[bytes] = None, iv: Optional[bytes] = None):
@@ -74,6 +60,9 @@ class EncryptedTransport(asyncio.Transport):
         self._transport = transport
         self.key = key
         self.iv = iv
+
+        self._buffer = b""  # Buffer for incoming fragmented data
+        self._expected_data_length = None
 
         if key and len(key) != 16:
             raise ValueError(f"expected 16 byte key, got {len(key)} bytes instead")
@@ -83,79 +72,82 @@ class EncryptedTransport(asyncio.Transport):
 
     def write(self, data: bytes) -> None:
         """
-        uses asyncio.Transport's write() whilst also encrypting using AES-128-CBC.
-        data is only encrypted if a key and iv are passed
+        Uses asyncio.Transport's write() while encrypting using AES-128-CBC.
+        Data is only encrypted if a key and IV are passed.
         """
         if self.key and self.iv:
-            # data = pad(data)
-            # data = aes_cbc_encrypt(data, key=self.key, iv=self.iv)
+            encrypted_data = aes_cbc_encrypt(data, key=self.key, iv=self.iv)
 
-            # data = cbc.cbc_encrypt(data, key=self.key, iv=self.iv)
+            # Calculate and include the length prefix (16 bytes), this is practically a buffer protocol
+            data_length_block = str(len(encrypted_data)).rjust(16, "0").encode()
 
-            data = aes_cfb_encrypt(data, key=self.key, iv=self.iv)
+            data = data_length_block + encrypted_data
 
+        # Write the data to the transport
         self._transport.write(data)
 
     def read(self, data: bytes) -> bytes:
         """
-        decrypts the data using the key and iv that were initially passed.
-        data is only decrypted if a key and iv are passed
+        Decrypts the incoming data using the key and IV that were initially passed, using AES-128-CBC,
+        Buffers fragmented data until it forms full blocks.
         """
-
         if self.key and self.iv:
-            # data = aes_cbc_decrypt(data, key=self.key)
-            # data = unpad(data)
+            self._buffer += data
 
-            # data = cbc.cbc_decrypt(data, key=self.key, iv=self.iv)
+            # Check if we have enough data for the length prefix (16 bytes)
+            if len(self._buffer) < 16:
+                return b""  # Wait for more data
 
-            data = aes_cfb_decrypt(data, key=self.key, iv=self.iv).encode()
+            # if we don't have an expected length yet, we get it from the first 16 bytes.
+            if not self._expected_data_length:
+                self._expected_data_length = int(self._buffer[:16].decode())
+                self._buffer = self._buffer[16:]  # Remove the length prefix
+
+            # Wait until the full payload has been received
+            if len(self._buffer) < self._expected_data_length:
+                return b""  # Wait for more data
+
+            # Extract the full payload, this takes the exact length of the message (since the buffer itself may contain
+            # more data than needed, depending on how much leeway you need to add to the buffer clear)
+            cipher = self._buffer[:self._expected_data_length]
+
+            self._buffer = self._buffer[self._expected_data_length:]  # Remove processed data
+
+            decrypted_data = aes_cbc_decrypt(cipher, key=self.key)
+
+            self._clear_buffer()
+
+            self._expected_data_length = None  # Reset for the next message
+
+            return decrypted_data
 
         return data
 
+    def _clear_buffer(self, leeway: int = 0):
+        """clears the current buffer so that we don't accumulate tons of data on the memory"""
+        if len(self._buffer) > self._expected_data_length + leeway:
+            self._buffer = b""
+
     def can_write_eof(self) -> bool:
-        """
-        Returns whether the transport can send an EOF (end of file).
-        """
         return self._transport.can_write_eof()
 
     def write_eof(self) -> None:
-        """
-        Writes an EOF (end of file) marker to the transport.
-        """
         self._transport.write_eof()
 
     def get_extra_info(self, name: str, default: Optional[None] = None) -> Optional[None]:
-        """
-        Returns extra information about the transport (such as peername, sockname, etc.).
-        """
         return self._transport.get_extra_info(name, default)
 
     def close(self) -> None:
-        """
-        Closes the underlying transport.
-        """
         self._transport.close()
 
     def is_closing(self) -> bool:
-        """
-        Checks if the transport is closing.
-        """
         return self._transport.is_closing()
 
     def set_protocol(self, protocol: asyncio.Protocol) -> None:
-        """
-        Sets the protocol that the transport is associated with.
-        """
         self._transport.set_protocol(protocol)
 
     def get_write_buffer_size(self) -> int:
-        """
-        Returns the current write buffer size of the transport.
-        """
         return self._transport.get_write_buffer_size()
 
     def __del__(self):
-        """
-        Cleanup when the object is deleted.
-        """
         self.close()
