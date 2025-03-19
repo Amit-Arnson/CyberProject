@@ -201,7 +201,7 @@ class System:
 
         try:
             # saves the file under main_dir/cluster_dir/file_id
-            await chunk.save(last_chunk_number=previous_chunk_number)
+            await chunk.save()
         except Exception as e:
             print(f"error: {e}: save dir: {chunk.save_directory}, file ID: {chunk.file_id}, user ID: {uploaded_by_id}")
             raise e
@@ -316,9 +316,14 @@ class FileChunk:
             chunk_number: int,
             asyncio_lock: asyncio.Lock,
             file_extension: str = None,
+            out_of_order_chunks: list = None
     ):
         self._lock = asyncio_lock
         self.chunk = chunk
+
+        if out_of_order_chunks:
+            out_of_order_combined = b"".join(out_of_order_chunks)
+            self.chunk += out_of_order_combined
 
         self.file_id = file_id
         self.cluster_id = cluster_id

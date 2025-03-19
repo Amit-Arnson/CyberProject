@@ -1,6 +1,8 @@
 import logging
 import os
 
+import bisect
+
 import asyncio
 
 from pseudo_http_protocol import ClientMessage, ServerMessage
@@ -458,6 +460,9 @@ class UploadSong:
             tuple[str, str], dict[str, tuple[str, str, str] | int | str | asyncio.Lock]
         ] = {}
 
+        self.out_of_order_chunks: dict = {}
+
+
     async def upload_song(
             self,
             db_pool: asqlite.Pool,
@@ -675,10 +680,27 @@ class UploadSong:
         previous_chunk: int = chunk_info["previous_chunk"]
         file_lock: asyncio.Lock = chunk_info["lock"]
 
+        # we define this outside so that we can use it even if the chunks are in order
+        new_ordered_chunks = []
         if previous_chunk + 1 != chunk_number:
-            await self._delete_chunk_info(request_id, file_id)
+            async with self._lock:
+                # Ensure the out-of-order list exists for the current file
+                if (request_id, file_id) not in self.out_of_order_chunks:
+                    self.out_of_order_chunks[(request_id, file_id)] = []
 
-            raise Exception(f"current chunk for {request_id}-{file_id} has skipped previous chunks. {previous_chunk} -> {chunk_number}")
+                out_of_order_chunks_list = self.out_of_order_chunks[(request_id, file_id)]
+
+                # Insert the out-of-order chunk while maintaining sorted order
+                bisect.insort(out_of_order_chunks_list, (chunk_number, chunk))
+
+                # Process chunks in order if possible
+                while out_of_order_chunks_list and out_of_order_chunks_list[0][0] == previous_chunk + 1:
+                    unordered_number, unordered_chunk = out_of_order_chunks_list.pop(0)
+                    new_ordered_chunks.append(unordered_chunk)
+                    previous_chunk += 1  # Update to the latest chunk number
+
+                # Update `previous_chunk` in the chunk info dictionary
+                self.file_save_ids[(request_id, file_id)]["previous_chunk"] = previous_chunk
         else:
             # see to do at the top of self.compress
             # compressed_chunk = await self.compress(chunk)
@@ -701,7 +723,8 @@ class UploadSong:
             save_directory=save_directory,
             chunk_number=chunk_number,
             current_file_size=current_size,
-            file_extension=file_extension
+            file_extension=file_extension,
+            out_of_order_chunks=new_ordered_chunks
         )
 
         # checks if the "extension reader" is able to detect the file extension of the chunk
@@ -709,8 +732,8 @@ class UploadSong:
             # if it does exist it means:
             # 1) the chunk is a valid chunk (as in, the extension is of a type that the server can accept)
             # 2) the chunk is indeed the first chunk
-            #async with self._lock:
-            chunk_info["file_extension"] = file_chunk.file_extension
+            async with self._lock:
+                chunk_info["file_extension"] = file_chunk.file_extension
         else:
             # if the chunk's extension isn't found it means:
             # 1) either the chunk is not valid
@@ -744,7 +767,7 @@ class UploadSong:
         if is_last_chunk:
 
             if current_size != expected_file_size:
-                raise Exception("received file size was less or more than expected")
+                raise Exception(f"received file size was less or more than expected (by {abs(current_size - expected_file_size)} bytes)")
                 # todo: add a system to delete the files on error so we don't have necessary files
                 # i will also probably invalidate the entire request if any part of it errors, so that users will have
                 # to upload the whole request again instead of having missing information in the upload
@@ -759,5 +782,6 @@ class UploadSong:
         async with self._lock:
             try:
                 del self.file_save_ids[(request_id, file_id)]
+                del self.out_of_order_chunks[(request_id, file_id)]
             except KeyError:
                 pass
