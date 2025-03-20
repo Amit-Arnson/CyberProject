@@ -1,4 +1,5 @@
 # this is where all the "error" endpoints will point
+import asyncio
 
 from pseudo_http_protocol import ServerMessage
 from Caches.user_cache import ClientSideUserCache
@@ -107,3 +108,45 @@ async def signup_error(page: Page, _: EncryptedTransport, server_message: Server
                 f"{status_message}\n\nstatus: {status_code}"
             )
         )
+
+
+async def song_upload_error(page: Page, _: EncryptedTransport, server_message: ServerMessage, __: ClientSideUserCache):
+    """
+    this function is used to visually display error information when uploading invalid information, and is also used
+    to stop the "upload chunks" task tied to the class
+
+    tied to song/upload/error
+
+    expected payload:
+    {
+        ???
+    }
+
+    expected output:
+    None
+
+    expected page location:
+    UploadSong
+    """
+
+    status_code = server_message.status.get("code")
+    status_message = server_message.status.get("message")
+    extra = server_message.payload
+
+    # since the .show() method applies "self" to page.view, we can access the page's contents and controls (which are
+    # normally saved in the self of the class) by accessing page.view
+
+    if hasattr(page, "view"):
+        upload_page = page.view
+
+        if hasattr(upload_page, "send_chunks_task"):
+            send_chunks_task: asyncio.Task = upload_page.send_chunks_task
+
+            send_chunks_task.cancel()
+
+    page.server_error(
+        ft.Text(
+            f"{status_message}\n\nstatus: {status_code}"
+        )
+    )
+

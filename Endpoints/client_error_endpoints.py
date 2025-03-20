@@ -1,5 +1,5 @@
 from typing import Callable
-from client_server_errors import login_error, signup_error
+from client_server_errors import login_error, signup_error, song_upload_error
 
 
 class ErrorEndPoints:
@@ -7,6 +7,7 @@ class ErrorEndPoints:
         self.endpoints: dict[str, Callable] = {
             "user/login/error": login_error,
             "user/signup/login/error": signup_error,
+            "song/upload/error": song_upload_error,
         }
         # endpoint -> function
 
