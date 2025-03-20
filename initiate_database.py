@@ -16,7 +16,9 @@ class CreateTables:
                 await self._create_users(cursor)
                 await self._create_file_cluster_table(cursor)
                 await self._create_file_table(cursor)
-                await self._create_audio_file_table(cursor)
+                await self._create_song_info_table(cursor)
+                await self._create_media_files_table(cursor)
+                await self._create_genres_table(cursor)
                 # ...
 
                 await connection.commit()
@@ -70,7 +72,6 @@ class CreateTables:
             """
             CREATE TABLE IF NOT EXISTS song_info (
                 song_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                file_id TEXT NOT NULL,
                 user_id TEXT NOT NULL,
                 artist_name TEXT NOT NULL,
                 album_name TEXT NOT NULL,
@@ -84,7 +85,7 @@ class CreateTables:
     async def _create_genres_table(cursor: Cursor):
         await cursor.execute(
             """
-            CREATE TABLE genres (
+            CREATE TABLE IF NOT EXISTS genres (
                 song_id INTEGER NOT NULL,
                 genre_name TEXT NOT NULL,
                 PRIMARY KEY (song_id, genre_name),
@@ -98,7 +99,7 @@ class CreateTables:
         """this is instead of "audio_file", "sheet_file" and "cover_art_file" tables"""
         await cursor.execute(
             """
-            CREATE TABLE media_files (
+            CREATE TABLE IF NOT EXISTS media_files (
                 song_id INTEGER NOT NULL,
                 file_id TEXT NOT NULL,
                 file_type TEXT NOT NULL, -- e.g., 'audio', 'sheet', 'cover'
