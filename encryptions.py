@@ -86,9 +86,17 @@ class EncryptedTransport(asyncio.Transport):
         # Write the data to the transport
         self._transport.write(data)
 
+    def _is_valid_length_prefix(self, prefix: bytes) -> bool:
+        """Validates whether the prefix contains a valid numeric length."""
+        try:
+            int(prefix.decode())
+            return True
+        except ValueError:
+            return False
+
     def read(self, data: bytes) -> bytes:
         """
-        Decrypts the incoming data using the key and IV that were initially passed, using AES-128-CBC,
+        Decrypts the incoming data using the key and IV that were initially passed, using AES-128-CBC.
         Buffers fragmented data until it forms full blocks.
         """
         if self.key and self.iv:
@@ -98,25 +106,29 @@ class EncryptedTransport(asyncio.Transport):
             if len(self._buffer) < 16:
                 return b""  # Wait for more data
 
-            # if we don't have an expected length yet, we get it from the first 16 bytes.
+            # If we don't have an expected length yet, read the first 16 bytes.
             if not self._expected_data_length:
-                self._expected_data_length = int(self._buffer[:16].decode())
-                self._buffer = self._buffer[16:]  # Remove the length prefix
+                if self._is_valid_length_prefix(self._buffer[:16]):
+                    self._expected_data_length = int(self._buffer[:16].decode())
+                    self._buffer = self._buffer[16:]  # Remove the length prefix
+                else:
+                    print("Invalid length prefix, clearing buffer.")
+                    self._buffer = b""  # Clear invalid data
+                    return b""
 
             # Wait until the full payload has been received
             if len(self._buffer) < self._expected_data_length:
                 return b""  # Wait for more data
 
-            # Extract the full payload, this takes the exact length of the message (since the buffer itself may contain
-            # more data than needed, depending on how much leeway you need to add to the buffer clear)
+            # Extract the full payload
             cipher = self._buffer[:self._expected_data_length]
-
             self._buffer = self._buffer[self._expected_data_length:]  # Remove processed data
 
+            # Decrypt the data
             decrypted_data = aes_cbc_decrypt(cipher, key=self.key)
 
+            # Clear buffer and reset state
             self._clear_buffer()
-
             self._expected_data_length = None  # Reset for the next message
 
             return decrypted_data
