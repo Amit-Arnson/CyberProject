@@ -80,7 +80,15 @@ class EndPoints:
             "song/upload/file": (
                 EndPointRequires(method="post", authentication=True),
                 upload_song_cache.upload_song_file
-            )
+            ),
+
+            # song/upload/finish is used to indicate that all the files have been transferred, and that the server can
+            # start saving to DB
+            "song/upload/finish": (
+                EndPointRequires(method="post", authentication=True),
+                upload_song_cache.upload_song_finish
+            ),
+
         }
         # endpoint -> (requirements, function)
 
