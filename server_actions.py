@@ -2,6 +2,7 @@ import logging
 import os
 
 import bisect
+import traceback
 
 import asyncio
 
@@ -16,12 +17,26 @@ from FileSystem.base_file_system import System, FileChunk
 
 import asqlite
 
-from secure_user_credentials import generate_hashed_password, authenticate_password, generate_user_id, \
+from secure_user_credentials import (
+    generate_hashed_password,
+    authenticate_password,
+    generate_user_id,
     generate_session_token
+)
 
 import queries
+from queries import FileSystem, MediaFiles, Music
 
-from Errors.raised_errors import NoEncryption, InvalidCredentials, TooLong, UserExists, InvalidPayload, TooShort
+from Compress.audio import get_audio_length
+
+from Errors.raised_errors import (
+    NoEncryption,
+    InvalidCredentials,
+    TooLong,
+    UserExists,
+    InvalidPayload,
+    TooShort
+)
 
 
 async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage,
@@ -461,12 +476,49 @@ class UploadSong:
             tuple[str, str], dict[str, tuple[str, str, str] | int | str | asyncio.Lock]
         ] = {}
 
+        """
+        dict[
+            tuple[request_id, file_id],
+            dict[
+                "cluster_id": str,
+                "file_id": str,
+                "user_uploaded_id": str,
+                "size": int,
+                "raw_file_id": str,
+                "file_format": str
+            ]
+        ]
+        """
+        self.base_file_parameters: dict[
+            tuple[str, str], dict[
+                str, str | int
+            ]
+        ] = {}
+
+        """
+        dict[
+            tuple[request_id, file_id],
+            full file path (save_dir/cluster/file.extension)
+        ]
+        """
+        self.base_file_paths: dict[
+            tuple[str, str], str
+        ] = {}
+
+        """
+        dict[
+            request_id,
+            set[file_id]
+        ]
+        """
+        self.base_file_set: dict[str, set[str]] = {}
+
         # dict[request_id, file_id] -> list[(chunk number, chunk bytes), ...]
         self.out_of_order_chunks: dict[tuple[str, str], list[tuple[int, bytes]]] = {}
 
     async def upload_song(
             self,
-            db_pool: asqlite.Pool,
+            _: asqlite.Pool,
             client_package: ClientPackage,
             client_message: ClientMessage,
             user_cache: UserCache
@@ -570,6 +622,176 @@ class UploadSong:
                 "cover_art_id": cover_art_id,
                 "image_ids": image_ids
             }
+
+    async def upload_song_finish(
+            self,
+            db_pool: asqlite.Pool,
+            client_package: ClientPackage,
+            client_message: ClientMessage,
+            user_cache: UserCache
+    ):
+        """
+        this function is used in order to finalize a song's information and data into the database
+
+        this function is tied to song/upload/finish (POST)
+
+        expected payload:
+        {
+            "request_id": str
+        }
+
+        expected output:
+        None
+
+        expected cache pre-function:
+        > address
+        > iv
+        > aes_key
+        > user_id
+        > session_token
+
+        expected cache post-function:
+        > address
+        > iv
+        > aes_key
+        > user_id
+        > session_token
+        """
+
+        client = client_package.client
+        address = client_package.address
+
+        # checks if the client has completed the key exchange
+        if not client.key or not client.iv:
+            raise NoEncryption("missing encryption values: please re-authenticate")
+
+        client_user_cache: UserCacheItem = user_cache[address]
+        user_id: str = client_user_cache.user_id
+
+        payload = client_message.payload
+
+        try:
+            request_id: str = payload["request_id"]
+        except KeyError:
+            payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+            raise InvalidPayload(
+                f"Invalid payload passed. expected keys \"request_id\", instead got {payload_keys}")
+
+        if request_id not in self.song_information:
+            raise InvalidPayload(f"request ID {request_id} is an invalid ID and does not exist")
+
+        try:
+            song_data = self.song_information[request_id]
+
+            # these are not the DB ids, but rather the file-request IDs
+            audio_file_id = song_data["song_id"]
+            cover_art_file_id = song_data["cover_art_id"]
+            sheet_images_file_ids = song_data["image_ids"]
+
+            file_ids = song_data["image_ids"].copy()
+            file_ids.append(song_data["cover_art_id"])
+            file_ids.append(audio_file_id)
+
+            print(f"file IDs: {file_ids}")
+            print(audio_file_id)
+            print(cover_art_file_id)
+            print(sheet_images_file_ids)
+
+            genres = song_data["tags"]
+            artist_name = song_data["artist_name"]
+            album_name = song_data["album_name"]
+            song_name = song_data["song_name"]
+
+            # due to the async nature of my server, sometimes the client's "song/upload/finish" arrives before the server
+            # actually finishes processing the chunks. to deal with it, i implemented a 100 second "timer" that will wait
+            # until all the files finish processing
+
+            # ensures that only the "valid" file IDs get added to the set (and not empty ones)
+            file_ids_request_set: set[str] = set([set_file_id for set_file_id in file_ids if set_file_id])
+
+            # how long the function is willing to wait before raising an error
+            interval_amount = 100
+            while not file_ids_request_set.issubset(self.base_file_set.get(request_id, {})):
+                interval_amount -= 1
+                await asyncio.sleep(1)  # Wait for the interval before checking again
+
+                if interval_amount <= 0:
+                    raise Exception(f"upload song finish function timed out for request {request_id}")
+
+            audio_length = await get_audio_length(self.base_file_paths[(request_id, audio_file_id)])
+
+            async with db_pool.acquire() as connection:
+                async with connection.transaction():
+                    for file_id in file_ids:
+                        if not file_id:
+                            continue
+
+                        file_request_id_pair = request_id, file_id
+
+                        print(f"pair: {file_request_id_pair}")
+                        print(f"keys: {list(self.base_file_parameters.keys())}")
+
+                        base_file_information = self.base_file_parameters[file_request_id_pair]
+
+                        await FileSystem.create_base_file(
+                            connection=connection,
+                            **base_file_information
+                        )
+
+                        del self.base_file_paths[file_request_id_pair]
+
+                    song_id = await Music.add_song(
+                        connection=connection,
+                        user_id=user_id,
+                        artist_name=artist_name,
+                        album_name=album_name,
+                        song_name=song_name,
+                        song_length_milliseconds=audio_length
+                    )
+
+                    audio_base_file_id = self.base_file_parameters[(request_id, audio_file_id)]["file_id"]
+                    await MediaFiles.create_audio_file(
+                        connection=connection,
+                        song_id=song_id,
+                        file_id=audio_base_file_id
+                    )
+
+                    del self.base_file_parameters[(request_id, audio_file_id)]
+
+                    if cover_art_file_id:
+                        cover_art_base_file_id = self.base_file_parameters[(request_id, cover_art_file_id)]["file_id"]
+                        await MediaFiles.create_cover_art_file(
+                            connection=connection,
+                            song_id=song_id,
+                            file_id=cover_art_base_file_id
+                        )
+
+                        del self.base_file_parameters[(request_id, cover_art_file_id)]
+
+                    if sheet_images_file_ids:
+                        sheet_music_file_ids: list[str] = []
+                        for sheet_image_id in sheet_images_file_ids:
+                            sheet_base_file_id = self.base_file_parameters[(request_id, sheet_image_id)]["file_id"]
+                            sheet_music_file_ids.append(sheet_base_file_id)
+                            del self.base_file_parameters[(request_id, sheet_image_id)]
+
+                        await MediaFiles.create_sheet_file(
+                            connection=connection,
+                            song_id=song_id,
+                            file_ids=sheet_music_file_ids
+                        )
+
+                    await Music.add_genre(
+                        connection=connection,
+                        song_id=song_id,
+                        genres=genres
+                    )
+
+            del self.song_information[request_id]
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
+            raise e
 
     async def upload_song_file(
             self,
@@ -757,7 +979,7 @@ class UploadSong:
         # todo: add the above comment as functional code
 
         try:
-            await file_system.save_stream(
+            chunk_file_information = await file_system.save_stream(
                 chunk=file_chunk,
                 uploaded_by_id=user_id,
                 is_last_chunk=is_last_chunk,
@@ -774,7 +996,6 @@ class UploadSong:
             raise e
 
         if is_last_chunk:
-
             if current_size != expected_file_size:
                 raise Exception(f"received file size was less or more than expected (by {abs(current_size - expected_file_size)} bytes)")
                 # todo: add a system to delete the files on error so we don't have necessary files
@@ -784,6 +1005,18 @@ class UploadSong:
             print("last chunk was sent. deleting info now")
             # todo: add saving the file to the audio/image table
             await self._delete_chunk_info(request_id, file_id)
+
+            self.base_file_parameters[(request_id, file_id)] = chunk_file_information
+
+            new_file_id = chunk_file_information["file_id"]
+
+            # the save directory already has the cluster ID inside of it, so we don't need to add it
+            self.base_file_paths[(request_id, file_id)] = os.path.join(save_directory, new_file_id)
+
+            if request_id in self.base_file_set:
+                self.base_file_set[request_id].add(file_id)
+            else:
+                self.base_file_set[request_id] = {file_id}
 
     async def _delete_chunk_info(self, request_id: str, file_id: str):
         """tries to delete the information saved about a specific file's chunks"""
