@@ -15,6 +15,25 @@ from Utils.chunk import send_chunk
 import aiofiles
 
 
+def format_file_size(size_in_bytes: int) -> str:
+    """
+    Converts a file size in bytes to a human-readable format (Bytes, KB, MB, GB, etc.).
+
+    Args:
+        size_in_bytes (int): The file size in bytes.
+
+    Returns:
+        str: Human-readable file size.
+    """
+    units = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']  # Add more if needed
+    size = float(size_in_bytes)
+    for unit in units:
+        if size < 1024:
+            return f"{size:.2f} {unit}"  # Format to 2 decimal places
+        size /= 1024
+    return f"{size:.2f} {units[-1]}"  # For extremely large sizes
+
+
 # This section was moved to a class due to being hard to read when inside of a function
 class ImageRemoveHover(ft.Stack):
     def __init__(self, image: ft.Image, image_name: str, width: int, height: int):
@@ -104,8 +123,11 @@ class ImageRemoveHover(ft.Stack):
 
 
 class UploadCoverArtDefault(ft.Stack):
-    def __init__(self):
+    def __init__(self, height: int = 150, width: int = 120):
         super().__init__()
+
+        self.height = height
+        self.width = width
 
         # Default size values for containers
         self.default_size_values: dict[str, int] = {
@@ -139,8 +161,8 @@ class UploadCoverArtDefault(ft.Stack):
                 weight=ft.FontWeight.BOLD,
                 color=ft.Colors.GREY_500,
             ),
-            height=150,
-            width=120,
+            height=self.height,
+            width=self.width,
             bgcolor=ft.Colors.with_opacity(0.1, ft.Colors.GREY_500),
             alignment=ft.Alignment(0, 0),
         )
@@ -190,21 +212,30 @@ class UploadPage:
         self.selected_song_path: str = ""
         self.selected_cover_art_path: str = ""
 
-        self.upload_cover_art_default_content: ft.Stack = UploadCoverArtDefault()
+        self.upload_cover_art_default_content: ft.Container = ft.Container(
+            UploadCoverArtDefault(),
+            height=150,
+            width=120,
+            on_click=self._select_cover_art_file
+        )
 
         self.sidebar = NavigationSidebar(page=page)
 
-        # we define 2 different file pickers so that we can point the on_result to different functions in order to make
-        # sorting between images and audio files easier
+        # we define 3 different file pickers so that we can point the on_result to different functions in order to make
+        # sorting between images (between sheet and cover) and audio files easier
         self.sound_file_picker = ft.FilePicker()
-        self.sound_file_picker.on_result = self._on_finish_sound_select
+        self.sound_file_picker.on_result = self._on_finish_audio_select
 
         self.image_file_picker = ft.FilePicker()
         self.image_file_picker.on_result = self._on_finish_image_select
 
+        self.cover_art_file_picker = ft.FilePicker()
+        self.cover_art_file_picker.on_result = self._on_finish_cover_art_select
+
         # add the file picker control to the page
         self.page.overlay.append(self.sound_file_picker)
         self.page.overlay.append(self.image_file_picker)
+        self.page.overlay.append(self.cover_art_file_picker)
 
         self._initialize_controls()
 
@@ -222,6 +253,7 @@ class UploadPage:
 
         image_paths: list[str] = list(self.sheet_file_paths.values())
         audio_path: str = self.selected_song_path
+        cover_art_path: str = self.selected_cover_art_path
 
         tags = self.selected_genres_textbox.get_values()
         artist_name = self.song_artist_textbox.value
@@ -242,6 +274,7 @@ class UploadPage:
                 album_name=album_name,
                 song_name=song_name,
                 song_path=audio_path,
+                covert_art_path=cover_art_path,
                 image_path_list=image_paths
             )
         )
@@ -255,79 +288,6 @@ class UploadPage:
         finally:
             self._remove_blocking_overlay()
 
-    def _select_sound_files(self, e: ft.ControlEvent):
-        self.sound_file_picker.pick_files(
-            allow_multiple=False,
-            file_type=ft.FilePickerFileType.AUDIO
-        )
-
-    def _select_image_files(self, e: ft.ControlEvent):
-        self.image_file_picker.pick_files(
-            allow_multiple=True,
-            file_type=ft.FilePickerFileType.IMAGE
-        )
-
-    @staticmethod
-    def _format_file_size(size_in_bytes: int) -> str:
-        """
-        Converts a file size in bytes to a human-readable format (Bytes, KB, MB, GB, etc.).
-
-        Args:
-            size_in_bytes (int): The file size in bytes.
-
-        Returns:
-            str: Human-readable file size.
-        """
-        units = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']  # Add more if needed
-        size = float(size_in_bytes)
-        for unit in units:
-            if size < 1024:
-                return f"{size:.2f} {unit}"  # Format to 2 decimal places
-            size /= 1024
-        return f"{size:.2f} {units[-1]}"  # For extremely large sizes
-
-    def _remove_selected_song(self, e: ft.ControlEvent):
-        self.song_selector_info_column.controls[0] = self.song_selector
-
-        # removes the selected song path from the saved paths
-        self.selected_song_path = ""
-
-        self.song_selector_info_column.update()
-
-    async def _on_finish_sound_select(self, e: ft.FilePickerResultEvent):
-        selected_files = e.files
-
-        if not selected_files:
-            return
-
-        audio_file = selected_files[0]
-        file_path: str = audio_file.path
-
-        self.selected_song_path = file_path
-
-        print(f"sent the slected path to {self.selected_song_path}")
-
-        audio_file_details: ft.Container = ft.Container(
-            padding=10,
-            expand=True,
-            content=ft.Row(
-                expand=True,
-                controls=[
-                    ft.Container(
-                        content=ft.Icon(ft.Icons.DELETE, color=ft.Colors.RED, size=25),
-                        on_click=self._remove_selected_song
-                    ),
-                    ft.Text(f"{audio_file.name} | {self._format_file_size(audio_file.size)}", size=25),
-                ]
-            ),
-            alignment=ft.Alignment(-1, 0)
-        )
-
-        self.song_selector_info_column.controls[0] = audio_file_details
-
-        self.song_selector_info_column.update()
-
-    # ---- image (sheet music) selection related stuff ----
     def _add_blocking_overlay(self):
         self.page.overlay.append(
             ft.Container(
@@ -345,17 +305,74 @@ class UploadPage:
 
         self.page.update()
 
-    def _on_finish_image_select(self, e: ft.FilePickerResultEvent):
-        print(e.files)
-        print("selected image")
+    # ------------------------------------------------------------------------------------------------------------------
 
+    def _select_sound_files(self, e: ft.ControlEvent):
+        self.sound_file_picker.pick_files(
+            allow_multiple=False,
+            file_type=ft.FilePickerFileType.AUDIO
+        )
+
+    def _select_image_files(self, e: ft.ControlEvent):
+        self.image_file_picker.pick_files(
+            allow_multiple=True,
+            file_type=ft.FilePickerFileType.IMAGE
+        )
+
+    def _select_cover_art_file(self, e: ft.ControlEvent):
+        self.cover_art_file_picker.pick_files(
+            allow_multiple=False,
+            file_type=ft.FilePickerFileType.IMAGE
+        )
+
+    # -----------------------------------------------------------------------------------------------------------------
+
+    def _remove_selected_song(self, e: ft.ControlEvent):
+        self.song_selector_info_column.controls[0] = self.song_selector
+
+        # removes the selected song path from the saved paths
+        self.selected_song_path = ""
+
+        self.song_selector_info_column.update()
+
+    async def _on_finish_audio_select(self, e: ft.FilePickerResultEvent):
         selected_files = e.files
 
         if not selected_files:
             return
 
-        # session_token: str = self.user_cache.session_token
-        # print(f"session token: {session_token}")
+        audio_file = selected_files[0]
+        file_path: str = audio_file.path
+
+        self.selected_song_path = file_path
+
+        audio_file_details: ft.Container = ft.Container(
+            padding=10,
+            expand=True,
+            content=ft.Row(
+                expand=True,
+                controls=[
+                    ft.Container(
+                        content=ft.Icon(ft.Icons.DELETE, color=ft.Colors.RED, size=25),
+                        on_click=self._remove_selected_song
+                    ),
+                    ft.Text(f"{audio_file.name} | {format_file_size(audio_file.size)}", size=25),
+                ]
+            ),
+            alignment=ft.Alignment(-1, 0)
+        )
+
+        self.song_selector_info_column.controls[0] = audio_file_details
+
+        self.song_selector_info_column.update()
+
+    # ---- image (sheet music) selection related stuff ----
+
+    def _on_finish_image_select(self, e: ft.FilePickerResultEvent):
+        selected_files = e.files
+
+        if not selected_files:
+            return
 
         file_paths: list[str] = [file.path for file in selected_files]
         file_names: list[str] = [file.name for file in selected_files]
@@ -441,7 +458,40 @@ class UploadPage:
         # scrolls to end (where the sheet_selector is)
         self.sheet_selector_row.scroll_to(offset=-1, duration=1000, curve=ft.AnimationCurve.EASE_IN_OUT)
 
-    # -------------------------------------------------------
+    # -------------------------------------------------------------------------------------------------------------
+    # image (cover art) selection
+
+    def _remove_cover_art_selection(self, e: ft.ControlEvent):
+        self.selected_cover_art_path = ""
+
+        self.song_selector_row.controls[0] = self.upload_cover_art_default_content
+
+        self.song_selector_row.update()
+
+    def _on_finish_cover_art_select(self, e: ft.FilePickerResultEvent):
+        selected_files = e.files
+
+        if not selected_files:
+            return
+
+        cover_art_file = selected_files[0]
+        file_path: str = cover_art_file.path
+
+        self.selected_cover_art_path = file_path
+
+        self.song_selector_row.controls[0] = ft.Container(
+            content=ft.Image(
+                src=file_path,
+                fit=ft.ImageFit.FILL
+            ),
+            height=self.upload_cover_art_default_content.height,
+            width=self.upload_cover_art_default_content.width,
+            on_click=self._remove_cover_art_selection
+        )
+
+        self.song_selector_row.update()
+
+    # ------------------------------------------------------------------------------------------------------------------
 
     def _initialize_file_selectors(self):
         self.song_selector = ft.Container(
@@ -491,9 +541,7 @@ class UploadPage:
 
         self.song_selector_row: ft.Row = ft.Row(
             [
-                ft.Container(
-                    self.upload_cover_art_default_content,
-                ),
+                self.upload_cover_art_default_content,
                 self.song_selector_info_column
             ],
         )
@@ -557,6 +605,8 @@ class UploadPage:
         self.description_textbox = ft.TextField(
             label="description",
         )
+
+    # -----------------------------------------------------------------------------------------------------------------
 
     def _initialize_controls(self):
         self._initialize_sidebar_top()
