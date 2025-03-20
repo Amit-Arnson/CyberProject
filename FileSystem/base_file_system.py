@@ -151,7 +151,8 @@ class System:
 
         return save_directory, cluster_id, file_id
 
-    async def save_stream(self, chunk: "FileChunk", uploaded_by_id: str, is_last_chunk: bool, chunk_content_type: str | FileTypes):
+    async def save_stream(self, chunk: "FileChunk", uploaded_by_id: str, is_last_chunk: bool,
+                          chunk_content_type: str | FileTypes) -> dict[str, str | int] | tuple[str, str]:
         # due to how chunks are processed before arriving here, all the chunks should have a valid file extension
         if not chunk.file_extension:
             # todo: see if it is needed to create a better error message
@@ -166,8 +167,6 @@ class System:
         except Exception as e:
             print(f"error: {e}: save dir: {chunk.save_directory}, file ID: {chunk.file_id}, user ID: {uploaded_by_id}")
             raise e
-
-        # save the file in the database
 
         if is_last_chunk:
             # todo: check if ffmpeg actually works for all cases and not just audio (i might have been misled)
@@ -218,18 +217,28 @@ class System:
                 final_file_id = f"{chunk.file_id}.{compressed_extension}"
                 final_file_format = compressed_extension
 
-            async with self.db_pool.acquire() as connection:
-                await FileSystem.create_base_file(
-                    connection=connection,
-                    cluster_id=chunk.cluster_id,
-                    file_id=final_file_id,
-                    user_uploaded_id=uploaded_by_id,
-                    size=total_size,
-                    raw_file_id=chunk.file_id,
-                    file_format=final_file_format
-                )
+            # returns the DB parameters for base_file
+            return {
+                "cluster_id": chunk.cluster_id,
+                "file_id": final_file_id,
+                "user_uploaded_id": uploaded_by_id,
+                "size": total_size,
+                "raw_file_id": chunk.file_id,
+                "file_format": final_file_format
+            }
 
-        return chunk.file_id, chunk.save_directory
+            # async with self.db_pool.acquire() as connection:
+            #     await FileSystem.create_base_file(
+            #         connection=connection,
+            #         cluster_id=chunk.cluster_id,
+            #         file_id=final_file_id,
+            #         user_uploaded_id=uploaded_by_id,
+            #         size=total_size,
+            #         raw_file_id=chunk.file_id,
+            #         file_format=final_file_format
+            #     )
+        else:
+            return chunk.file_id, chunk.save_directory
 
 
 class FileChunk:
@@ -314,7 +323,8 @@ class FileChunk:
             ("single", (0, 4), b'\x46\x4F\x52\x4D'): ('audio', 'aiff'),  # AIFF
             ("single", (0, 7), b'\x30\x26\xB2\x75\x8E\x66\xCF'): ('audio', 'wma'),  # WMA
             ("single", (0, 2), b'\xFF\xF1'): ('audio', 'aac'),  # ADTS AAC (raw AAC stream)
-            ("single", (0, 4), b'\x00\x00\x00\x18'): ('audio', 'aac'),  # MP4/M4A container with AAC audio (ftyp box start)
+            ("single", (0, 4), b'\x00\x00\x00\x18'): ('audio', 'aac'),
+            # MP4/M4A container with AAC audio (ftyp box start)
 
         }
 
