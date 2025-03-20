@@ -1,3 +1,7 @@
+import logging
+
+import asyncio
+
 import flet as ft
 
 from encryptions import EncryptedTransport
@@ -228,18 +232,28 @@ class UploadPage:
 
         print(f"song path: {audio_path}")
 
-        await send_chunk(
-            transport=self.transport,
-            session_token=session_token,
-            tags=tags,
-            artist_name=artist_name,
-            album_name=album_name,
-            song_name=song_name,
-            song_path=audio_path,
-            image_path_list=image_paths
+        # uses the page's async event loop to create a task
+        self.send_chunks_task = self.page.loop.create_task(
+            send_chunk(
+                transport=self.transport,
+                session_token=session_token,
+                tags=tags,
+                artist_name=artist_name,
+                album_name=album_name,
+                song_name=song_name,
+                song_path=audio_path,
+                image_path_list=image_paths
+            )
         )
 
-        self._remove_blocking_overlay()
+        try:
+            await self.send_chunks_task
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logging.error(e)
+        finally:
+            self._remove_blocking_overlay()
 
     def _select_sound_files(self, e: ft.ControlEvent):
         self.sound_file_picker.pick_files(
