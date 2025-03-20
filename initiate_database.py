@@ -57,26 +57,54 @@ class CreateTables:
                 file_cluster_id TEXT NOT NULL,
                 user_uploaded_id TEXT NOT NULL,
                 size INTEGER NOT NULL,
-                uploaded_at INTEGER
+                uploaded_at INTEGER,
+                raw_file_id TEXT, -- as in, the file ID without the format attached to it
+                file_format TEXT
             );
             """
         )
 
     @staticmethod
-    async def _create_audio_file_table(cursor: Cursor):
-        # note: tags, despite being text is actually a json.dumps of a list
+    async def _create_song_info_table(cursor: Cursor):
         await cursor.execute(
             """
-            CREATE TABLE IF NOT EXISTS audio_files (
-                file_id PRIMARY KEY,
-                user_id NOT NULL,
+            CREATE TABLE IF NOT EXISTS song_info (
+                song_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
                 artist_name TEXT NOT NULL,
                 album_name TEXT NOT NULL,
                 song_name TEXT NOT NULL,   
-                song_length INTEGER NOT NULL,
-                tags TEXT NOT NULL,
-                FOREIGN KEY (file_id) REFERENCES files(file_id),
-                FOREIGN KEY (user_id) REFERENCES files(user_uploaded_id)
+                song_length INTEGER NOT NULL
+            );
+            """
+        )
+
+    @staticmethod
+    async def _create_genres_table(cursor: Cursor):
+        await cursor.execute(
+            """
+            CREATE TABLE genres (
+                song_id INTEGER NOT NULL,
+                genre_name TEXT NOT NULL,
+                PRIMARY KEY (song_id, genre_name),
+                FOREIGN KEY (song_id) REFERENCES song_info (song_id)
+            );
+            """
+        )
+
+    @staticmethod
+    async def _create_media_files_table(cursor: Cursor):
+        """this is instead of "audio_file", "sheet_file" and "cover_art_file" tables"""
+        await cursor.execute(
+            """
+            CREATE TABLE media_files (
+                song_id INTEGER NOT NULL,
+                file_id TEXT NOT NULL,
+                file_type TEXT NOT NULL, -- e.g., 'audio', 'sheet', 'cover'
+                PRIMARY KEY (song_id, file_id),
+                FOREIGN KEY (song_id) REFERENCES song_info (song_id),
+                FOREIGN KEY (file_id) REFERENCES files (file_id)
             );
             """
         )
