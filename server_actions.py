@@ -543,7 +543,7 @@ class UploadSong:
 
         # checks for too short
         if len(tags) < 1:
-            raise TooShort("too many tags given. minimum amount possible is 1", extra={"type": "tags"})
+            raise TooShort("not enough tags given. minimum amount possible is 1", extra={"type": "tags"})
         elif len(artist_name) < 1:
             raise TooShort("artist name too short, must be longer than 1 character", extra={"type": "artist"})
         elif len(album_name) < 1:
@@ -646,6 +646,11 @@ class UploadSong:
             raise InvalidPayload(
                 f"Invalid payload passed. expected keys \"request_id\", \"file_type\", \"file_id\", \"chunk\", "
                 f"\"chunk_number\", \"is_last_chunk\", \"expected_size\", instead got {payload_keys}")
+
+        # if the request was invalid (or was invalidated due to an internal error), it shouldn't try to upload the
+        # files
+        if request_id not in self.song_information:
+            raise InvalidPayload(f"request ID {request_id} details were not found or are invalid/were invalidated")
 
         #async with self._lock:
         # checks if the file chunks have already started, or if the current chunk is the first of the file
