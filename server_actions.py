@@ -728,9 +728,6 @@ class UploadSong:
 
                         file_request_id_pair = request_id, file_id
 
-                        print(f"pair: {file_request_id_pair}")
-                        print(f"keys: {list(self.base_file_parameters.keys())}")
-
                         base_file_information = self.base_file_parameters[file_request_id_pair]
 
                         await FileSystem.create_base_file(
