@@ -15,7 +15,8 @@ KILOBYTE: int = 1024
 
 
 class FileTypes(enum.Enum):
-    IMAGE = "image"
+    SHEET = "sheet"
+    COVER = "cover"
     AUDIO = "audio"
 
 
@@ -43,6 +44,7 @@ async def send_chunk(
         album_name: str,
         song_name: str,
         song_path: str,
+        covert_art_path: str,
         image_path_list: list[str] = None,
 ):
     # todo: describe params
@@ -54,7 +56,15 @@ async def send_chunk(
     """
     request_id: str = fast_create_unique_id(artist_name, album_name, song_name, *tags[:4])
 
+    if not song_path:
+        # todo: change into GUI later
+        raise Exception("song is a required selection")
+
     song_id: str = fast_create_unique_id("song", request_id)
+
+    cover_art_id = ""
+    if covert_art_path:
+        cover_art_id: str = fast_create_unique_id("cover_art", request_id)
 
     # if we don't have any images uploaded, we can set the image_ids to an empty list (to indicate that we had no images uploaded)
     image_ids: list[str] = []
@@ -70,6 +80,7 @@ async def send_chunk(
         "song_name": song_name,
         "song_id": song_id,
         "image_ids": image_ids,
+        "cover_art_id": cover_art_id,
         "request_id": request_id
     }
 
@@ -94,6 +105,19 @@ async def send_chunk(
         request_id=request_id
     )
 
+    # both cover art and sheet images ARE allowed to be empty.
+
+    # todo: handle "cover" type images in the server
+    # send the cover art image
+    await send_file_chunks(
+        transport=transport,
+        session_token=session_token,
+        path=covert_art_path,
+        file_type=FileTypes.COVER,
+        file_id=cover_art_id,
+        request_id=request_id,
+    )
+
     if image_path_list:
         # sends all the images
         for image_path, image_id in zip(image_path_list, image_ids):
@@ -101,10 +125,21 @@ async def send_chunk(
                 transport=transport,
                 session_token=session_token,
                 path=image_path,
-                file_type=FileTypes.IMAGE,
+                file_type=FileTypes.SHEET,
                 file_id=image_id,
                 request_id=request_id
             )
+
+    transport.write(
+        ClientMessage(
+            authentication=session_token,
+            method="POST",
+            endpoint="song/upload/finish",
+            payload={
+                "request_id": request_id
+            }
+        ).encode()
+    )
 
 
 # todo: check if this function actually needs to be async
@@ -128,7 +163,7 @@ async def send_file_chunks(
     to save and index the files.
     :param request_id: the unique ID of the request. this is used in order to group the chunks later on.
     :param chunk_size: the size (in kilobytes) which you want to each chunk to be, default 4.
-    
+
     sends to (endpoint): songs/upload/file (POST)
     """
     if not path:
@@ -137,7 +172,7 @@ async def send_file_chunks(
 
     file_type = file_type.value if isinstance(file_type, FileTypes) else file_type
 
-    if file_type not in ("image", "audio"):
+    if file_type not in ("sheet", "audio", "cover"):
         raise ValueError(f"unknown file type: {file_type}")
 
     # changes from a kilobyte amount (such as 16) into a kilobyte value (such as 16384)
