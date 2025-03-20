@@ -425,6 +425,7 @@ class UploadSong:
         #                 "album_name": str,
         #                 "song_name": str,
         #                 "song_id": str,
+        #                 "cover_art_id": str,
         #                 "image_ids": list[str],
         #     ]
         # ]
@@ -460,8 +461,8 @@ class UploadSong:
             tuple[str, str], dict[str, tuple[str, str, str] | int | str | asyncio.Lock]
         ] = {}
 
-        self.out_of_order_chunks: dict = {}
-
+        # dict[request_id, file_id] -> list[(chunk number, chunk bytes), ...]
+        self.out_of_order_chunks: dict[tuple[str, str], list[tuple[int, bytes]]] = {}
 
     async def upload_song(
             self,
@@ -483,6 +484,7 @@ class UploadSong:
             "album_name": str,
             "song_name": str,
             "song_id": str,
+            "cover_art_id": str,
             "image_ids": list[str],
             "request_id": str
         }
@@ -523,13 +525,14 @@ class UploadSong:
             album_name: str = payload["album_name"]
             song_name: str = payload["song_name"]
             song_id: str = payload["song_id"]
+            cover_art_id: str = payload["cover_art_id"]
             image_ids: list[str] = payload["image_ids"]
             request_id: str = payload["request_id"]
         except KeyError:
             payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
             raise InvalidPayload(
                 f"Invalid payload passed. expected keys \"tags\", \"artist_name\", \"album_name\", \"song_name\", "
-                f"\"song_id\", \"image_ids\", \"request_id\", instead got {payload_keys}")
+                f"\"song_id\", \"cover_art_id\", \"image_ids\", \"request_id\", instead got {payload_keys}")
 
         # checks for "too long" type inputs (too many items in a list or name too long)
         if len(tags) > 5:
@@ -564,6 +567,7 @@ class UploadSong:
                 "album_name": album_name,
                 "song_name": song_name,
                 "song_id": song_id,
+                "cover_art_id": cover_art_id,
                 "image_ids": image_ids
             }
 
@@ -632,8 +636,8 @@ class UploadSong:
             request_id: str = payload["request_id"]
             # todo: use file_type in order to correctly save the file info into the db
             # "audio" for the song itself
-            # "image" for the sheet music
-            # "thumbnail" for the song thumbnail (which is also "image" but should have it's own table
+            # "sheet" for the sheet music
+            # "cover" for the song thumbnail (which is also "image" but should have it's own table
             # todo: create "thumbnail" table in db
             file_type: str = payload["file_type"]
             file_id: str = payload["file_id"]
@@ -757,7 +761,7 @@ class UploadSong:
                 chunk=file_chunk,
                 uploaded_by_id=user_id,
                 is_last_chunk=is_last_chunk,
-                previous_chunk_number=previous_chunk
+                chunk_content_type=file_type
             )
         except Exception as e:
 
