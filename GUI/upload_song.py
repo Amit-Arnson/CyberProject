@@ -170,10 +170,6 @@ class UploadPage:
         self.page_width = 1280
         self.page_height = 720
 
-        self.selected_song_path: str = ""
-        self.selected_cover_art_path: str = ""
-        self.selected_sheet_paths: list[str] = []
-
         self.transport: EncryptedTransport | None = None
         if hasattr(page, "transport"):
             self.transport: EncryptedTransport = page.transport
@@ -183,11 +179,12 @@ class UploadPage:
         if hasattr(page, "user_cache"):
             self.user_cache: ClientSideUserCache = page.user_cache
 
-        self.audio_file_path: str = ""
-        self.thumbnail_file_path: str = ""
-
         self.sheet_image_container_id = 0
+
+        # this is the ID-path dict for image sheet paths, so you need to use the .values() to get the paths themselves
         self.sheet_file_paths: dict[int, str] = {}
+        self.selected_song_path: str = ""
+        self.selected_cover_art_path: str = ""
 
         self.upload_cover_art_default_content: ft.Stack = UploadCoverArtDefault()
 
@@ -214,6 +211,36 @@ class UploadPage:
         # the sidebar is set to 2 and the right side of the page is set to 10. this means the sidebar takes 20% of the available screen
         self.sidebar.expand = 2
 
+    # todo: make it cancel the "upload" task when an error regarding invalid request ID is given (which can be checked with the error's "extras")
+    async def _upload_all_files(self, *args):
+        session_token: str = self.user_cache.session_token
+        print(f"session token: {session_token}")
+
+        image_paths: list[str] = list(self.sheet_file_paths.values())
+        audio_path: str = self.selected_song_path
+
+        tags = self.selected_genres_textbox.get_values()
+        artist_name = self.song_artist_textbox.value
+        album_name = self.song_album_textbox.value
+        song_name = self.song_name_textbox.value
+
+        self._add_blocking_overlay()
+
+        print(f"song path: {audio_path}")
+
+        await send_chunk(
+            transport=self.transport,
+            session_token=session_token,
+            tags=tags,
+            artist_name=artist_name,
+            album_name=album_name,
+            song_name=song_name,
+            song_path=audio_path,
+            image_path_list=image_paths
+        )
+
+        self._remove_blocking_overlay()
+
     def _select_sound_files(self, e: ft.ControlEvent):
         self.sound_file_picker.pick_files(
             allow_multiple=False,
@@ -226,29 +253,65 @@ class UploadPage:
             file_type=ft.FilePickerFileType.IMAGE
         )
 
+    @staticmethod
+    def _format_file_size(size_in_bytes: int) -> str:
+        """
+        Converts a file size in bytes to a human-readable format (Bytes, KB, MB, GB, etc.).
+
+        Args:
+            size_in_bytes (int): The file size in bytes.
+
+        Returns:
+            str: Human-readable file size.
+        """
+        units = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']  # Add more if needed
+        size = float(size_in_bytes)
+        for unit in units:
+            if size < 1024:
+                return f"{size:.2f} {unit}"  # Format to 2 decimal places
+            size /= 1024
+        return f"{size:.2f} {units[-1]}"  # For extremely large sizes
+
+    def _remove_selected_song(self, e: ft.ControlEvent):
+        self.song_selector_info_column.controls[0] = self.song_selector
+
+        # removes the selected song path from the saved paths
+        self.selected_song_path = ""
+
+        self.song_selector_info_column.update()
+
     async def _on_finish_sound_select(self, e: ft.FilePickerResultEvent):
         selected_files = e.files
 
         if not selected_files:
             return
 
-        session_token: str = self.user_cache.session_token
-        print(f"session token: {session_token}")
-
         audio_file = selected_files[0]
         file_path: str = audio_file.path
 
         self.selected_song_path = file_path
 
-        await send_chunk(
-            transport=self.transport,
-            session_token=session_token,
-            tags=["one", "two"],
-            artist_name="a",
-            album_name="b",
-            song_name="c",
-            song_path=file_path,
+        print(f"sent the slected path to {self.selected_song_path}")
+
+        audio_file_details: ft.Container = ft.Container(
+            padding=10,
+            expand=True,
+            content=ft.Row(
+                expand=True,
+                controls=[
+                    ft.Container(
+                        content=ft.Icon(ft.Icons.DELETE, color=ft.Colors.RED, size=25),
+                        on_click=self._remove_selected_song
+                    ),
+                    ft.Text(f"{audio_file.name} | {self._format_file_size(audio_file.size)}", size=25),
+                ]
+            ),
+            alignment=ft.Alignment(-1, 0)
         )
+
+        self.song_selector_info_column.controls[0] = audio_file_details
+
+        self.song_selector_info_column.update()
 
     # ---- image (sheet music) selection related stuff ----
     def _add_blocking_overlay(self):
@@ -267,27 +330,6 @@ class UploadPage:
         self.page.overlay.pop()
 
         self.page.update()
-
-    async def _upload_images(self, e):
-        session_token: str = self.user_cache.session_token
-        print(f"session token: {session_token}")
-
-        image_paths: list[str] = list(self.sheet_file_paths.values())
-
-        self._add_blocking_overlay()
-
-        await send_chunk(
-            transport=self.transport,
-            session_token=session_token,
-            tags=["one", "two"],
-            artist_name="a",
-            album_name="b",
-            song_name="c",
-            song_path="",
-            image_path_list=image_paths
-        )
-
-        self._remove_blocking_overlay()
 
     def _on_finish_image_select(self, e: ft.FilePickerResultEvent):
         print(e.files)
@@ -399,12 +441,7 @@ class UploadPage:
             alignment=ft.Alignment(0, 0)
         )
 
-        self.song_selector_row: ft.Row = ft.Row(
-            [
-                ft.Container(
-                    self.upload_cover_art_default_content,
-                ),
-                ft.Column(
+        self.song_selector_info_column: ft.Column = ft.Column(
                     [
                         self.song_selector,
                         ft.Container(
@@ -437,6 +474,13 @@ class UploadPage:
                     expand_loose=True,
                     expand=True,
                 )
+
+        self.song_selector_row: ft.Row = ft.Row(
+            [
+                ft.Container(
+                    self.upload_cover_art_default_content,
+                ),
+                self.song_selector_info_column
             ],
         )
 
@@ -601,7 +645,7 @@ class UploadPage:
                                     size=15,
                                 ),
                                 alignment=ft.Alignment(0, 0),
-                                on_click=self._upload_images
+                                on_click=self._upload_all_files
                             ),
                         ],
                             alignment=ft.MainAxisAlignment.END
