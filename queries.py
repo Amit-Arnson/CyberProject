@@ -5,6 +5,8 @@ import time
 from asqlite import ProxiedConnection
 from sqlite3 import Row
 
+from Utils.chunk import FileTypes
+
 
 class User:
     @staticmethod
@@ -66,6 +68,8 @@ class FileSystem:
             connection: ProxiedConnection,
             cluster_id: str,
             file_id: str,
+            raw_file_id: str,
+            file_format: str,
             user_uploaded_id: str,
             size: int,
     ) -> None:
@@ -76,41 +80,14 @@ class FileSystem:
             await connection.execute(
                 """
                 INSERT INTO files
-                (file_id, file_cluster_id, user_uploaded_id, size, uploaded_at) VALUES (?, ?, ?, ?, ?)
+                (file_id, file_cluster_id, user_uploaded_id, size, uploaded_at, raw_file_id, file_format) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                file_id, cluster_id, user_uploaded_id, size, current_time
+                file_id, cluster_id, user_uploaded_id, size, current_time, raw_file_id, file_format
             )
 
             await connection.execute(
                 """UPDATE clusters SET current_size = current_size + 1 WHERE cluster_id = ?""",
                 cluster_id
-            )
-
-    @staticmethod
-    async def create_audio_file(
-            connection: ProxiedConnection,
-            file_id: str,
-            user_uploaded_id: str,
-            artist_name: str,
-            album_name: str,
-            song_name: str,
-            song_length: int,
-            tags: list[str]
-    ) -> None:
-        tag_string: str = json.dumps(tags)
-
-        async with connection.transaction():
-            file_already_exists: bool = await FileSystem.does_file_exist(connection=connection, file_id=file_id)
-
-            if not file_already_exists:
-                raise Exception("file must exist in base case in order to save the audio file")
-
-            await connection.execute(
-                """
-                INSERT INTO audio_files
-                (file_id, user_id, artist_name, album_name, song_name, song_length, tags) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                file_id, user_uploaded_id, artist_name, album_name, song_name, song_length, tag_string
             )
 
     @staticmethod
@@ -123,3 +100,99 @@ class FileSystem:
             return True
 
         return False
+
+
+class MediaFiles:
+    @staticmethod
+    async def create_media_file(
+            connection: ProxiedConnection,
+            song_id: int,
+            file_id: str,
+            file_type: str,
+    ):
+        await connection.execute(
+            """
+            INSERT INTO media_files
+            (song_id, file_id, file_type) VALUES (?, ?, ?)
+            """,
+            song_id, file_id, file_type
+        )
+
+    async def create_audio_file(
+            self,
+            connection: ProxiedConnection,
+            song_id: int,
+            file_id: str,
+    ):
+        file_type = FileTypes.AUDIO.value
+
+        await self.create_media_file(
+            connection=connection,
+            song_id=song_id,
+            file_id=file_id,
+            file_type=file_type
+        )
+
+    async def create_sheet_file(
+            self,
+            connection: ProxiedConnection,
+            song_id: int,
+            file_id: str,
+    ):
+        file_type = FileTypes.SHEET.value
+
+        await self.create_media_file(
+            connection=connection,
+            song_id=song_id,
+            file_id=file_id,
+            file_type=file_type
+        )
+
+    async def create_cover_art_file(
+            self,
+            connection: ProxiedConnection,
+            song_id: int,
+            file_id: str,
+    ):
+        file_type = FileTypes.COVER.value
+
+        await self.create_media_file(
+            connection=connection,
+            song_id=song_id,
+            file_id=file_id,
+            file_type=file_type
+        )
+
+
+class Music:
+    @staticmethod
+    async def add_song(
+            connection: ProxiedConnection,
+            file_id: str,
+            user_id: str,
+            artist_name: str,
+            album_name: str,
+            song_name: str,
+            song_length_milliseconds: int
+    ):
+        """:returns: the song_id of the newly created song entry"""
+
+        cursor = await connection.execute(
+            """
+            INSERT INTO song_info (file_id, user_id, artist_name, album_name, song_name, song_length)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, file_id, user_id, artist_name, album_name,song_name, song_length_milliseconds
+        )
+
+        return cursor.get_cursor().lastrowid
+
+    @staticmethod
+    async def add_genre(
+            connection: ProxiedConnection,
+            song_id: int,
+            genre_name: str
+    ):
+        await connection.execute(
+            """INSERT INTO genres (song_id, genre_name) VALUES (?, ?)""",
+            song_id, genre_name
+        )
