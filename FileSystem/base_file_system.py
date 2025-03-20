@@ -6,10 +6,9 @@ import time
 
 import aiofiles
 import asqlite
-from FileSystem.file_extension import Extension
 
-# todo: deal with circular imports
-# from FileSystem.audio_file import AudioFile
+from Utils.chunk import FileTypes
+from FileSystem.file_extension import Extension
 
 from queries import FileSystem
 
@@ -136,46 +135,6 @@ class System:
 
         return os.path.join(self._main_directory, free_cluster_id), free_cluster_id
 
-    # todo: create User object and change upload ID to User Object (which will contain ID, along other things)
-    async def save(self, file: "BaseFile", uploaded_by_id: str) -> tuple[str, str]:
-        """
-        accepts a file and saves it to an available cluster.
-        a file will be saved under "directory"/"file ID", as well as in the database under the "files" table (base case for files)
-
-        to save the file to an image/audio file table, it must be done manually.
-
-        :param file: the file that you want to save
-        :param uploaded_by_id: the User ID that uploaded the file
-        :returns: tuple[file ID (name), saved directory (main_dir/cluster_id)]
-        """
-
-        # finds a free cluster's directory path. if a free cluster does not exist, it creates on.
-        save_directory, cluster_id = await self._find_free_cluster()
-
-        # create a random file ID to save the file under
-        file_id = await self._create_file_id()
-
-        try:
-            # saves the file under main_dir/cluster_dir/file_id
-            await file.save(name=file_id, path=save_directory)
-        except Exception as e:
-            print(f"error: {e}: cluster ID: {cluster_id}, file ID: {file_id}, user ID: {uploaded_by_id}")
-            raise e
-
-        # save the file in the database
-        async with self.db_pool.acquire() as connection:
-            await FileSystem.create_base_file(
-                connection=connection,
-                cluster_id=cluster_id,
-                file_id=file_id,
-                user_uploaded_id=uploaded_by_id,
-                size=file.size()
-            )
-
-        return file_id, save_directory
-
-        # todo: see if maybe automatic save to image/audio file tables. check doc-string for reference
-
     async def get_id(self) -> tuple[str, str, str]:
         """
         creates/retrieves the save dir (which is the path of main_dir/cluster_id), a free cluster ID and creates a new file ID
@@ -192,12 +151,14 @@ class System:
 
         return save_directory, cluster_id, file_id
 
-    async def save_stream(self, chunk: "FileChunk", uploaded_by_id: str, is_last_chunk: bool,
-                          previous_chunk_number: int | None = None):
+    async def save_stream(self, chunk: "FileChunk", uploaded_by_id: str, is_last_chunk: bool, chunk_content_type: str | FileTypes):
         # due to how chunks are processed before arriving here, all the chunks should have a valid file extension
         if not chunk.file_extension:
             # todo: see if it is needed to create a better error message
             raise Exception(f"chunk file ID {chunk.file_id} #{chunk.chunk_number} is missing file extension")
+
+        if isinstance(chunk_content_type, FileTypes):
+            chunk_content_type: str = chunk_content_type.value
 
         try:
             # saves the file under main_dir/cluster_dir/file_id
@@ -210,7 +171,8 @@ class System:
 
         if is_last_chunk:
             # todo: check if ffmpeg actually works for all cases and not just audio (i might have been misled)
-            final_file_id = f"{chunk.file_id}.{chunk.file_extension}"
+            final_file_format: str = chunk.file_extension
+            final_file_id = f"{chunk.file_id}.{final_file_format}"
 
             # if the file was not compressed, we just use the total_size that we have in the FileChunk
             total_size = chunk.total_file_size
@@ -226,7 +188,7 @@ class System:
                 raise Exception("Invalid file given and was rejected")
 
             # if the chunk is under ~200KB, compressing it may cause it to grow bigger
-            if chunk.total_file_size > 200_000 and chunk.file_type == "audio":
+            if chunk.total_file_size > 200_000 and chunk.file_type == "audio" and chunk_content_type == FileTypes.AUDIO.value:
                 # we change the total size to the new size of the compressed file
                 total_size, compressed_extension = await compress_to_aac(
                     file_extension=chunk.file_extension,
@@ -235,7 +197,8 @@ class System:
                 )
 
                 final_file_id = f"{chunk.file_id}.{compressed_extension}"
-            elif chunk.file_type == "image":
+                final_file_format = compressed_extension
+            elif chunk.file_type == "image" and chunk_content_type == FileTypes.SHEET.value:
                 total_size, compressed_extension = await compress_to_webp(
                     file_extension=chunk.file_extension,
                     input_file=f"{chunk.file_id}",
@@ -243,6 +206,17 @@ class System:
                 )
 
                 final_file_id = f"{chunk.file_id}.{compressed_extension}"
+                final_file_format = compressed_extension
+            elif chunk.file_type == "image" and chunk_content_type == FileTypes.COVER.value:
+                # todo: make the compression lossy, with a low quality and resolution in order to save size
+                total_size, compressed_extension = await compress_to_webp(
+                    file_extension=chunk.file_extension,
+                    input_file=f"{chunk.file_id}",
+                    directory=chunk.save_directory,
+                )
+
+                final_file_id = f"{chunk.file_id}.{compressed_extension}"
+                final_file_format = compressed_extension
 
             async with self.db_pool.acquire() as connection:
                 await FileSystem.create_base_file(
@@ -250,54 +224,12 @@ class System:
                     cluster_id=chunk.cluster_id,
                     file_id=final_file_id,
                     user_uploaded_id=uploaded_by_id,
-                    size=total_size
+                    size=total_size,
+                    raw_file_id=chunk.file_id,
+                    file_format=final_file_format
                 )
 
         return chunk.file_id, chunk.save_directory
-
-    async def save_audio(self,
-                         file: "AudioFile",
-                         uploaded_by_id: str,
-                         artist_name: str,
-                         album_name: str,
-                         song_name: str,
-                         tags: list[str],
-                         ) -> tuple[str, str]:
-        """
-        accepts an audio file (which inherits from BaseFile) and saves it to both the base file table, and also
-        to the audio file table.
-
-        do not use .save() and .save_audio() on the same file, as .save_audio() already calls .save() for you
-
-        :param file: the file you want to save
-        :param uploaded_by_id: the user ID who uploaded the file
-        :param artist_name: the name of the artist of the song
-        :param album_name: the name of the album of the song
-        :param song_name: the name of the song
-        :param tags: the genre tags of the song
-
-        :returns: the saved file's ID and the save cluster ID
-        """
-        file_id, save_directory = self.save(file=file, uploaded_by_id=uploaded_by_id)
-
-        # in seconds
-        # todo: see if i can find it in seconds or in milliseconds
-        song_length = await file.get_length()
-
-        # save the file in the database
-        async with self.db_pool.acquire() as connection:
-            await FileSystem.create_audio_file(
-                connection=connection,
-                file_id=file_id,
-                user_uploaded_id=uploaded_by_id,
-                artist_name=artist_name,
-                album_name=album_name,
-                song_name=song_name,
-                song_length=song_length,
-                tags=tags,
-            )
-
-        return file_id, save_directory
 
 
 class FileChunk:
