@@ -189,17 +189,20 @@ class MediaFiles:
     @staticmethod
     async def bulk_fetch_paths(
             connection: ProxiedConnection,
-            song_ids: list[int]
+            song_ids: list[int],
+            preview: bool = True
     ) -> list[str]:
         if not song_ids:
             return []
+
+        preview_mode = "AND file_type = 'cover'" if preview else ""
 
         # Use a parameterized query to prevent SQL injection
         placeholders = ", ".join(["?"] * len(song_ids))  # Create placeholders (?, ?, ?, ...)
         query = f"""
            SELECT file_path
            FROM media_files
-           WHERE song_id IN ({placeholders})
+           WHERE song_id IN ({placeholders}) {preview_mode}
            ORDER BY song_id; -- Ensures the order matches the song_ids list
            """
 
