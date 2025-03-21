@@ -1,3 +1,5 @@
+import traceback
+
 import asyncio
 import base64
 
@@ -28,42 +30,46 @@ async def send_song_preview_chunks(
             tuple[str, dict[str, str | int | list[str]]]
         ] = await Music.bulk_fetch_song_preview_data(connection=connection, song_ids=song_ids)
 
-    for song_path, song_dict in song_path_and_data:
-        song_id = song_dict["song_id"]
-        file_id = fast_create_unique_id(song_id)
+    try:
+        for song_path, song_dict in song_path_and_data:
+            song_id = song_dict["song_id"]
+            file_id = fast_create_unique_id(song_id)
 
-        song_data_payload = {
-            # int
-            "song_id": song_id,
+            song_data_payload = {
+                # int
+                "song_id": song_id,
 
-            # str
-            "file_id": file_id,
-            "artist_name": song_dict["artist_name"],
-            "album_name": song_dict["album_name"],
-            "song_name": song_dict["song_name"],
+                # str
+                "file_id": file_id,
+                "artist_name": song_dict["artist_name"],
+                "album_name": song_dict["album_name"],
+                "song_name": song_dict["song_name"],
 
-            # list[str]
-            "genres": song_dict["genres"]
-        }
+                # list[str]
+                "genres": song_dict["genres"]
+            }
 
-        transport.write(
-            ServerMessage(
-                status={
-                    "code": 200,
-                    "message": f"initial response for song ID {song_id}"
-                },
-                method="POST",
-                endpoint="song/download/preview",
-                payload=song_data_payload
-            ).encode()
-        )
+            transport.write(
+                ServerMessage(
+                    status={
+                        "code": 200,
+                        "message": f"initial response for song ID {song_id}"
+                    },
+                    method="POST",
+                    endpoint="song/download/preview",
+                    payload=song_data_payload
+                ).encode()
+            )
 
-        await send_file_chunks(
-            transport=transport,
-            file_id=file_id,
-            song_id=song_id,
-            path=song_path
-        )
+            await send_file_chunks(
+                transport=transport,
+                file_id=file_id,
+                song_id=song_id,
+                path=song_path
+            )
+    except Exception as e:
+        traceback.print_exc()
+        raise e
 
 
 async def send_file_chunks(
