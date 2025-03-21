@@ -203,9 +203,7 @@ class MediaFiles:
            ORDER BY song_id; -- Ensures the order matches the song_ids list
            """
 
-        results = await connection.fetchall(
-            query, song_ids
-        )
+        results = await connection.fetchall(query, tuple(song_ids))
 
         # Extract the file_path values from the results
         return [row[0] for row in results]
@@ -267,7 +265,7 @@ class Music:
            ORDER BY song_info.song_id; -- Ensure results are ordered
            """
 
-        results = await connection.fetchall(query, song_ids)
+        results = await connection.fetchall(query, tuple(song_ids))
 
         # Extract the dictionary values from the results
         return [
@@ -311,7 +309,7 @@ class MusicSearch:
         """:returns: a list of the song IDs that closely match the search query"""
         matching_song_id = await connection.fetchall(
             """
-            SELECT song_id 
+            SELECT rowid 
             FROM song_info_fts 
             WHERE song_name MATCH ?;
             """, (search_query,)
