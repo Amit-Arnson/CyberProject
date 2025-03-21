@@ -31,6 +31,22 @@ class InvalidPayload(Exception):
         self.code = 400
 
 
+class InvalidDataType(Exception):
+    """Error that is thrown when the client passes an invalid type for an expected input"""
+
+    # view docstring at the top of the file to see comments.
+    def __init__(self, argument: str, extra: dict = None):
+        super().__init__(argument)
+
+        if not extra:
+            self.extra: dict = {}
+        else:
+            self.extra = extra
+
+        self.message = argument
+        self.code = 400
+
+
 class TooLong(Exception):
     """Error that is thrown when the client's input is "too long" (eg: username with many characters)"""
 
