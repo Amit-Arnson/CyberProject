@@ -1,32 +1,50 @@
-import asqlite
-import asyncio
+import sqlite3
 
-from asqlite import Cursor
+spell_fix_extension = r"C:\Users\amita\PycharmProjects\FinalCyberProject\Sqlite3Extensions\spellfix.dll"
 
 
 class CreateTables:
     def __init__(self, database: str):
         self.database = database
 
-    async def aio_init(self):
+    def init(self):
+        connection = None
+        try:
+            connection = sqlite3.connect(self.database)
+            connection.enable_load_extension(True)
 
-        # this code will only be run once at the start of runtime. for this reason i do not use a DB pool here.
-        async with asqlite.connect(self.database) as connection:
-            async with connection.cursor() as cursor:
-                await self._create_users(cursor)
-                await self._create_file_cluster_table(cursor)
-                await self._create_file_table(cursor)
-                await self._create_song_info_table(cursor)
-                await self._create_media_files_table(cursor)
-                await self._create_genres_table(cursor)
-                # ...
+            cursor = connection.cursor()
 
-                await connection.commit()
+            # Load extensions
+            self._load_extensions(cursor)
 
-    # all of these methods will create tables
+            # Create tables
+            self._create_users(cursor)
+            self._create_file_cluster_table(cursor)
+            self._create_file_table(cursor)
+            self._create_song_info_table(cursor)
+            self._create_media_files_table(cursor)
+            self._create_genres_table(cursor)
+
+            # Commit changes
+            connection.commit()
+        except Exception as e:
+            raise e
+        finally:
+            if connection:
+                connection.close()
+
+    def _load_extensions(self, cursor):
+        try:
+            cursor.execute(f"SELECT load_extension('{spell_fix_extension}');")
+            print("Extension loaded successfully!")
+        except sqlite3.OperationalError as e:
+            print(f"Error loading extension: {e}")
+            raise
+
     @staticmethod
-    async def _create_users(cursor: Cursor):
-        await cursor.execute(
+    def _create_users(cursor):
+        cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
                 user_id TEXT PRIMARY KEY,
@@ -39,8 +57,8 @@ class CreateTables:
         )
 
     @staticmethod
-    async def _create_file_cluster_table(cursor: Cursor):
-        await cursor.execute(
+    def _create_file_cluster_table(cursor):
+        cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS clusters (
                 cluster_id TEXT PRIMARY KEY,
@@ -49,10 +67,9 @@ class CreateTables:
             """
         )
 
-    # this is for default files. sound and images will have different tables that rely on file_id to identify
     @staticmethod
-    async def _create_file_table(cursor: Cursor):
-        await cursor.execute(
+    def _create_file_table(cursor):
+        cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS files (
                 file_id TEXT PRIMARY KEY,
@@ -66,9 +83,9 @@ class CreateTables:
             """
         )
 
-    @staticmethod
-    async def _create_song_info_table(cursor: Cursor):
-        await cursor.execute(
+    def _create_song_info_table(self, cursor):
+        # Create the main table for song information
+        cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS song_info (
                 song_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,17 +98,25 @@ class CreateTables:
             """
         )
 
-        # Create an FTS5 virtual table for song_name, this is so that people can send an approximate search query
-        await cursor.execute(
+        # Create an FTS5 virtual table for song_name
+        cursor.execute(
             """
             CREATE VIRTUAL TABLE IF NOT EXISTS song_info_fts
             USING fts5(song_name, content='song_info', content_rowid='song_id');
             """
         )
 
+        # Create the spellfix1 virtual table for trigram-based fuzzy matching
+        cursor.execute(
+            """
+            CREATE VIRTUAL TABLE IF NOT EXISTS song_name_trigrams
+            USING spellfix1;
+            """
+        )
+
     @staticmethod
-    async def _create_genres_table(cursor: Cursor):
-        await cursor.execute(
+    def _create_genres_table(cursor):
+        cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS genres (
                 song_id INTEGER NOT NULL,
@@ -103,9 +128,9 @@ class CreateTables:
         )
 
     @staticmethod
-    async def _create_media_files_table(cursor: Cursor):
-        """this is instead of "audio_file", "sheet_file" and "cover_art_file" tables"""
-        await cursor.execute(
+    def _create_media_files_table(cursor):
+        """This is instead of "audio_file", "sheet_file" and "cover_art_file" tables."""
+        cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS media_files (
                 song_id INTEGER NOT NULL,
@@ -121,5 +146,12 @@ class CreateTables:
 
 
 if __name__ == "__main__":
-    tables = CreateTables(f"database.db")
-    asyncio.run(tables.aio_init())
+    # Define the database path
+    database_name = "database.db"
+
+    # Initialize the database and create tables
+    try:
+        tables = CreateTables(database_name)
+        tables.init()
+    except Exception as e:
+        print(f"An error occurred: {e}")
