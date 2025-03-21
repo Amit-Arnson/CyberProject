@@ -438,49 +438,45 @@ class UploadSong:
         # to prevent any data corruption/race conditions
         self._lock = asyncio.Lock()
 
-        # gotten from song/upload
-        # dict[
-        #     request_id, dict[
-        #                 "user_id": str
-        #                 "tags": list[str],
-        #                 "artist_name": str,
-        #                 "album_name": str,
-        #                 "song_name": str,
-        #                 "song_id": str,
-        #                 "cover_art_id": str,
-        #                 "image_ids": list[str],
-        #     ]
-        # ]
         self.song_information: dict[
             str, dict[str, str | list[str]]
         ] = {}
+        """
+        gotten from song/upload
+        dict[
+            request_id, dict[
+                        "user_id": str
+                        "tags": list[str],
+                        "artist_name": str,
+                        "album_name": str,
+                        "song_name": str,
+                        "song_id": str,
+                        "cover_art_id": str,
+                        "image_ids": list[str],
+            ]
+        ]
+        """
 
-        # gotten from song/upload/file
-        # dict[
-        #     tuple[request_id, file_id]: dict[
-        #                                 "user_id": str
-        #                                 "chunks": list[bytes],
-        #                                 "current_size": int,
-        #                                 "chunk_number": int,
-        #                                 "file_type": str ("image" or "audio")
-        #     ]
-        # ]
-        # self.chunk_files: dict[
-        #     tuple[str, str], dict[str, list[bytes] | int | str]
-        # ] = {}
-
-        # dict[
-        #     tuple[request_id, file_id],
-        #     dict[
-        #         "paths": tuple[(actual) file_id, cluster_id, save_directory],
-        #         "current_size": int,
-        #         "file_extension": str,
-        #         "previous_chunk": int,
-        #         "lock": asyncio.Lock,
-        #     ]
-        # ]
         self.file_save_ids: dict[
             tuple[str, str], dict[str, tuple[str, str, str] | int | str | asyncio.Lock]
+        ] = {}
+        """
+        dict[
+            tuple[request_id, file_id],
+            dict[
+                "paths": tuple[(actual) file_id, cluster_id, save_directory],
+                "current_size": int,
+                "file_extension": str,
+                "previous_chunk": int,
+                "lock": asyncio.Lock,
+            ]
+        ]
+        """
+
+        self.base_file_parameters: dict[
+            tuple[str, str], dict[
+                str, str | int
+            ]
         ] = {}
 
         """
@@ -496,29 +492,24 @@ class UploadSong:
             ]
         ]
         """
-        self.base_file_parameters: dict[
-            tuple[str, str], dict[
-                str, str | int
-            ]
-        ] = {}
 
+        self.base_file_paths: dict[
+            tuple[str, str], str
+        ] = {}
         """
         dict[
             tuple[request_id, file_id],
             full file path (save_dir/cluster/file.extension)
         ]
         """
-        self.base_file_paths: dict[
-            tuple[str, str], str
-        ] = {}
 
+        self.base_file_set: dict[str, set[str]] = {}
         """
         dict[
             request_id,
             set[file_id]
         ]
         """
-        self.base_file_set: dict[str, set[str]] = {}
 
         # dict[request_id, file_id] -> list[(chunk number, chunk bytes), ...]
         self.out_of_order_chunks: dict[tuple[str, str], list[tuple[int, bytes]]] = {}
@@ -648,7 +639,9 @@ class UploadSong:
         }
 
         expected output:
-        None
+        {
+            "success": bool
+        }
 
         expected cache pre-function:
         > address
@@ -1047,7 +1040,7 @@ async def send_song_previews(
     this function is used to send the client the "preview" of the songs, that contains the cover art, and the standard
     song data (song name, artist name, etc...)
 
-    this function is tied to song/download/preview (POST)
+    this function is tied to song/download/preview (GET)
 
     expected payload:
     {
