@@ -162,7 +162,7 @@ async def send_file_chunks(
     each-other without causing confusion. note: this is not the same file ID as what will be created server side in order
     to save and index the files.
     :param request_id: the unique ID of the request. this is used in order to group the chunks later on.
-    :param chunk_size: the size (in kilobytes) which you want to each chunk to be, default 4.
+    :param chunk_size: the size (in kilobytes) which you want to each chunk to be, default 32.
 
     sends to (endpoint): songs/upload/file (POST)
     """
