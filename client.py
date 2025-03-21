@@ -60,9 +60,7 @@ class ClientProtocol(asyncio.Protocol):
 
     def data_received(self, data: bytes) -> None:
         # decrypts the data
-        print(data)
         data = self.transport.read(data)
-        print(data)
 
         try:
             server_message = ServerMessage.from_bytes(data)
