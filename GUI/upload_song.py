@@ -10,6 +10,7 @@ from GUI.Controls.navigation_sidebar import NavigationSidebar
 from GUI.Controls.tag_input import TagInput
 
 from Caches.user_cache import ClientSideUserCache
+from pseudo_http_protocol import ClientMessage
 
 from Utils.chunk import send_chunk
 import aiofiles
@@ -282,10 +283,9 @@ class UploadPage:
         try:
             await self.send_chunks_task
         except asyncio.CancelledError:
-            pass
+            self._remove_blocking_overlay()
         except Exception as e:
             logging.error(e)
-        finally:
             self._remove_blocking_overlay()
 
     def _add_blocking_overlay(self):
@@ -713,6 +713,13 @@ class UploadPage:
                             ),
                         ],
                             alignment=ft.MainAxisAlignment.END
+                        ),
+
+                        ft.Container(
+                            width=100,
+                            height=50,
+                            bgcolor=ft.Colors.GREEN,
+                            on_click=self.temp_send_download_request
                         )
                     ],
                     tight=False,
@@ -733,6 +740,20 @@ class UploadPage:
             ],
             spacing=0,
             expand=True
+        )
+
+    def temp_send_download_request(self, e):
+        query = "duc"
+
+        self.transport.write(
+            ClientMessage(
+                authentication=self.user_cache.session_token,
+                method="GET",
+                endpoint="song/download/preview",
+                payload={
+                    "query": query
+                }
+            ).encode()
         )
 
     def append_error(self, error_control: ft.Control):
