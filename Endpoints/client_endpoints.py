@@ -3,6 +3,7 @@ from typing import Callable
 from client_actions import (
     complete_authentication,
     user_login,
+    song_upload_finish,
     DownloadSong
 )
 
@@ -19,6 +20,7 @@ class EndPoints:
         self.endpoints: dict[str, Callable] = {
             "authentication/key_exchange": complete_authentication,
             "user/login": user_login,
+            "song/upload/finish": song_upload_finish,
             "song/download/preview": test,
             "song/download/preview/file": download_song_state.download_preview_chunks
         }
