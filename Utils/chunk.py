@@ -25,6 +25,7 @@ def fast_create_unique_id(*args: str) -> str:
     unique_id = []
 
     for arg in args:
+        arg = str(arg)
         unique_id.append(b64encode(arg.encode()).decode())
 
     # adds the current time in order to reduce the chance of a collision
