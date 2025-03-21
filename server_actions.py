@@ -791,6 +791,20 @@ class UploadSong:
                     )
 
             del self.song_information[request_id]
+
+            client.write(
+                ServerMessage(
+                    status={
+                        "code": 200,
+                        "message": "success"
+                    },
+                    method="POST",
+                    endpoint="song/upload/finish",
+                    payload={
+                        "success": True
+                    }
+                ).encode()
+            )
         except Exception as e:
             print(e)
             traceback.print_exc()
