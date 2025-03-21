@@ -316,34 +316,81 @@ class Music:
 
 class MusicSearch:
     @staticmethod
-    async def search_song_by_name(connection, search_query: str) -> list[int]:
+    async def search_song(connection, search_query: str, limit: int = 10):
+        """returns a list of song IDs based off of a search query if given, else returns a random list of song IDs"""
+        if search_query:
+            return await MusicSearch.search_song_by_name(connection=connection, search_query=search_query, limit=limit)
+
+        return await MusicSearch.get_random_songs(connection=connection, limit=limit)
+
+    @staticmethod
+    async def search_song_by_name(connection, search_query: str, limit: int = 10) -> list[int]:
+        """
+        Searches for songs by name using FTS5 and spellfix, and returns the top 'limit' results ordered by relevance.
+
+        :param connection: Database connection object.
+        :param search_query: Search string entered by the user.
+        :param limit: Number of results to return.
+        :return: List of song IDs ordered by relevance.
+        """
         # Prepare the search terms
         search_query_fts5 = f"{search_query}*"  # For prefix matching in FTS5
         search_query_like = f"{search_query}%"  # For prefix matching in spellfix1
 
-        # Execute the first query
+        # Execute the FTS5 query with ordering
         fts5_results = await connection.fetchall(
             """
-            SELECT song_info.song_id
+            SELECT song_info.song_id, bm25(song_info_fts) AS relevance
             FROM song_info_fts
             JOIN song_info ON song_info_fts.rowid = song_info.song_id
-            WHERE song_info_fts.song_name MATCH ?;
-            """, (search_query_fts5,)
+            WHERE song_info_fts.song_name MATCH ?
+            ORDER BY relevance ASC
+            LIMIT ?;
+            """, (search_query_fts5, limit)
         )
 
-        # Execute the second query
+        # Execute the spellfix query with ordering
         spellfix_results = await connection.fetchall(
             """
-            SELECT song_info.song_id
-            FROM song_info, song_name_trigrams
+            SELECT song_info.song_id, editdist3(song_name_trigrams.word, ?) AS relevance
+            FROM song_info
+            JOIN song_name_trigrams ON song_name_trigrams.rowid = song_info.song_id
             WHERE song_name_trigrams.word LIKE ?
               AND editdist3(song_name_trigrams.word, ?) <= 2
-              AND song_info.song_id = song_name_trigrams.rowid;
-            """, (search_query_like, search_query)
+            ORDER BY relevance ASC
+            LIMIT ?;
+            """, (search_query, search_query_like, search_query, limit)
         )
 
-        # Combine results (remove duplicates if necessary)
-        matching_song_ids = list(set(row[0] for row in fts5_results + spellfix_results))
+        # Combine results, sorting by relevance
+        combined_results = fts5_results + spellfix_results
+        sorted_results = sorted(combined_results, key=lambda x: x[1])  # Sort by relevance (lower is better)
+
+        # Extract the song IDs, ensuring no duplicates
+        matching_song_ids = list({row[0] for row in sorted_results})[:limit]
 
         return matching_song_ids
+
+    @staticmethod
+    async def get_random_songs(connection, limit: int = 10) -> list[int]:
+        """
+        Fetches random songs from the song_info table based on a given limit.
+
+        :param connection: Database connection object.
+        :param limit: The number of random songs to retrieve.
+        :return: List of random song IDs.
+        """
+        # Execute the query to fetch random song IDs
+        random_songs = await connection.fetchall(
+            """
+            SELECT song_id
+            FROM song_info
+            ORDER BY RANDOM()
+            LIMIT ?;
+            """, (limit,)
+        )
+
+        # Return the list of random song IDs
+        return [row[0] for row in random_songs]
+
 
