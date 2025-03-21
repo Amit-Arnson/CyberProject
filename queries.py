@@ -324,13 +324,15 @@ class MusicSearch:
         return await MusicSearch.get_random_songs(connection=connection, limit=limit)
 
     @staticmethod
-    async def search_song_by_name(connection, search_query: str, limit: int = 10) -> list[int]:
+    async def search_song_by_name(connection, search_query: str, limit: int = 10, fuzzy_precession: int = 5) -> list[int]:
         """
         Searches for songs by name using FTS5 and spellfix, and returns the top 'limit' results ordered by relevance.
 
         :param connection: Database connection object.
         :param search_query: Search string entered by the user.
         :param limit: Number of results to return.
+        :param fuzzy_precession: how exact the fuzzy search (using spellfix1) is. the larger the number, the broader it is
+        (default 5)
         :return: List of song IDs ordered by relevance.
         """
         # Prepare the search terms
@@ -356,10 +358,10 @@ class MusicSearch:
             FROM song_info
             JOIN song_name_trigrams ON song_name_trigrams.rowid = song_info.song_id
             WHERE song_name_trigrams.word LIKE ?
-              AND editdist3(song_name_trigrams.word, ?) <= 2
+              AND editdist3(song_name_trigrams.word, ?) <= ?
             ORDER BY relevance ASC
             LIMIT ?;
-            """, (search_query, search_query_like, search_query, limit)
+            """, (search_query, search_query_like, search_query, fuzzy_precession, limit)
         )
 
         # Combine results, sorting by relevance
