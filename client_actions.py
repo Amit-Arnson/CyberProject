@@ -1,5 +1,6 @@
 from asyncio.transports import Transport
 
+import GUI.upload_song
 from pseudo_http_protocol import ServerMessage, ClientMessage
 from Caches.user_cache import ClientSideUserCache
 
@@ -102,6 +103,34 @@ async def user_login(page: Page, transport: EncryptedTransport, server_message: 
 
     # this is a temporary MainPage for testing purposes only
     MainPage(page).start()
+
+
+async def song_upload_finish(page: Page, transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
+    """
+    this function is used in order to stop the "uploading" overlay-blocking GUI when the server finishes processing
+    all the sent data
+
+    tied to song/upload/finish
+
+    expected payload:
+    {
+        "success": bool
+    }
+
+    expected output:
+    None
+    """
+
+    payload = server_message.payload
+
+    try:
+        success: bool = payload["success"]
+    except KeyError:
+        raise # todo: figure out what to do with malformed server messages (likely being faked messages)
+
+    if success and hasattr(page, "view"):
+        page_view: GUI.upload_song.UploadPage = page.view
+        page_view._remove_blocking_overlay()
 
 
 class DownloadSong:
