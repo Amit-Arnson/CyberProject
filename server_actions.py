@@ -25,9 +25,15 @@ from secure_user_credentials import (
 )
 
 import queries
-from queries import FileSystem, MediaFiles, Music
+from queries import (
+    FileSystem,
+    MediaFiles,
+    Music,
+    MusicSearch
+)
 
 from Compress.audio import get_audio_length
+from Utils.send_to_client_chunk import send_song_preview_chunks
 
 from Errors.raised_errors import (
     NoEncryption,
@@ -35,7 +41,8 @@ from Errors.raised_errors import (
     TooLong,
     UserExists,
     InvalidPayload,
-    TooShort
+    TooShort,
+    InvalidDataType
 )
 
 
@@ -692,11 +699,6 @@ class UploadSong:
             file_ids.append(song_data["cover_art_id"])
             file_ids.append(audio_file_id)
 
-            print(f"file IDs: {file_ids}")
-            print(audio_file_id)
-            print(cover_art_file_id)
-            print(sheet_images_file_ids)
-
             genres = song_data["tags"]
             artist_name = song_data["artist_name"]
             album_name = song_data["album_name"]
@@ -735,8 +737,6 @@ class UploadSong:
                             **base_file_information
                         )
 
-                        del self.base_file_paths[file_request_id_pair]
-
                     song_id = await Music.add_song(
                         connection=connection,
                         user_id=user_id,
@@ -747,35 +747,48 @@ class UploadSong:
                     )
 
                     audio_base_file_id = self.base_file_parameters[(request_id, audio_file_id)]["file_id"]
+                    audio_file_path = self.base_file_paths[(request_id, audio_file_id)]
                     await MediaFiles.create_audio_file(
                         connection=connection,
                         song_id=song_id,
-                        file_id=audio_base_file_id
+                        file_id=audio_base_file_id,
+                        file_path=audio_file_path
                     )
 
                     del self.base_file_parameters[(request_id, audio_file_id)]
+                    del self.base_file_paths[(request_id, audio_file_id)]
 
                     if cover_art_file_id:
                         cover_art_base_file_id = self.base_file_parameters[(request_id, cover_art_file_id)]["file_id"]
+                        cover_art_file_path = self.base_file_paths[(request_id, cover_art_file_id)]
                         await MediaFiles.create_cover_art_file(
                             connection=connection,
                             song_id=song_id,
-                            file_id=cover_art_base_file_id
+                            file_id=cover_art_base_file_id,
+                            file_path=cover_art_file_path
                         )
 
                         del self.base_file_parameters[(request_id, cover_art_file_id)]
+                        del self.base_file_paths[(request_id, cover_art_file_id)]
 
                     if sheet_images_file_ids:
                         sheet_music_file_ids: list[str] = []
+                        sheet_music_file_paths: list[str] = []
                         for sheet_image_id in sheet_images_file_ids:
                             sheet_base_file_id = self.base_file_parameters[(request_id, sheet_image_id)]["file_id"]
+                            sheet_music_file_path = self.base_file_paths[(request_id, sheet_image_id)]
+
                             sheet_music_file_ids.append(sheet_base_file_id)
+                            sheet_music_file_paths.append(sheet_music_file_path)
+
                             del self.base_file_parameters[(request_id, sheet_image_id)]
+                            del self.base_file_paths[(request_id, sheet_image_id)]
 
                         await MediaFiles.create_sheet_file(
                             connection=connection,
                             song_id=song_id,
-                            file_ids=sheet_music_file_ids
+                            file_ids=sheet_music_file_ids,
+                            file_paths=sheet_music_file_paths
                         )
 
                     await Music.add_genre(
@@ -970,8 +983,7 @@ class UploadSong:
             # we then set the current chunk's extension to whatever we have saved before (if any)
             file_chunk.file_extension = file_extension
 
-        # note that if the chunk goes to be saved and has **no file extension** (None), the whole file may be dismissed
-        # as invalid
+        # note that if the chunk goes to be saved and has **no file extension** (None), the whole file may be dismissed as invalid
 
         # todo: add the above comment as functional code
 
@@ -1024,3 +1036,94 @@ class UploadSong:
                 del self.out_of_order_chunks[(request_id, file_id)]
             except KeyError:
                 pass
+
+
+async def send_song_previews(
+        db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache):
+    """
+    this function is used to send the client the "preview" of the songs, that contains the cover art, and the standard
+    song data (song name, artist name, etc...)
+
+    this function is tied to song/download/preview (POST)
+
+    expected payload:
+    {
+        "query": str
+    }
+
+    -- note: the output will be sent as chunks and multiple "messages". so the output here will be shown as a single
+    message for a single song preview.
+    --note: this function will only FETCH the song information from the database, the chunk sending will happen in a
+    Utils function (outside of server_actions)
+
+    expected output (for starting message):
+    {
+        "file_id": str
+        "song_id": int,
+        "artist_name": str,
+        "album_name": str,
+        "song_name": str,
+        "genres": list[str]
+    }
+
+    expected output (for each chunk):
+    {
+        -- note: the chunk's bytes are b64 encoded before sending due to flet limitations
+        "chunk": str,
+        "file_id": str,
+        "chunk_number": int,
+        "is_last_chunk": bool,
+        "song_id": int
+    }
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    payload = client_message.payload
+
+    try:
+        search_query = payload["query"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(
+            f"Invalid payload passed. expected key \"username\", \"password\", instead got {payload_keys}")
+
+    if len(search_query) > 100:
+        raise TooLong("search query is too long, max length allowed is 100 characters", extra={"type": "search"})
+
+    # todo: add the isinstance check for all of the other functions in this file
+    if not isinstance(search_query, str):
+        raise InvalidDataType(f"expected data type for \"query\" is str, got {type(search_query)} instead", extra={"type": "search"})
+
+    async with db_pool.acquire() as connection:
+        matching_song_ids = await MusicSearch.search_song_by_name(
+            connection=connection,
+            search_query=search_query
+        )
+
+    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids)
