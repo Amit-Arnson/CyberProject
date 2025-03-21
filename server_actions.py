@@ -1126,4 +1126,4 @@ async def send_song_previews(
             search_query=search_query
         )
 
-    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids)
+    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
