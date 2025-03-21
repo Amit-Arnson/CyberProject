@@ -241,6 +241,14 @@ class Music:
             """, song_id, song_name
         )
 
+        # Insert the song name into the spellfix1 table
+        await connection.execute(
+            """
+            INSERT INTO song_name_trigrams (word)
+            VALUES (?);
+            """, (song_name,)
+        )
+
         return song_id
 
     @staticmethod
@@ -308,15 +316,34 @@ class Music:
 
 class MusicSearch:
     @staticmethod
-    async def search_song_by_name(connection: ProxiedConnection, search_query: str) -> list[int]:
-        """:returns: a list of the song IDs that closely match the search query"""
-        matching_song_id = await connection.fetchall(
+    async def search_song_by_name(connection, search_query: str) -> list[int]:
+        # Prepare the search terms
+        search_query_fts5 = f"{search_query}*"  # For prefix matching in FTS5
+        search_query_like = f"{search_query}%"  # For prefix matching in spellfix1
+
+        # Execute the first query
+        fts5_results = await connection.fetchall(
             """
-            SELECT rowid 
-            FROM song_info_fts 
-            WHERE song_name MATCH ?;
-            """, (search_query,)
+            SELECT song_info.song_id
+            FROM song_info_fts
+            JOIN song_info ON song_info_fts.rowid = song_info.song_id
+            WHERE song_info_fts.song_name MATCH ?;
+            """, (search_query_fts5,)
         )
 
-        # Extract the song_id values from the tuples
-        return [row[0] for row in matching_song_id]
+        # Execute the second query
+        spellfix_results = await connection.fetchall(
+            """
+            SELECT song_info.song_id
+            FROM song_info, song_name_trigrams
+            WHERE song_name_trigrams.word LIKE ?
+              AND editdist3(song_name_trigrams.word, ?) <= 2
+              AND song_info.song_id = song_name_trigrams.rowid;
+            """, (search_query_like, search_query)
+        )
+
+        # Combine results (remove duplicates if necessary)
+        matching_song_ids = list(set(row[0] for row in fts5_results + spellfix_results))
+
+        return matching_song_ids
+
