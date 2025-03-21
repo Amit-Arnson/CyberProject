@@ -81,6 +81,14 @@ class CreateTables:
             """
         )
 
+        # Create an FTS5 virtual table for song_name, this is so that people can send an approximate search query
+        await cursor.execute(
+            """
+            CREATE VIRTUAL TABLE IF NOT EXISTS song_info_fts
+            USING fts5(song_name, content='song_info', content_rowid='song_id');
+            """
+        )
+
     @staticmethod
     async def _create_genres_table(cursor: Cursor):
         await cursor.execute(
@@ -103,6 +111,7 @@ class CreateTables:
                 song_id INTEGER NOT NULL,
                 file_id TEXT NOT NULL,
                 file_type TEXT NOT NULL, -- e.g., 'audio', 'sheet', 'cover'
+                file_path TEXT NOT NULL, -- the full file path (save_dir/cluster/file)
                 PRIMARY KEY (song_id, file_id),
                 FOREIGN KEY (song_id) REFERENCES song_info (song_id),
                 FOREIGN KEY (file_id) REFERENCES files (file_id)
