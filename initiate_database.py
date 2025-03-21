@@ -1,6 +1,7 @@
 import sqlite3
+import os
 
-spell_fix_extension = r"C:\Users\amita\PycharmProjects\FinalCyberProject\Sqlite3Extensions\spellfix.dll"
+spell_fix_extension = os.path.abspath("./Sqlite3Extensions/spellfix.dll")
 
 
 class CreateTables:
