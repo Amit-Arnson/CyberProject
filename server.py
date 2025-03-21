@@ -19,6 +19,7 @@ from DHE.dhe import DHE, generate_initial_dhe
 from FileSystem.base_file_system import System, BaseFile
 
 from initiate_database import CreateTables
+from Utils.sqlite3_ext import create_connection_pool
 
 # The IP and PORT of the server.
 IP = "127.0.0.1"
@@ -183,12 +184,12 @@ async def main() -> None:
 
     database_name = "database.db"
 
-    # create all the tables in the database
-    await CreateTables(database_name).aio_init()
+    # create all the tables in the database (this is not an async action, so it should only be used once)
+    CreateTables(database_name).init()
 
     # creating an async database pool for all server-side database interactions. A db pool helps avoid race
     # conditions in async code.
-    database_pool = await asqlite.create_pool(database_name)
+    database_pool = await create_connection_pool(database_name)
 
     file_system = System(db_pool=database_pool)
 
