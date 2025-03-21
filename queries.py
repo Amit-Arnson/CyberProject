@@ -109,13 +109,14 @@ class MediaFiles:
             song_id: int,
             file_id: str,
             file_type: str,
+            file_path: str,
     ):
         await connection.execute(
             """
             INSERT INTO media_files
-            (song_id, file_id, file_type) VALUES (?, ?, ?)
+            (song_id, file_id, file_type, file_path) VALUES (?, ?, ?, ?)
             """,
-            song_id, file_id, file_type
+            song_id, file_id, file_type, file_path
         )
 
     @staticmethod
@@ -124,13 +125,14 @@ class MediaFiles:
             song_id: int,
             file_ids: list[str],
             file_type: str,
+            file_paths: list[str]
     ):
         await connection.executemany(
             """
             INSERT INTO media_files
-            (song_id, file_id, file_type) VALUES (?, ?, ?)
+            (song_id, file_id, file_type, file_path) VALUES (?, ?, ?, ?)
             """,
-            [(song_id, file_id, file_type) for file_id in file_ids]
+            [(song_id, file_id, file_type, file_path) for file_id, file_path in zip(file_ids, file_paths)]
         )
 
     @staticmethod
@@ -138,6 +140,7 @@ class MediaFiles:
             connection: ProxiedConnection,
             song_id: int,
             file_id: str,
+            file_path: str
     ):
         file_type = FileTypes.AUDIO.value
 
@@ -145,7 +148,8 @@ class MediaFiles:
             connection=connection,
             song_id=song_id,
             file_id=file_id,
-            file_type=file_type
+            file_type=file_type,
+            file_path=file_path
         )
 
     @staticmethod
@@ -153,6 +157,7 @@ class MediaFiles:
             connection: ProxiedConnection,
             song_id: int,
             file_ids: list[str],
+            file_paths: list[str],
     ):
         file_type = FileTypes.SHEET.value
 
@@ -160,7 +165,8 @@ class MediaFiles:
             connection=connection,
             song_id=song_id,
             file_ids=file_ids,
-            file_type=file_type
+            file_type=file_type,
+            file_paths=file_paths
         )
 
     @staticmethod
@@ -168,6 +174,7 @@ class MediaFiles:
             connection: ProxiedConnection,
             song_id: int,
             file_id: str,
+            file_path: str,
     ):
         file_type = FileTypes.COVER.value
 
@@ -175,8 +182,33 @@ class MediaFiles:
             connection=connection,
             song_id=song_id,
             file_id=file_id,
-            file_type=file_type
+            file_type=file_type,
+            file_path=file_path,
         )
+
+    @staticmethod
+    async def bulk_fetch_paths(
+            connection: ProxiedConnection,
+            song_ids: list[int]
+    ) -> list[str]:
+        if not song_ids:
+            return []
+
+        # Use a parameterized query to prevent SQL injection
+        placeholders = ", ".join(["?"] * len(song_ids))  # Create placeholders (?, ?, ?, ...)
+        query = f"""
+           SELECT file_path
+           FROM media_files
+           WHERE song_id IN ({placeholders})
+           ORDER BY song_id; -- Ensures the order matches the song_ids list
+           """
+
+        results = await connection.fetchall(
+            query, song_ids
+        )
+
+        # Extract the file_path values from the results
+        return [row[0] for row in results]
 
 
 class Music:
@@ -198,7 +230,68 @@ class Music:
             """, user_id, artist_name, album_name, song_name, song_length_milliseconds
         )
 
-        return cursor.get_cursor().lastrowid
+        song_id = cursor.get_cursor().lastrowid
+
+        # Index the song_name in the FTS5 table
+        await connection.execute(
+            """
+            INSERT INTO song_info_fts (rowid, song_name)
+            VALUES (?, ?);
+            """, song_id, song_name
+        )
+
+        return song_id
+
+    @staticmethod
+    async def bulk_fetch_song_data(
+            connection: ProxiedConnection,
+            song_ids: list[int],
+    ) -> list[dict[str, str | int | list[str]]]:
+        if not song_ids:
+            return []
+
+        # Use a parameterized query to prevent SQL injection
+        placeholders = ", ".join(["?"] * len(song_ids))  # Create placeholders (?, ?, ?, ...)
+        query = f"""
+           SELECT 
+               song_info.song_id,
+               artist_name,
+               album_name,
+               song_name,
+               song_length,
+               GROUP_CONCAT(genres.genre_name, ',') AS genre_list
+           FROM song_info
+           LEFT JOIN genres ON song_info.song_id = genres.song_id
+           WHERE song_info.song_id IN ({placeholders})
+           GROUP BY song_info.song_id
+           ORDER BY song_info.song_id; -- Ensure results are ordered
+           """
+
+        results = await connection.fetchall(query, song_ids)
+
+        # Extract the dictionary values from the results
+        return [
+            {
+                "song_id": row[0],
+                "artist_name": row[1],
+                "album_name": row[2],
+                "song_name": row[3],
+                "song_length": row[4],
+                "genres": row[5].split(",") if row[5] else []  # Split the comma-separated string into a list
+            }
+            for row in results
+        ]
+
+    @staticmethod
+    async def bulk_fetch_song_preview_data(
+            connection: ProxiedConnection,
+            song_ids: list[int]
+    ) -> list[tuple[str, dict[str, str | int]]]:
+        async with connection.transaction():
+            song_paths = await MediaFiles.bulk_fetch_paths(connection=connection, song_ids=song_ids)
+            song_data_dicts = await Music.bulk_fetch_song_data(connection=connection, song_ids=song_ids)
+
+        return zip(song_paths, song_data_dicts)
 
     @staticmethod
     async def add_genre(
@@ -210,3 +303,19 @@ class Music:
             """INSERT INTO genres (song_id, genre_name) VALUES (?, ?)""",
             [(song_id, genre_name) for genre_name in genres]
         )
+
+
+class MusicSearch:
+    @staticmethod
+    async def search_song_by_name(connection: ProxiedConnection, search_query: str) -> list[int]:
+        """:returns: a list of the song IDs that closely match the search query"""
+        matching_song_id = await connection.fetchall(
+            """
+            SELECT song_id 
+            FROM song_info_fts 
+            WHERE song_name MATCH ?;
+            """, (search_query,)
+        )
+
+        # Extract the song_id values from the tuples
+        return [row[0] for row in matching_song_id]
