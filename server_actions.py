@@ -1121,7 +1121,7 @@ async def send_song_previews(
         raise InvalidDataType(f"expected data type for \"query\" is str, got {type(search_query)} instead", extra={"type": "search"})
 
     async with db_pool.acquire() as connection:
-        matching_song_ids = await MusicSearch.search_song_by_name(
+        matching_song_ids = await MusicSearch.search_song(
             connection=connection,
             search_query=search_query
         )
