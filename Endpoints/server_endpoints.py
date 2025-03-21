@@ -4,7 +4,8 @@ from server_actions import (
     user_signup,
     user_login,
     user_signup_and_login,
-    UploadSong
+    UploadSong,
+    send_song_previews
 )
 
 from dataclasses import dataclass
@@ -88,6 +89,12 @@ class EndPoints:
                 EndPointRequires(method="post", authentication=True),
                 upload_song_cache.upload_song_finish
             ),
+
+            # song/download/preview is used get the cover art + song info for the "preview boxes" in the client GUI
+            "song/download/preview": (
+                EndPointRequires(method="get", authentication=True),
+                send_song_previews
+            )
 
         }
         # endpoint -> (requirements, function)
