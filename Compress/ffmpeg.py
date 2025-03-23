@@ -59,7 +59,7 @@ class FFmpegImage:
         self.frame_rate = frame_rate  # e.g., 30
         self.quality = quality  # e.g., 23
 
-    def to_dict(self, extra: dict[str, str] = None) -> dict[str, str]:
+    def to_dict(self, extra: dict[str, ...] = None) -> dict[str, str]:
         flags = {}
         if self.codec:
             flags["-c:v"] = self.codec
@@ -68,12 +68,21 @@ class FFmpegImage:
         if self.frame_rate:
             flags["-r"] = str(self.frame_rate)
         if self.quality is not None:  # Quality is typically for codecs like libx264
-            flags["-crf"] = str(self.quality)
+            flags["-q:v"] = str(self.quality)
 
         if extra:
+            extra = self._to_string(extra)
             flags.update(extra)
 
         return flags
+
+    @staticmethod
+    def _to_string(flags: dict[str, ...]) -> dict[str, str]:
+        to_string_flags: dict[str, str] = {
+            flag: str(value) for flag, value in flags.items()
+        }
+
+        return to_string_flags
 
 
 async def is_valid_file(file_path: str) -> bool:
