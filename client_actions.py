@@ -10,7 +10,8 @@ from DHE.dhe import DHE, generate_dhe_response
 import flet as ft
 from flet import Page
 
-from gui_testing import MainPage
+# from gui_testing import MainPage
+from GUI.home_page import HomePage
 
 
 async def complete_authentication(_: Page, transport: EncryptedTransport, server_message: ServerMessage, __: ClientSideUserCache):
@@ -102,7 +103,7 @@ async def user_login(page: Page, transport: EncryptedTransport, server_message: 
     page.user_cache = user_cache
 
     # this is a temporary MainPage for testing purposes only
-    MainPage(page).start()
+    HomePage(page).show()
 
 
 async def song_upload_finish(page: Page, transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
@@ -142,6 +143,50 @@ class DownloadSong:
         ]
         """
 
+    async def download_preview_details(self, page: Page, transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
+        """
+        this function gathers all the preview's details (e.g., artist name, song length, etc...) and sends them to the GUI
+
+        tied to song/download/preview/file
+
+        expected payload:
+        {
+                "song_id": int,
+                "file_id": str,
+                "artist_name": str,
+                "album_name": str,
+                "song_name":  str,
+                "genres": list[str]
+        }
+
+        expected output:
+        None
+        """
+
+        payload = server_message.payload
+
+        try:
+            song_id: int = payload["song_id"]
+            file_id: str = payload["file_id"]
+            artist_name: str = payload["artist_name"]
+            album_name: str = payload["album_name"]
+            song_name: str = payload["song_name"]
+            genres: list[str] = payload["genres"]
+        except KeyError:
+            raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
+
+        if hasattr(page, "view") and isinstance(page.view, HomePage):
+            page.view.add_song_info(
+                song_id=song_id,
+                artist_name=artist_name,
+                album_name=album_name,
+                song_name=song_name,
+                genres=genres,
+
+                # todo: send this info from the server
+                song_length=0
+            )
+
     async def download_preview_chunks(self, page: Page, transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
         """
         this function gathers all the preview (cover art) file chunks and combines them in a list to later be shown
@@ -171,7 +216,7 @@ class DownloadSong:
             song_id = payload["song_id"]
             is_last_chunk: bool = payload["is_last_chunk"]
         except KeyError:
-            raise  # todo: figure out what to do with malformed server messages (likely being faked messages)\
+            raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
 
         if file_id not in self.preview_image_chunks:
             self.preview_image_chunks[file_id] = [(chunk_number, chunk)]
@@ -186,17 +231,9 @@ class DownloadSong:
 
             b64_file_bytes = "".join((b64_chunk for chunk_num, b64_chunk in b64_chunk_list))
 
-            page.view.page_view.controls.append(
-                ft.Container(
-                    ft.Image(
-                        src_base64=b64_file_bytes,
-                        fit=ft.ImageFit.FILL
-                    ),
-                    height=500,
-                    width=500,
-                    bgcolor=ft.Colors.GREY
+            if hasattr(page, "view") and isinstance(page.view, HomePage):
+                page.view.add_song_cover_art(
+                    song_id=song_id,
+                    b64_image_bytes=b64_file_bytes
                 )
-            )
-
-            page.update()
 
