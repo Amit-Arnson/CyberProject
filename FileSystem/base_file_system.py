@@ -14,7 +14,7 @@ from queries import FileSystem
 
 from Compress.ffmpeg import is_valid_file
 from Compress.audio import compress_to_aac
-from Compress.images import compress_to_webp
+from Compress.images import compress_to_webp, compress_to_low_res_webp
 
 
 class System:
@@ -208,7 +208,7 @@ class System:
                 final_file_format = compressed_extension
             elif chunk.file_type == "image" and chunk_content_type == FileTypes.COVER.value:
                 # todo: make the compression lossy, with a low quality and resolution in order to save size
-                total_size, compressed_extension = await compress_to_webp(
+                total_size, compressed_extension = await compress_to_low_res_webp(
                     file_extension=chunk.file_extension,
                     input_file=f"{chunk.file_id}",
                     directory=chunk.save_directory,
