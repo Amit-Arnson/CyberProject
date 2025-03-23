@@ -10,10 +10,8 @@ from GUI.Controls.navigation_sidebar import NavigationSidebar
 from GUI.Controls.tag_input import TagInput
 
 from Caches.user_cache import ClientSideUserCache
-from pseudo_http_protocol import ClientMessage
 
 from Utils.chunk import send_chunk
-import aiofiles
 
 
 def format_file_size(size_in_bytes: int) -> str:
@@ -221,6 +219,11 @@ class UploadPage:
         )
 
         self.sidebar = NavigationSidebar(page=page)
+        # override the on_click method so that clicking on the button does not reset the information already input
+        self.sidebar.goto_upload_song.on_click = None
+
+        # the sidebar is set to 2 and the right side of the page is set to 10. this means the sidebar takes 20% of the available screen
+        self.sidebar.expand = 2
 
         # we define 3 different file pickers so that we can point the on_result to different functions in order to make
         # sorting between images (between sheet and cover) and audio files easier
@@ -240,12 +243,9 @@ class UploadPage:
 
         self._initialize_controls()
 
+    # todo: see if this function is still needed
     def _initialize_sidebar_top(self):
-        # override the on_click method so that clicking on the button does not reset the information already input
-        self.sidebar.goto_upload_song.on_click = None
-
-        # the sidebar is set to 2 and the right side of the page is set to 10. this means the sidebar takes 20% of the available screen
-        self.sidebar.expand = 2
+        pass
 
     # todo: make it cancel the "upload" task when an error regarding invalid request ID is given (which can be checked with the error's "extras")
     async def _upload_all_files(self, *args):
@@ -713,13 +713,6 @@ class UploadPage:
                             ),
                         ],
                             alignment=ft.MainAxisAlignment.END
-                        ),
-
-                        ft.Container(
-                            width=100,
-                            height=50,
-                            bgcolor=ft.Colors.GREEN,
-                            on_click=self.temp_send_download_request
                         )
                     ],
                     tight=False,
@@ -740,20 +733,6 @@ class UploadPage:
             ],
             spacing=0,
             expand=True
-        )
-
-    def temp_send_download_request(self, e):
-        query = "duc"
-
-        self.transport.write(
-            ClientMessage(
-                authentication=self.user_cache.session_token,
-                method="GET",
-                endpoint="song/download/preview",
-                payload={
-                    "query": query
-                }
-            ).encode()
         )
 
     def append_error(self, error_control: ft.Control):
