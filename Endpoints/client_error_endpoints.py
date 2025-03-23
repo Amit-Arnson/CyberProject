@@ -8,6 +8,7 @@ class ErrorEndPoints:
             "user/login/error": login_error,
             "user/signup/login/error": signup_error,
             "song/upload/error": song_upload_error,
+            "song/upload/file/error": song_upload_error,
         }
         # endpoint -> function
 
