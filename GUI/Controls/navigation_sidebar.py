@@ -58,6 +58,11 @@ class NavigationSidebar(ft.Container):
 
         UploadPage(self.page).show()
 
+    def _switch_to_home_page(self, e: ft.ControlEvent):
+        from GUI.home_page import HomePage
+
+        HomePage(self.page).show()
+
     def _switch_to_tempo_finder(self, e: ft.ControlEvent):
         """switches the page to the "tempo finder" page"""
 
@@ -118,6 +123,21 @@ class NavigationSidebar(ft.Container):
             padding=10,
         )
 
+        self.goto_home_page = ft.Container(
+            on_click=self._switch_to_home_page,
+            on_hover=self._sidebar_item_hover,
+            height=item_height,
+            expand=True,
+            expand_loose=True,
+            content=ft.Row(
+                [
+                    ft.Icon(ft.Icons.HOME_ROUNDED, **self.item_icon_values),
+                    ft.Text("HOME", **self.item_text_values)
+                ]
+            ),
+            padding=10,
+        )
+
     def _initialize_sidebar_bottom_item(self):
         item_height = self.page_height / 10
 
@@ -164,6 +184,7 @@ class NavigationSidebar(ft.Container):
         self.middle_part = ft.Container(
             content=ft.Column(
                 [
+                    self.goto_home_page,
                     self.goto_upload_song,
                     self.goto_ai_chat,
                     self.goto_tempo_finder
