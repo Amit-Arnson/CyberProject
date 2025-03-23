@@ -7,11 +7,6 @@ from client_actions import (
     DownloadSong
 )
 
-async def test(*args):
-    print("NOT IMPLEMENTED")
-    logging.error("NOT IMPLEMENTED (download/preview)")
-    pass
-
 
 class EndPoints:
     def __init__(self):
@@ -21,7 +16,7 @@ class EndPoints:
             "authentication/key_exchange": complete_authentication,
             "user/login": user_login,
             "song/upload/finish": song_upload_finish,
-            "song/download/preview": test,
+            "song/download/preview": download_song_state.download_preview_details,
             "song/download/preview/file": download_song_state.download_preview_chunks
         }
         # endpoint -> function
