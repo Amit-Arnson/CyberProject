@@ -1,6 +1,7 @@
 # this is where all the "error" endpoints will point
 import asyncio
 
+import GUI.upload_song
 from pseudo_http_protocol import ServerMessage
 from Caches.user_cache import ClientSideUserCache
 
@@ -137,12 +138,14 @@ async def song_upload_error(page: Page, _: EncryptedTransport, server_message: S
     # normally saved in the self of the class) by accessing page.view
 
     if hasattr(page, "view"):
-        upload_page = page.view
+        upload_page: GUI.upload_song.UploadPage = page.view
 
         if hasattr(upload_page, "send_chunks_task"):
             send_chunks_task: asyncio.Task = upload_page.send_chunks_task
 
             send_chunks_task.cancel()
+
+        upload_page._remove_blocking_overlay()
 
     page.server_error(
         ft.Text(
