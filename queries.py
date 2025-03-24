@@ -66,7 +66,7 @@ class FileSystem:
     @staticmethod
     async def create_base_file(
             connection: ProxiedConnection,
-            cluster_id: str,
+            cluster_id: str | None,
             file_id: str,
             raw_file_id: str,
             file_format: str,
@@ -85,10 +85,13 @@ class FileSystem:
             file_id, cluster_id, user_uploaded_id, size, current_time, raw_file_id, file_format
         )
 
-        await connection.execute(
-            """UPDATE clusters SET current_size = current_size + 1 WHERE cluster_id = ?""",
-            cluster_id
-        )
+        # since you can upload songs without cover images, the default cover image is stored in 1 place and does not
+        # need to be added to a cluster. and this the cluster ID *can* be None
+        if cluster_id:
+            await connection.execute(
+                """UPDATE clusters SET current_size = current_size + 1 WHERE cluster_id = ?""",
+                cluster_id
+            )
 
     @staticmethod
     async def does_file_exist(connection: ProxiedConnection, file_id: str) -> bool:
@@ -190,19 +193,16 @@ class MediaFiles:
     async def bulk_fetch_paths(
             connection: ProxiedConnection,
             song_ids: list[int],
-            preview: bool = True
     ) -> list[str]:
         if not song_ids:
             return []
-
-        preview_mode = "AND file_type = 'cover'" if preview else ""
 
         # Use a parameterized query to prevent SQL injection
         placeholders = ", ".join(["?"] * len(song_ids))  # Create placeholders (?, ?, ?, ...)
         query = f"""
            SELECT file_path
            FROM media_files
-           WHERE song_id IN ({placeholders}) {preview_mode}
+           WHERE song_id IN ({placeholders})
            ORDER BY song_id; -- Ensures the order matches the song_ids list
            """
 
@@ -210,6 +210,31 @@ class MediaFiles:
 
         # Extract the file_path values from the results
         return [row[0] for row in results]
+
+    @staticmethod
+    async def bulk_fetch_preview_paths(
+            connection: ProxiedConnection,
+            song_ids: list[int],
+            default_cover_image_path: str = None
+    ) -> list[str]:
+        if not song_ids:
+            return []
+
+        # Use a parameterized query to prevent SQL injection
+        placeholders = ", ".join(["?"] * len(song_ids))  # Create placeholders (?, ?, ?, ...)
+        query = f"""
+           SELECT song_id, file_path
+           FROM media_files
+           WHERE song_id IN ({placeholders}) AND file_type = 'cover'
+           """
+
+        results = await connection.fetchall(query, tuple(song_ids))
+
+        # Create a mapping of song_id to file_path
+        song_paths = {row[0]: row[1] for row in results}
+
+        # Ensure all song_ids are accounted for, using a default path if missing
+        return [song_paths.get(song_id, default_cover_image_path) for song_id in song_ids]
 
 
 class Music:
@@ -273,14 +298,13 @@ class Music:
            LEFT JOIN genres ON song_info.song_id = genres.song_id
            WHERE song_info.song_id IN ({placeholders})
            GROUP BY song_info.song_id
-           ORDER BY song_info.song_id; -- Ensure results are ordered
            """
 
         results = await connection.fetchall(query, tuple(song_ids))
 
-        # Extract the dictionary values from the results
-        return [
-            {
+        # Create a dictionary mapping song_id to its corresponding result
+        result_dict = {
+            row[0]: {
                 "song_id": row[0],
                 "artist_name": row[1],
                 "album_name": row[2],
@@ -289,15 +313,19 @@ class Music:
                 "genres": row[5].split(",") if row[5] else []  # Split the comma-separated string into a list
             }
             for row in results
-        ]
+        }
+
+        # Return results in the same order as the input song_ids
+        return [result_dict.get(song_id, {}) for song_id in song_ids]
 
     @staticmethod
     async def bulk_fetch_song_preview_data(
             connection: ProxiedConnection,
-            song_ids: list[int]
+            song_ids: list[int],
+            default_cover_image_path: str = None,
     ) -> list[tuple[str, dict[str, str | int]]]:
         async with connection.transaction():
-            song_paths = await MediaFiles.bulk_fetch_paths(connection=connection, song_ids=song_ids)
+            song_paths = await MediaFiles.bulk_fetch_preview_paths(connection=connection, song_ids=song_ids, default_cover_image_path=default_cover_image_path)
             song_data_dicts = await Music.bulk_fetch_song_data(connection=connection, song_ids=song_ids)
 
         return zip(song_paths, song_data_dicts)
