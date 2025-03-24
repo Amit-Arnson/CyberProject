@@ -127,8 +127,8 @@ class NoEncryption(Exception):
         self.code = 500
 
 
-class InvalidExtension(Exception):
-    """Use this class to throw errors when an unacceptable extension is used"""
+class InvalidCodec(Exception):
+    """Use this class to throw errors when an unacceptable file format / codec is used"""
 
     # view docstring at the top of the file to see comments.
     def __init__(self, argument: str, extra: dict = None):
