@@ -241,6 +241,13 @@ class UploadPage:
         self.page.overlay.append(self.image_file_picker)
         self.page.overlay.append(self.cover_art_file_picker)
 
+        self.blocking_overlay = ft.Container(
+                expand=True,
+                bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+                content=ft.Text("Uploading", size=35, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                alignment=ft.Alignment(0, 0)
+        )
+
         self._initialize_controls()
 
     # todo: see if this function is still needed
@@ -283,27 +290,23 @@ class UploadPage:
         try:
             await self.send_chunks_task
         except asyncio.CancelledError:
-            self._remove_blocking_overlay()
+            self.remove_blocking_overlay()
         except Exception as e:
             logging.error(e)
-            self._remove_blocking_overlay()
+            self.remove_blocking_overlay()
 
     def _add_blocking_overlay(self):
         self.page.overlay.append(
-            ft.Container(
-                expand=True,
-                bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
-                content=ft.Text("Uploading", size=35, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                alignment=ft.Alignment(0, 0)
-            )
+            self.blocking_overlay
         )
 
         self.page.update()
 
-    def _remove_blocking_overlay(self):
-        self.page.overlay.pop()
+    def remove_blocking_overlay(self):
+        if self.page.overlay[-1] == self.blocking_overlay:
+            self.page.overlay.pop()
 
-        self.page.update()
+            self.page.update()
 
     # ------------------------------------------------------------------------------------------------------------------
 
