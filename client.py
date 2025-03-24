@@ -107,6 +107,9 @@ class ClientProtocol(asyncio.Protocol):
         elif requested_endpoint in self.error_endpoints:
             client_error_action_function = self.error_endpoints[requested_endpoint]
 
+            # remove the blocking overlay (assuming there is one, if not, it just ignores it)
+            self.error_endpoints.remove_upload_overlay(page=self.page)
+
             # these are all the functions to graphically display errors (as in, GUI)
             error_action = self.event_loop.create_task(client_error_action_function(self.page, self.transport, server_message, client_user_cache))
             error_action.add_done_callback(self.on_complete)

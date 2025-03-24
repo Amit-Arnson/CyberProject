@@ -1,9 +1,10 @@
 from typing import Callable
-from client_server_errors import login_error, signup_error, song_upload_error
+from client_server_errors import login_error, signup_error, song_upload_error, remove_upload_page_blocking_overplay
 
 
 class ErrorEndPoints:
     def __init__(self):
+        self.remove_upload_overlay = remove_upload_page_blocking_overplay
         self.endpoints: dict[str, Callable] = {
             "user/login/error": login_error,
             "user/signup/login/error": signup_error,

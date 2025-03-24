@@ -131,7 +131,7 @@ async def song_upload_finish(page: Page, transport: EncryptedTransport, server_m
 
     if success and hasattr(page, "view"):
         page_view: GUI.upload_song.UploadPage = page.view
-        page_view._remove_blocking_overlay()
+        page_view.remove_blocking_overlay()
 
 
 class DownloadSong:

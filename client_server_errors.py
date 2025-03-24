@@ -11,6 +11,11 @@ import flet as ft
 from flet import Page
 
 
+def remove_upload_page_blocking_overplay(page: Page):
+    if hasattr(page, "view") and isinstance(page.view, GUI.upload_song.UploadPage):
+        page.view.remove_blocking_overlay()
+
+
 async def login_error(page: Page, _: EncryptedTransport, server_message: ServerMessage, __: ClientSideUserCache):
     """
     this function is used to visually display that an error occurred when trying to log in.
@@ -144,8 +149,6 @@ async def song_upload_error(page: Page, _: EncryptedTransport, server_message: S
             send_chunks_task: asyncio.Task = upload_page.send_chunks_task
 
             send_chunks_task.cancel()
-
-        upload_page._remove_blocking_overlay()
 
     page.server_error(
         ft.Text(
