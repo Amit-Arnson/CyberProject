@@ -16,6 +16,8 @@ from Compress.ffmpeg import is_valid_file
 from Compress.audio import compress_to_aac
 from Compress.images import compress_to_webp, compress_to_low_res_webp
 
+from Errors.raised_errors import InvalidCodec
+
 
 class System:
     def __init__(self, db_pool: asqlite.Pool):
@@ -153,8 +155,8 @@ class System:
                           chunk_content_type: str | FileTypes) -> dict[str, str | int] | tuple[str, str]:
         # due to how chunks are processed before arriving here, all the chunks should have a valid file extension
         if not chunk.file_extension:
-            # todo: see if it is needed to create a better error message
-            raise Exception(f"chunk file ID {chunk.file_id} #{chunk.chunk_number} is missing file extension")
+            logging.error(f"chunk file ID {chunk.file_id} #{chunk.chunk_number} is missing file extension")
+            raise InvalidCodec(f"Invalid file format given")
 
         if isinstance(chunk_content_type, FileTypes):
             chunk_content_type: str = chunk_content_type.value
@@ -181,8 +183,7 @@ class System:
             file_is_valid: bool = await is_valid_file(final_file_path)
 
             if not file_is_valid:
-                # todo: work on the error
-                raise Exception("Invalid file given and was rejected")
+                raise InvalidCodec("Invalid file given and was rejected")
 
             # if the chunk is under ~200KB, compressing it may cause it to grow bigger
             if chunk.total_file_size > 200_000 and chunk.file_type == "audio" and chunk_content_type == FileTypes.AUDIO.value:
