@@ -24,11 +24,13 @@ async def send_song_preview_chunks(
         db_pool: asqlite.Pool,
         song_ids: list[int]
 ):
+    default_cover_image_path = await aos.path.abspath(r"./Assets/no_cover_art.webp")
+
     async with db_pool.acquire() as connection:
         # a list of (path, data_dict) tuples based on song ID
         song_path_and_data: list[
             tuple[str, dict[str, str | int | list[str]]]
-        ] = await Music.bulk_fetch_song_preview_data(connection=connection, song_ids=song_ids)
+        ] = await Music.bulk_fetch_song_preview_data(connection=connection, song_ids=song_ids, default_cover_image_path=default_cover_image_path)
 
     try:
         for song_path, song_dict in song_path_and_data:
