@@ -607,7 +607,7 @@ class UploadSong:
         # todo: decide whether i want to make only a set amount of tags available
 
         if request_id in self.song_information:
-            raise  # todo: check which error to raise
+            raise InvalidPayload("the given request ID is already being answered")
 
         async with self._lock:
             self.song_information[request_id] = {
@@ -711,7 +711,11 @@ class UploadSong:
                 await asyncio.sleep(1)  # Wait for the interval before checking again
 
                 if interval_amount <= 0:
-                    raise Exception(f"upload song finish function timed out for request {request_id}")
+                    # check if the reason for the timeout was because the request ID was invalidated
+                    if request_id not in self.song_information:
+                        raise InvalidPayload(f"request ID {request_id} is an invalid ID and does not exist")
+                    else:
+                        raise Exception(f"upload song finish function timed out for request {request_id}")
 
             audio_length = await get_audio_length(self.base_file_paths[(request_id, audio_file_id)])
 
