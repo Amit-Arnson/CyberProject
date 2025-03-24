@@ -4,6 +4,8 @@ import logging
 import asyncio
 from enum import Enum
 
+import aiofiles.os as aos
+
 
 class Codec(Enum):
     AAC = "aac"  # Advanced Audio Codec
@@ -90,7 +92,11 @@ async def is_valid_file(file_path: str) -> bool:
     Validates a file's integrity. If the file is corrupted or uses false data, this function will return False, else True
     """
 
-    ffprobe_exe = r".\ffmpeg\bin\ffprobe.exe"  # Update this to the correct path
+    # Ensure FFprobe is in the system path
+    ffprobe_exe = r".\ffmpeg\bin\ffprobe.exe"
+
+    if not await aos.path.exists(ffprobe_exe):
+        raise Exception(f"Couldn't find the FFprobe executable in {ffprobe_exe}")
 
     try:
         # Build the ffprobe command
@@ -134,7 +140,7 @@ async def compress(input_file: str, output_file: str, flag_values: dict[str, str
     # Ensure FFmpeg is in the system PATH
     ffmpeg_exe = r".\ffmpeg\bin\ffmpeg.exe"
 
-    if not os.path.exists(ffmpeg_exe):
+    if not await aos.path.exists(ffmpeg_exe):
         raise Exception(f"Couldn't find the FFmpeg executable in {ffmpeg_exe}")
 
     try:
