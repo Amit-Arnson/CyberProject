@@ -82,9 +82,8 @@ class System:
             async with self.db_pool.acquire() as connection:
                 exists = await FileSystem.does_file_exist(connection=connection, file_id=unique_file_id)
 
-        # this error should NEVER raise. if it does, fuck.
         if not unique_file_id:
-            raise Exception("new achievement: how did we get here?")
+            raise Exception("unique file ID failed to be created in BaseFileSystem")
 
         return unique_file_id
 
@@ -99,9 +98,8 @@ class System:
             async with self.db_pool.acquire() as connection:
                 exists = await FileSystem.does_cluster_exist(connection=connection, cluster_id=unique_cluster_id)
 
-        # this error should NEVER raise. if it does, fuck.
         if not unique_cluster_id:
-            raise Exception("new achievement: how did we get here?")
+            raise Exception("unique cluster ID failed to be created in BaseFileSystem")
 
         return unique_cluster_id
 
