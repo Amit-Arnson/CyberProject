@@ -183,6 +183,7 @@ class DownloadSong:
             artist_name: str = payload["artist_name"]
             album_name: str = payload["album_name"]
             song_name: str = payload["song_name"]
+            song_length: int = payload["song_length"]  # in milliseconds
             genres: list[str] = payload["genres"]
         except KeyError:
             raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
@@ -194,9 +195,7 @@ class DownloadSong:
                 album_name=album_name,
                 song_name=song_name,
                 genres=genres,
-
-                # todo: send this info from the server
-                song_length=0
+                song_length=song_length
             )
 
             async with self._lock:
