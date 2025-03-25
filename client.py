@@ -1,3 +1,5 @@
+import traceback
+
 import asyncio
 from asyncio import transports, Task
 
@@ -121,6 +123,9 @@ class ClientProtocol(asyncio.Protocol):
             if status_code in self.acceptable_status_codes:
                 return
 
+            # remove the blocking overlay (assuming there is one, if not, it just ignores it)
+            self.error_endpoints.remove_upload_overlay(page=self.page)
+
             status_message = server_message.status.get("message")
             self.page.server_error(
                 ft.Text(
@@ -136,7 +141,8 @@ class ClientProtocol(asyncio.Protocol):
             Any error handling related to errors thrown inside of server actions should be done here.
         """
         if action.exception():
-            # raise action.exception()
+            traceback.print_exc()
+            raise action.exception()
             print(f"Task failed with exception: {action.exception()}")
         else:
             print(f"Task completed successfully with result: {action.result()}")
