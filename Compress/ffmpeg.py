@@ -24,8 +24,22 @@ class Codec(Enum):
     AVIF = "libaom-av1"  # AV1 Image File Format
 
 
+def _to_string(flags: dict[str, ...]) -> dict[str, str]:
+    to_string_flags: dict[str, str] = {
+        flag: str(value) for flag, value in flags.items()
+    }
+
+    return to_string_flags
+
+
 class FFmpegAudio:
-    def __init__(self, codec: str | Codec = None, bitrate: str = None, channels: int = None, sample_rate: int = None):
+    def __init__(
+            self, codec: str | Codec = None,
+            bitrate: str = None,
+            channels: int = None,
+            sample_rate: int = None,
+            quality: int = None,
+    ):
         self.codec = codec
         if isinstance(codec, Codec):
             self.codec = self.codec.value
@@ -33,8 +47,9 @@ class FFmpegAudio:
         self.bitrate = bitrate  # e.g., "128k"
         self.channels = channels  # e.g., 2
         self.sample_rate = sample_rate  # e.g., 44100
+        self.quality = quality
 
-    def to_dict(self, extra: dict[str, str] = None) -> dict[str, str]:
+    def to_dict(self, extra: dict[str, ...] = None) -> dict[str, str]:
         flags = {}
         if self.codec:
             flags["-c:a"] = self.codec
@@ -44,8 +59,11 @@ class FFmpegAudio:
             flags["-ac"] = str(self.channels)
         if self.sample_rate:
             flags["-ar"] = str(self.sample_rate)
+        if self.quality:
+            flags["-q:a"] = str(self.quality)
 
         if extra:
+            extra = _to_string(extra)
             flags.update(extra)
 
         return flags
@@ -73,18 +91,10 @@ class FFmpegImage:
             flags["-q:v"] = str(self.quality)
 
         if extra:
-            extra = self._to_string(extra)
+            extra = _to_string(extra)
             flags.update(extra)
 
         return flags
-
-    @staticmethod
-    def _to_string(flags: dict[str, ...]) -> dict[str, str]:
-        to_string_flags: dict[str, str] = {
-            flag: str(value) for flag, value in flags.items()
-        }
-
-        return to_string_flags
 
 
 async def is_valid_file(file_path: str) -> bool:
@@ -102,9 +112,9 @@ async def is_valid_file(file_path: str) -> bool:
         # Build the ffprobe command
         command = [
             ffprobe_exe,
-            "-show_format",      # Check file format
-            "-show_streams",     # Check streams
-            file_path            # The file to validate
+            "-show_format",  # Check file format
+            "-show_streams",  # Check streams
+            file_path  # The file to validate
         ]
 
         # Run ffprobe asynchronously
@@ -176,4 +186,3 @@ async def compress(input_file: str, output_file: str, flag_values: dict[str, str
     except Exception as ex:
         logging.error(f"An unexpected error occurred: {ex}")
         raise ex
-
