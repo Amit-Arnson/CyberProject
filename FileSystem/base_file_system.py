@@ -151,7 +151,8 @@ class System:
 
         return save_directory, cluster_id, file_id
 
-    async def save_stream(self, chunk: "FileChunk", uploaded_by_id: str, is_last_chunk: bool,
+    @staticmethod
+    async def save_stream(chunk: "FileChunk", uploaded_by_id: str, is_last_chunk: bool,
                           chunk_content_type: str | FileTypes) -> dict[str, str | int] | tuple[str, str]:
         # due to how chunks are processed before arriving here, all the chunks should have a valid file extension
         if not chunk.file_extension:
@@ -185,8 +186,7 @@ class System:
             if not file_is_valid:
                 raise InvalidCodec("Invalid file given and was rejected")
 
-            # if the chunk is under ~200KB, compressing it may cause it to grow bigger
-            if chunk.total_file_size > 200_000 and chunk.file_type == "audio" and chunk_content_type == FileTypes.AUDIO.value:
+            if chunk.file_type == "audio" and chunk_content_type == FileTypes.AUDIO.value:
                 # we change the total size to the new size of the compressed file
                 total_size, compressed_extension = await compress_to_aac(
                     file_extension=chunk.file_extension,
@@ -206,7 +206,6 @@ class System:
                 final_file_id = f"{chunk.file_id}.{compressed_extension}"
                 final_file_format = compressed_extension
             elif chunk.file_type == "image" and chunk_content_type == FileTypes.COVER.value:
-                # todo: make the compression lossy, with a low quality and resolution in order to save size
                 total_size, compressed_extension = await compress_to_low_res_webp(
                     file_extension=chunk.file_extension,
                     input_file=f"{chunk.file_id}",
@@ -225,17 +224,6 @@ class System:
                 "raw_file_id": chunk.file_id,
                 "file_format": final_file_format
             }
-
-            # async with self.db_pool.acquire() as connection:
-            #     await FileSystem.create_base_file(
-            #         connection=connection,
-            #         cluster_id=chunk.cluster_id,
-            #         file_id=final_file_id,
-            #         user_uploaded_id=uploaded_by_id,
-            #         size=total_size,
-            #         raw_file_id=chunk.file_id,
-            #         file_format=final_file_format
-            #     )
         else:
             return chunk.file_id, chunk.save_directory
 
