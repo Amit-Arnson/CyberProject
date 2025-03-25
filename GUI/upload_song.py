@@ -359,6 +359,8 @@ class UploadPage:
     # -----------------------------------------------------------------------------------------------------------------
 
     def _reset_audio_player_info(self, update: bool = True):
+        """:param update: whether to automatically update the GUI to display the cleared state"""
+
         song_player_info: ft.Container = self.song_selector_info_column.controls[1]
         song_player_info_row: ft.Row = song_player_info.content
 
@@ -499,6 +501,8 @@ class UploadPage:
         self.audio_player.play()
 
     def _remove_selected_song(self, *args, update: bool = True):
+        """:param update: whether to automatically update the GUI to display the cleared state"""
+
         self.song_selector_info_column.controls[0] = self.song_selector
 
         # removes the selected song path from the saved paths
@@ -571,7 +575,13 @@ class UploadPage:
         self.sheet_selector_row.update()
 
     def _clear_sheet_images(self, update: bool = True):
+        """:param update: whether to automatically update the GUI to display the cleared state"""
+
+        sheet_selector = self.sheet_selector_row.controls.pop()
+
         self.sheet_selector_row.controls.clear()
+
+        self.sheet_selector_row.controls.append(sheet_selector)
 
         # removes everything from the paths dictionary
         self.sheet_file_paths.clear()
@@ -650,6 +660,8 @@ class UploadPage:
     # image (cover art) selection
 
     def _remove_cover_art_selection(self, *args, update: bool = True):
+        """:param update: whether to automatically update the GUI to display the cleared state"""
+
         self.selected_cover_art_path = ""
 
         self.song_selector_row.controls[0] = self.upload_cover_art_default_content
@@ -799,16 +811,18 @@ class UploadPage:
             ),
             tag_spacing=5,
             hint_text="add genre",
-            hint_text_padding=1
+            hint_text_padding=1,
+            allow_repeats=False,
+            max_tags=5
         )
 
     def _clear_text_boxes(self, update: bool = True):
-        self.song_name_textbox.clean()
-        self.song_album_textbox.clean()
-        self.song_artist_textbox.clean()
+        """:param update: whether to automatically update the GUI to display the cleared state"""
 
-        # todo: add a way to remove all input tags
-        # self.selected_genres_textbox
+        self.song_name_textbox.value = ""
+        self.song_album_textbox.value = ""
+        self.song_artist_textbox.value = ""
+        self.selected_genres_textbox.clean()
 
         if update:
             self.song_info_row.update()
