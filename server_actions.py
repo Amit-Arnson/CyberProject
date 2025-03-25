@@ -433,6 +433,9 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
     )
 
 
+# todo: if a request is invalidated at any point, DELETE all of the current information (including already saved files) that are related to that request
+# currently i think i delete all the memory saved to RAM (like dicts), and i dont save to DB if there is an issue with the request ID
+# however any file that was saved before the issue currently is not deleted, which is not the intended behaviour
 class UploadSong:
     def __init__(self):
         # to prevent any data corruption/race conditions
@@ -705,7 +708,7 @@ class UploadSong:
             file_ids_request_set: set[str] = set([set_file_id for set_file_id in file_ids if set_file_id])
 
             # how long the function is willing to wait before raising an error
-            interval_amount = 100
+            interval_amount = 10
             while not file_ids_request_set.issubset(self.base_file_set.get(request_id, {})):
                 interval_amount -= 1
                 await asyncio.sleep(1)  # Wait for the interval before checking again
@@ -927,6 +930,8 @@ class UploadSong:
             # saved onto the disc later on
             save_directory, cluster_id, full_file_id = chunk_info["paths"]
 
+        # todo: check the total size of the request (which is the total of current_size across all files), and the end size of the file (which will be the last current_size)
+        # todo: check the number of files uploaded (and decide and what the max should be, probably like 20 for sheet images)
         current_size = chunk_info["current_size"]
         file_extension: str = chunk_info["file_extension"]
         previous_chunk: int = chunk_info["previous_chunk"]
