@@ -2,3 +2,6 @@ python-dotenv
 sympy
 aiofiles
 asqlite
+
+flet
+flet_audio
