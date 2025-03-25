@@ -11,6 +11,9 @@ class TagInput(ft.Container):
                  scroll: ft.ScrollMode = ft.ScrollMode.AUTO,
                  auto_scroll: bool = False,
                  wrap: bool = True,
+                 max_tags: int = None,
+                 allow_repeats: bool = True,
+                 strip_tags: bool = True,
                  **kwargs
                  ):
         super().__init__(**kwargs)
@@ -20,6 +23,10 @@ class TagInput(ft.Container):
 
         # list[(tag ID, tag text value)]
         self._values: list[tuple[int, str]] = []
+
+        self.max_tags = max_tags
+        self.allow_repeats = allow_repeats
+        self.strip_tags = strip_tags
 
         self.tag_color = tag_color
         self.tag_height = tag_height
@@ -40,9 +47,12 @@ class TagInput(ft.Container):
 
             # removes the tiny bit of padding that is defaulted in all text fields
             content_padding=0,
-            width=100,
+            width=250,
             expand_loose=True,
-            hint_text=f"{' '*hint_text_padding}{hint_text}",
+            hint_text=f"{' ' * hint_text_padding}{hint_text}",
+
+            error_style=ft.TextStyle(height=-1, color=ft.Colors.RED_800),
+            on_focus=self._remove_textfield_error,
         )
 
         # add the initial text field to the row
@@ -58,9 +68,21 @@ class TagInput(ft.Container):
         self.content = self.value_row
         self.alignment = ft.Alignment(-1, -1)
 
+        self.given_border = self.border
+        self.error_border = ft.border.all(color=ft.Colors.RED_800)
+
         # we focus on the textfield whenever the container is clicked, so that it seems like the textfield itself is
         # expanded when it actually isn't
         self.on_click = self._focus_textfield
+
+    def clean(self) -> None:
+        self.textfield.value = ""
+
+        self.value_row.controls.clear()
+        self.value_row.controls.append(self.textfield)
+
+        self._values.clear()
+        self._tag_id = 0
 
     def get_values(self) -> list[str]:
         """
@@ -71,6 +93,12 @@ class TagInput(ft.Container):
         return [
             value for tag_id, value in self._values
         ]
+
+    def _remove_textfield_error(self, *args):
+        self.textfield.error_text = ""
+        self.border = self.given_border
+
+        self.update()
 
     # the *args exist so that this can be used in an on_... event
     def _focus_textfield(self, *args):
@@ -131,12 +159,32 @@ class TagInput(ft.Container):
 
         return size
 
-    def _on_finish(self, e):
+    def _raise_textfield_error(self, error: str):
+        self.textfield.error_text = error
+        self.border = self.error_border
+
+        self.update()
+
+    def _on_finish(self, e: ft.ControlEvent):
         """
             this function creates a tag using the current value inside of the textfield, as well as adds it to the viewable
             row and to the value list.
         """
+        if self.max_tags and len(self._values) >= self.max_tags:
+            self._raise_textfield_error(f"max {self.max_tags} allowed")
+
+            return
+
         value = self.textfield.value
+        if self.strip_tags:
+            value = value.strip()
+
+        if not self.allow_repeats:
+            for tag_id, tag_value in self._values:
+                if tag_value == value:
+                    self._raise_textfield_error(f"cannot have repeating values")
+
+                    return
 
         self._values.append(
             (
