@@ -114,9 +114,19 @@ class HomePage:
 
         loading_song_content_row: ft.Row = loading_song_item.content
 
+        genre_tags = (
+            ft.Container(
+                content=ft.Text(genre, size=12),
+                bgcolor=ft.Colors.GREY_300,
+                border_radius=5,
+                padding=5
+            )
+            for genre in genres
+        )
+
         loaded_song_info = ft.Column(
             [
-                ft.Text(artist_name), ft.Text(album_name), ft.Text(song_name), ft.Text(f"{genres}")
+                ft.Text(artist_name), ft.Text(album_name), ft.Text(song_name), *genre_tags
             ]
         )
 
@@ -139,9 +149,9 @@ class HomePage:
                 src_base64=b64_image_bytes,
                 fit=ft.ImageFit.FILL
             ),
+            border_radius=5,
             height=150,
             width=120,
-            bgcolor=ft.Colors.GREY
         )
 
         loading_song_content_row.controls[0] = image
@@ -181,15 +191,18 @@ class HomePage:
 
         self.song_item_gridview: ft.GridView = ft.GridView(
             runs_count=1,
-            max_extent=250,
+            max_extent=300,
             child_aspect_ratio=1.0,
             spacing=5,
             run_spacing=5,
             padding=10,
         )
         self.load_more_button: ft.Container = ft.Container(
+            content=ft.Text("load more", weight=ft.FontWeight.W_500, color=ft.Colors.WHITE),
             height=50,
-            bgcolor=ft.Colors.RED,
+            bgcolor=ft.Colors.BLUE_800,
+            border_radius=10,
+            alignment=ft.Alignment(0, 0),
             on_click=self._load_song_previews,
         )
 
@@ -202,20 +215,225 @@ class HomePage:
             on_scroll=self._automatically_load_more,
         )
 
-    def  _initialize_search_bar(self):
+    def _initialize_search_bar(self):
         self.song_search: ft.TextField = ft.TextField(
+            border_width=0,
+            border_radius=90,
+            color=ft.Colors.WHITE,
+            cursor_color=ft.Colors.WHITE70,
+            expand=True
+        )
 
+        self.search_bar: ft.Container = ft.Container(
+            bgcolor=ft.Colors.BLUE,
+            border_radius=90,
+            content=ft.Row(
+                [
+                    ft.Icon(
+                        ft.Icons.SEARCH_ROUNDED,
+                        color=ft.Colors.WHITE
+                    ),
+                    self.song_search
+                ],
+            ),
+            expand_loose=True,
+            expand=True,
+            padding=ft.Padding(
+                right=10,
+                left=10,
+                top=0,
+                bottom=0
+            )
+        )
+
+        self.advanced_search: ft.Container = ft.Container(
+            width=50,
+            height=50,
+            bgcolor=ft.Colors.BLUE,
+            border_radius=10
+        )
+
+        self.advanced_search_bar: ft.Container = ft.Container(
+            ft.Row(
+                [
+                    self.advanced_search,
+                    self.search_bar
+                ]
+            ),
+            padding=5
+        )
+
+    @staticmethod
+    def _highlight_tab(event: ft.ControlEvent):
+        tab_container: ft.Container = event.control
+
+        is_currently_hovering = event.data
+
+        if is_currently_hovering == "true":
+            tab_container.bgcolor = ft.Colors.BLUE_400
+        else:
+            tab_container.bgcolor = ft.Colors.BLUE
+
+        tab_container.update()
+
+    def _initialize_navigation_tabs(self):
+        nav_tab_dict: dict[str, ...] = {
+            "bgcolor": ft.Colors.BLUE,
+            "border_radius": 1,
+            "expand": True,
+            "padding": 10,
+            "on_hover": self._highlight_tab,
+        }
+
+        self.home_tab: ft.Container = ft.Container(
+            **nav_tab_dict,
+            content=ft.Row(
+                [
+                    ft.Icon(
+                        ft.Icons.HOME_ROUNDED,
+                        color=ft.Colors.WHITE
+                    ),
+                    ft.Text(
+                        "home",
+                        color=ft.Colors.WHITE,
+                        weight=ft.FontWeight.W_500
+                    )
+                ]
+            )
+        )
+
+        self.browse: ft.Container = ft.Container(
+            **nav_tab_dict,
+            content=ft.Row(
+                [
+                    ft.Icon(
+                        ft.Icons.LIBRARY_MUSIC_ROUNDED,
+                        color=ft.Colors.WHITE
+                    ),
+                    ft.Text(
+                        "browse",
+                        color=ft.Colors.WHITE,
+                        weight=ft.FontWeight.W_500
+                    )
+                ]
+            )
+        )
+
+        self.favorites: ft.Container = ft.Container(
+            **nav_tab_dict,
+            content=ft.Row(
+                [
+                    ft.Icon(
+                        ft.Icons.STAR_ROUNDED,
+                        color=ft.Colors.WHITE
+                    ),
+                    ft.Text(
+                        "favorites",
+                        color=ft.Colors.WHITE,
+                        weight=ft.FontWeight.W_500
+                    )
+                ]
+            )
+        )
+
+        self.downloads: ft.Container = ft.Container(
+            **nav_tab_dict,
+            content=ft.Row(
+                [
+                    ft.Icon(
+                        ft.Icons.DOWNLOAD_FOR_OFFLINE_ROUNDED,
+                        color=ft.Colors.WHITE
+                    ),
+                    ft.Text(
+                        "downloads",
+                        color=ft.Colors.WHITE,
+                        weight=ft.FontWeight.W_500
+                    )
+                ]
+            )
+        )
+
+        self.recent: ft.Container = ft.Container(
+            **nav_tab_dict,
+            content=ft.Row(
+                [
+                    ft.Icon(
+                        ft.Icons.REPLAY_ROUNDED,
+                        color=ft.Colors.WHITE
+                    ),
+                    ft.Text(
+                        "recent",
+                        color=ft.Colors.WHITE,
+                        weight=ft.FontWeight.W_500
+                    )
+                ]
+            )
+        )
+
+        self.trending: ft.Container = ft.Container(
+            **nav_tab_dict,
+            content=ft.Row(
+                [
+                    ft.Icon(
+                        ft.Icons.TRENDING_UP_ROUNDED,
+                        color=ft.Colors.WHITE
+                    ),
+                    ft.Text(
+                        "trending",
+                        color=ft.Colors.WHITE,
+                        weight=ft.FontWeight.W_500
+                    )
+                ]
+            )
+        )
+
+        self.your_uploads: ft.Container = ft.Container(
+            **nav_tab_dict,
+            content=ft.Row(
+                [
+                    ft.Icon(
+                        ft.Icons.MUSIC_NOTE_ROUNDED,
+                        color=ft.Colors.WHITE
+                    ),
+                    ft.Container(
+                        content=ft.Text(
+                            "uploads",
+                            color=ft.Colors.WHITE,
+                            weight=ft.FontWeight.W_500,
+                        ),
+                    )
+                ],
+            ),
+        )
+
+        self.navigation_row: ft.Container = ft.Container(
+            content=ft.Row(
+                spacing=2,
+                controls=[
+                    self.home_tab,
+                    self.browse,
+                    self.favorites,
+                    self.downloads,
+                    self.recent,
+                    self.trending,
+                    self.your_uploads
+                ],
+            ),
         )
 
     def _initialize_controls(self):
         self._initialize_gridview()
         self._initialize_search_bar()
+        self._initialize_navigation_tabs()
 
         self.page_view = ft.Row(
             [
                 self.sidebar,
                 ft.Container(
-                    expand=7,
+                    expand=8,
+                    padding=ft.Padding(
+                        top=10, bottom=10, right=20, left=20
+                    ),
                     content=ft.Column(
                         [
                             ft.Container(
@@ -223,10 +441,29 @@ class HomePage:
                                 content=ft.Column(
                                     expand=True,
                                     controls=[
-                                        ft.Container(height=50, expand_loose=True, bgcolor=ft.Colors.RED, content=self.song_search),
-                                        self.song_item_listview,
-                                        ft.Container(height=50, expand_loose=True, bgcolor=ft.Colors.RED),
-                                    ]
+                                        ft.Container(
+                                            expand_loose=True,
+                                            bgcolor=ft.Colors.BLUE_800,
+                                            content=ft.Column(
+                                                [
+                                                    self.advanced_search_bar,
+                                                    self.navigation_row
+                                                ],
+                                            ),
+                                            border_radius=5,
+                                            padding=2,
+                                        ),
+                                        ft.Container(
+                                            content=self.song_item_listview,
+                                            expand=True,
+                                            padding=10,
+                                        ),
+                                        ft.Container(height=50,
+                                                     expand_loose=True,
+                                                     bgcolor=ft.Colors.BLUE_800,
+                                                     border_radius=5,
+                                                     ),
+                                    ],
                                 )
                             )
                         ],
@@ -235,6 +472,7 @@ class HomePage:
                 ),
             ],
             expand=10,
+            spacing=0,
         )
 
     def append_error(self, error_control: ft.Control):
