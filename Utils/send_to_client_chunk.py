@@ -40,6 +40,7 @@ async def send_song_preview_chunks(
             song_data_payload = {
                 # int
                 "song_id": song_id,
+                "song_length": song_dict["song_length"],  # in milliseconds
 
                 # str
                 "file_id": file_id,
