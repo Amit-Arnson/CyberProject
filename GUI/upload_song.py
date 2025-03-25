@@ -1,8 +1,11 @@
+import base64
 import logging
 
+import aiofiles
 import asyncio
 
 import flet as ft
+import flet_audio as fta
 
 from encryptions import EncryptedTransport
 
@@ -355,11 +358,156 @@ class UploadPage:
 
     # -----------------------------------------------------------------------------------------------------------------
 
+    def _reset_audio_player_info(self):
+        song_player_info: ft.Container = self.song_selector_info_column.controls[1]
+        song_player_info_row: ft.Row = song_player_info.content
+
+        song_player_info_row.controls = [
+                                    ft.Container(
+                                        ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_600, size=40),
+                                        on_click=self._play_audio,
+                                    ),
+                                    ft.Text(spans=[
+                                        ft.TextSpan("0:00"), ft.TextSpan("/"), ft.TextSpan("0:00")
+                                    ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
+                                    ft.ProgressBar(
+                                        value=0.01,
+                                        height=5,
+                                        expand_loose=True,
+                                        expand=True,
+                                        color=ft.Colors.GREY_600,
+                                        bgcolor=ft.Colors.GREY_400,
+                                        border_radius=10,
+                                    ),
+                                    ft.Icon(ft.Icons.VOLUME_UP_ROUNDED, ft.Colors.GREY_600, size=25),
+                                ]
+
+        song_player_info_row.update()
+
+    def _update_audio_player_info(self, audio_duration_changed: fta.AudioDurationChangeEvent):
+        song_length_milliseconds: int = audio_duration_changed.duration
+
+        song_player_info: ft.Container = self.song_selector_info_column.controls[1]
+        song_player_info_row: ft.Row = song_player_info.content
+        # [0] -> play button
+        # [1] -> duration
+        # [2] -> progress bar
+        # [3] -> sound icon
+
+        duration = format_length_from_milliseconds(song_length_milliseconds)
+        new_duration_text = ft.Text(
+            spans=[
+                ft.TextSpan("0:00"),
+                ft.TextSpan("/"),
+                ft.TextSpan(f"{duration}")
+            ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600
+        )
+
+        song_player_info_row.controls[1] = new_duration_text
+
+        song_player_info_row.update()
+
+        # so that it doesn't reset the duration counter every time it thinks that the song's duration got updated (such
+        # as when pausing and resuming)
+        self.audio_player.on_duration_changed = None
+
+    def _play_audio(self, event: ft.ControlEvent):
+        play_button: ft.Container = event.control
+
+        if not hasattr(self, "audio_player"):
+            return
+
+        if not self.audio_player.data["playing"]:
+            changed_icon = ft.Icon(ft.Icons.PAUSE_ROUNDED, ft.Colors.GREY_600, size=40)
+            self.audio_player.resume()
+            self.audio_player.data["playing"] = True
+        else:
+            changed_icon = ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_600, size=40)
+            self.audio_player.pause()
+            self.audio_player.data["playing"] = False
+
+        play_button.content = changed_icon
+        play_button.update()
+
+    def _update_audio_progress_bar(self, change_event: fta.AudioPositionChangeEvent):
+        current_duration_milliseconds: int = change_event.position
+        max_duration: int = self.audio_player.get_duration()
+
+        # if there is no max duration, that means the user just removed the audio from being selected
+        if not max_duration:
+            return
+
+        percentage_done = current_duration_milliseconds / max_duration
+
+        song_player_info: ft.Container = self.song_selector_info_column.controls[1]
+        song_player_info_row: ft.Row = song_player_info.content
+        # [0] -> play button
+        # [1] -> duration
+        # [2] -> progress bar
+        # [3] -> sound icon
+
+        max_duration_format = format_length_from_milliseconds(max_duration)
+        current_duration_format = format_length_from_milliseconds(current_duration_milliseconds)
+        new_duration_text = ft.Text(
+            spans=[
+                ft.TextSpan(f"{current_duration_format}"),
+                ft.TextSpan("/"),
+                ft.TextSpan(f"{max_duration_format}")
+            ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600
+        )
+
+        song_player_info_row.controls[1] = new_duration_text
+
+        progress_bar: ft.ProgressBar = song_player_info_row.controls[2]
+
+        progress_bar.value = percentage_done
+
+        song_player_info_row.update()
+
+    def _set_restart_button(self, event: fta.AudioStateChangeEvent):
+        is_finished: bool = event.state == fta.AudioState.COMPLETED
+
+        if not is_finished:
+            return
+
+        song_player_info: ft.Container = self.song_selector_info_column.controls[1]
+        song_player_info_row: ft.Row = song_player_info.content
+        # [0] -> play button
+
+        play_button: ft.Container = song_player_info_row.controls[0]
+
+        restart_listen_icon = ft.Icon(ft.Icons.REPLAY_ROUNDED, ft.Colors.GREY_600, size=40)
+        play_button.content = restart_listen_icon
+
+        self.audio_player.data["playing"] = False
+
+        play_button.update()
+
+    async def _buffer_audio(self, path: str):
+        self.audio_player = fta.Audio(
+            src=path,
+            on_duration_changed=self._update_audio_player_info,
+            on_position_changed=self._update_audio_progress_bar,
+            on_state_changed=self._set_restart_button,
+            data={"playing": False}
+        )
+
+        self.page_view.controls.append(self.audio_player)
+        self.page_view.update()
+
+        self.audio_player.play()
+
     def _remove_selected_song(self, e: ft.ControlEvent):
         self.song_selector_info_column.controls[0] = self.song_selector
 
         # removes the selected song path from the saved paths
         self.selected_song_path = ""
+
+        for control in self.page_view.controls.copy():
+            if isinstance(control, fta.Audio):
+                control.release()
+                self.page_view.controls.remove(control)
+                self._reset_audio_player_info()
 
         self.song_selector_info_column.update()
 
@@ -391,6 +539,7 @@ class UploadPage:
         )
 
         self.song_selector_info_column.controls[0] = audio_file_details
+        await self._buffer_audio(path=file_path)
 
         self.song_selector_info_column.update()
 
@@ -539,7 +688,10 @@ class UploadPage:
                         ft.Container(
                             content=ft.Row(
                                 [
-                                    ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_600, size=40),
+                                    ft.Container(
+                                        ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_600, size=40),
+                                        on_click=self._play_audio,
+                                    ),
                                     ft.Text(spans=[
                                         ft.TextSpan("0:00"), ft.TextSpan("/"), ft.TextSpan("0:00")
                                     ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
