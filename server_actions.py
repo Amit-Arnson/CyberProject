@@ -708,7 +708,7 @@ class UploadSong:
             file_ids_request_set: set[str] = set([set_file_id for set_file_id in file_ids if set_file_id])
 
             # how long the function is willing to wait before raising an error
-            interval_amount = 10
+            interval_amount = 15
             while not file_ids_request_set.issubset(self.base_file_set.get(request_id, {})):
                 interval_amount -= 1
                 await asyncio.sleep(1)  # Wait for the interval before checking again
