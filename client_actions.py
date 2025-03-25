@@ -1,3 +1,4 @@
+import asyncio
 from asyncio.transports import Transport
 
 import GUI.upload_song
@@ -14,7 +15,8 @@ from flet import Page
 from GUI.home_page import HomePage
 
 
-async def complete_authentication(_: Page, transport: EncryptedTransport, server_message: ServerMessage, __: ClientSideUserCache):
+async def complete_authentication(_: Page, transport: EncryptedTransport, server_message: ServerMessage,
+                                  __: ClientSideUserCache):
     """
     this function is used to finish transferring the key using dhe.
     it sends the client's public key back to the server.
@@ -46,7 +48,7 @@ async def complete_authentication(_: Page, transport: EncryptedTransport, server
 
         aes_iv = payload["iv"]
     except KeyError:
-        raise # todo: figure out what to do with malformed server messages (likely being faked messages)
+        raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
 
     client_dhe: DHE = generate_dhe_response(mod=dhe_mod, base=dhe_base)
 
@@ -71,7 +73,8 @@ async def complete_authentication(_: Page, transport: EncryptedTransport, server
     transport.key = aes_key
 
 
-async def user_login(page: Page, transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
+async def user_login(page: Page, transport: EncryptedTransport, server_message: ServerMessage,
+                     user_cache: ClientSideUserCache):
     """
     this function expects the login result from requesting a login from the server.
     it then saves the session token and the user ID to the ClientSideUserCache.
@@ -94,7 +97,7 @@ async def user_login(page: Page, transport: EncryptedTransport, server_message: 
         session_token = payload["session_token"]
         user_id = payload["user_id"]
     except KeyError:
-        raise # todo: figure out what to do with malformed server messages (likely being faked messages)
+        raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
 
     user_cache.session_token = session_token
     user_cache.user_id = user_id
@@ -106,7 +109,8 @@ async def user_login(page: Page, transport: EncryptedTransport, server_message: 
     HomePage(page).show()
 
 
-async def song_upload_finish(page: Page, transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
+async def song_upload_finish(page: Page, transport: EncryptedTransport, server_message: ServerMessage,
+                             user_cache: ClientSideUserCache):
     """
     this function is used in order to stop the "uploading" overlay-blocking GUI when the server finishes processing
     all the sent data
@@ -127,7 +131,7 @@ async def song_upload_finish(page: Page, transport: EncryptedTransport, server_m
     try:
         success: bool = payload["success"]
     except KeyError:
-        raise # todo: figure out what to do with malformed server messages (likely being faked messages)
+        raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
 
     if success and hasattr(page, "view"):
         page_view: GUI.upload_song.UploadPage = page.view
@@ -136,6 +140,8 @@ async def song_upload_finish(page: Page, transport: EncryptedTransport, server_m
 
 class DownloadSong:
     def __init__(self):
+        self._lock = asyncio.Lock()
+
         self.preview_image_chunks: dict[str, list[tuple[int, str]]] = {}
         """
         dict[
@@ -143,7 +149,13 @@ class DownloadSong:
         ]
         """
 
-    async def download_preview_details(self, page: Page, transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
+        self.preview_info_completed: set[int] = set()
+        """
+        a set of all of the preview info payloads that finished processing
+        """
+
+    async def download_preview_details(self, page: Page, transport: EncryptedTransport, server_message: ServerMessage,
+                                       user_cache: ClientSideUserCache):
         """
         this function gathers all the preview's details (e.g., artist name, song length, etc...) and sends them to the GUI
 
@@ -187,7 +199,11 @@ class DownloadSong:
                 song_length=0
             )
 
-    async def download_preview_chunks(self, page: Page, transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
+            async with self._lock:
+                self.preview_info_completed.add(song_id)
+
+    async def download_preview_chunks(self, page: Page, transport: EncryptedTransport, server_message: ServerMessage,
+                                      user_cache: ClientSideUserCache):
         """
         this function gathers all the preview (cover art) file chunks and combines them in a list to later be shown
         in the GUI
@@ -218,10 +234,11 @@ class DownloadSong:
         except KeyError:
             raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
 
-        if file_id not in self.preview_image_chunks:
-            self.preview_image_chunks[file_id] = [(chunk_number, chunk)]
-        else:
-            self.preview_image_chunks[file_id].append((chunk_number, chunk))
+        async with self._lock:
+            if file_id not in self.preview_image_chunks:
+                self.preview_image_chunks[file_id] = [(chunk_number, chunk)]
+            else:
+                self.preview_image_chunks[file_id].append((chunk_number, chunk))
 
         if is_last_chunk:
             b64_chunk_list: list[tuple[int, str]] = self.preview_image_chunks[file_id]
@@ -231,9 +248,21 @@ class DownloadSong:
 
             b64_file_bytes = "".join((b64_chunk for chunk_num, b64_chunk in b64_chunk_list))
 
+            timeout_count = 10
+            while song_id not in self.preview_info_completed:
+                timeout_count -= 1
+
+                await asyncio.sleep(1)
+
+                if timeout_count <= 0:
+                    raise Exception(f"song ID {song_id} with file ID {file_id} timed out awaiting for preview info")
+
             if hasattr(page, "view") and isinstance(page.view, HomePage):
                 page.view.add_song_cover_art(
                     song_id=song_id,
                     b64_image_bytes=b64_file_bytes
                 )
 
+            async with self._lock:
+                del self.preview_image_chunks[file_id]
+                self.preview_info_completed.remove(song_id)
