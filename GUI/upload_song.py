@@ -270,10 +270,10 @@ class UploadPage:
         self.page.overlay.append(self.cover_art_file_picker)
 
         self.blocking_overlay = ft.Container(
-                expand=True,
-                bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
-                content=ft.Text("Uploading", size=35, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                alignment=ft.Alignment(0, 0)
+            expand=True,
+            bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+            content=ft.Text("Uploading", size=35, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+            alignment=ft.Alignment(0, 0)
         )
 
         self._initialize_controls()
@@ -358,31 +358,32 @@ class UploadPage:
 
     # -----------------------------------------------------------------------------------------------------------------
 
-    def _reset_audio_player_info(self):
+    def _reset_audio_player_info(self, update: bool = True):
         song_player_info: ft.Container = self.song_selector_info_column.controls[1]
         song_player_info_row: ft.Row = song_player_info.content
 
         song_player_info_row.controls = [
-                                    ft.Container(
-                                        ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_600, size=40),
-                                        on_click=self._play_audio,
-                                    ),
-                                    ft.Text(spans=[
-                                        ft.TextSpan("0:00"), ft.TextSpan("/"), ft.TextSpan("0:00")
-                                    ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
-                                    ft.ProgressBar(
-                                        value=0.01,
-                                        height=5,
-                                        expand_loose=True,
-                                        expand=True,
-                                        color=ft.Colors.GREY_600,
-                                        bgcolor=ft.Colors.GREY_400,
-                                        border_radius=10,
-                                    ),
-                                    ft.Icon(ft.Icons.VOLUME_UP_ROUNDED, ft.Colors.GREY_600, size=25),
-                                ]
+            ft.Container(
+                ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_600, size=40),
+                on_click=self._play_audio,
+            ),
+            ft.Text(spans=[
+                ft.TextSpan("0:00"), ft.TextSpan("/"), ft.TextSpan("0:00")
+            ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
+            ft.ProgressBar(
+                value=0.01,
+                height=5,
+                expand_loose=True,
+                expand=True,
+                color=ft.Colors.GREY_600,
+                bgcolor=ft.Colors.GREY_400,
+                border_radius=10,
+            ),
+            ft.Icon(ft.Icons.VOLUME_UP_ROUNDED, ft.Colors.GREY_600, size=25),
+        ]
 
-        song_player_info_row.update()
+        if update:
+            song_player_info_row.update()
 
     def _update_audio_player_info(self, audio_duration_changed: fta.AudioDurationChangeEvent):
         song_length_milliseconds: int = audio_duration_changed.duration
@@ -497,7 +498,7 @@ class UploadPage:
 
         self.audio_player.play()
 
-    def _remove_selected_song(self, e: ft.ControlEvent):
+    def _remove_selected_song(self, *args, update: bool = True):
         self.song_selector_info_column.controls[0] = self.song_selector
 
         # removes the selected song path from the saved paths
@@ -509,7 +510,8 @@ class UploadPage:
                 self.page_view.controls.remove(control)
                 self._reset_audio_player_info()
 
-        self.song_selector_info_column.update()
+        if update:
+            self.song_selector_info_column.update()
 
     async def _on_finish_audio_select(self, e: ft.FilePickerResultEvent):
         selected_files = e.files
@@ -567,6 +569,15 @@ class UploadPage:
         del self.sheet_file_paths[image_unique_id]
 
         self.sheet_selector_row.update()
+
+    def _clear_sheet_images(self, update: bool = True):
+        self.sheet_selector_row.controls.clear()
+
+        # removes everything from the paths dictionary
+        self.sheet_file_paths.clear()
+
+        if update:
+            self.sheet_selector_row.update()
 
     @staticmethod
     def _hover_sheet_image(event: ft.ControlEvent):
@@ -638,12 +649,13 @@ class UploadPage:
     # -------------------------------------------------------------------------------------------------------------
     # image (cover art) selection
 
-    def _remove_cover_art_selection(self, e: ft.ControlEvent):
+    def _remove_cover_art_selection(self, *args, update: bool = True):
         self.selected_cover_art_path = ""
 
         self.song_selector_row.controls[0] = self.upload_cover_art_default_content
 
-        self.song_selector_row.update()
+        if update:
+            self.song_selector_row.update()
 
     def _on_finish_cover_art_select(self, e: ft.FilePickerResultEvent):
         selected_files = e.files
@@ -670,6 +682,15 @@ class UploadPage:
 
     # ------------------------------------------------------------------------------------------------------------------
 
+    def _clear_page(self, *args):
+        self._clear_sheet_images(update=False)
+        self._reset_audio_player_info(update=False)
+        self._remove_cover_art_selection(update=False)
+        self._remove_selected_song(update=False)
+        self._clear_text_boxes(update=False)
+
+        self.page_view.update()
+
     def _initialize_file_selectors(self):
         self.song_selector = ft.Container(
             content=ft.Icon(ft.Icons.UPLOAD_ROUNDED, color=ft.Colors.GREY_800),
@@ -683,41 +704,41 @@ class UploadPage:
         )
 
         self.song_selector_info_column: ft.Column = ft.Column(
-                    [
-                        self.song_selector,
-                        ft.Container(
-                            content=ft.Row(
-                                [
-                                    ft.Container(
-                                        ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_600, size=40),
-                                        on_click=self._play_audio,
-                                    ),
-                                    ft.Text(spans=[
-                                        ft.TextSpan("0:00"), ft.TextSpan("/"), ft.TextSpan("0:00")
-                                    ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
-                                    ft.ProgressBar(
-                                        value=0.01,
-                                        height=5,
-                                        expand_loose=True,
-                                        expand=True,
-                                        color=ft.Colors.GREY_600,
-                                        bgcolor=ft.Colors.GREY_400,
-                                        border_radius=10,
-                                    ),
-                                    ft.Icon(ft.Icons.VOLUME_UP_ROUNDED, ft.Colors.GREY_600, size=25),
-                                ]
+            [
+                self.song_selector,
+                ft.Container(
+                    content=ft.Row(
+                        [
+                            ft.Container(
+                                ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_600, size=40),
+                                on_click=self._play_audio,
                             ),
-                            border_radius=90,
-                            padding=15,
-                            height=75,
-                            expand=True,
-                            bgcolor=ft.Colors.with_opacity(0.7, ft.Colors.GREY_300),
-                        ),
-                    ],
-                    height=150,
-                    expand_loose=True,
+                            ft.Text(spans=[
+                                ft.TextSpan("0:00"), ft.TextSpan("/"), ft.TextSpan("0:00")
+                            ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
+                            ft.ProgressBar(
+                                value=0.01,
+                                height=5,
+                                expand_loose=True,
+                                expand=True,
+                                color=ft.Colors.GREY_600,
+                                bgcolor=ft.Colors.GREY_400,
+                                border_radius=10,
+                            ),
+                            ft.Icon(ft.Icons.VOLUME_UP_ROUNDED, ft.Colors.GREY_600, size=25),
+                        ]
+                    ),
+                    border_radius=90,
+                    padding=15,
+                    height=75,
                     expand=True,
-                )
+                    bgcolor=ft.Colors.with_opacity(0.7, ft.Colors.GREY_300),
+                ),
+            ],
+            height=150,
+            expand_loose=True,
+            expand=True,
+        )
 
         self.song_selector_row: ft.Row = ft.Row(
             [
@@ -781,10 +802,16 @@ class UploadPage:
             hint_text_padding=1
         )
 
-    def _initialize_description_textbox(self):
-        self.description_textbox = ft.TextField(
-            label="description",
-        )
+    def _clear_text_boxes(self, update: bool = True):
+        self.song_name_textbox.clean()
+        self.song_album_textbox.clean()
+        self.song_artist_textbox.clean()
+
+        # todo: add a way to remove all input tags
+        # self.selected_genres_textbox
+
+        if update:
+            self.song_info_row.update()
 
     # -----------------------------------------------------------------------------------------------------------------
 
@@ -793,7 +820,6 @@ class UploadPage:
 
         self._initialize_file_selectors()
         self._initialize_song_info_textbox()
-        self._initialize_description_textbox()
         self._initialize_genre_tag_textbox()
 
         # this is just a temporary container so that something takes that space up
@@ -842,7 +868,6 @@ class UploadPage:
                                 ft.Column(
                                     [
                                         self.song_info_row,
-                                        # self.description_textbox,
                                         self.selected_genres_textbox,
                                     ]
                                 ),
@@ -875,7 +900,8 @@ class UploadPage:
                                     size=15,
                                 ),
                                 alignment=ft.Alignment(0, 0),
-                                #bgcolor=ft.Colors.with_opacity(0.7, ft.Colors.RED_ACCENT_700)
+                                # bgcolor=ft.Colors.with_opacity(0.7, ft.Colors.RED_ACCENT_700)
+                                on_click=self._clear_page,
                             ),
                             ft.Container(
                                 height=55,
