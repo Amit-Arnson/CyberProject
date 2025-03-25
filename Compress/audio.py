@@ -22,7 +22,12 @@ async def compress_to_aac(
 
     ffmpeg_values = FFmpegAudio(
         codec=Codec.AAC_MF,
-        bitrate="64k"
+        bitrate="48k",
+    ).to_dict(
+        {
+            "-map_metadata": -1,
+            "-map": "0:a"
+        }
     )
 
     total_size = await compress_and_replace(
