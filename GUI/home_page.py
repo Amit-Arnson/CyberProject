@@ -7,6 +7,8 @@ from GUI.Controls.navigation_sidebar import NavigationSidebar
 
 from pseudo_http_protocol import ClientMessage
 
+from Utils.format import format_length_from_milliseconds
+
 
 class HomePage:
     def __init__(self, page: ft.Page):
@@ -33,26 +35,12 @@ class HomePage:
         # the sidebar is set to 2 and the right side of the page is set to 10. this means the sidebar takes 20% of the available screen
         self.sidebar.expand = 2
 
-        self.song_items: dict[int, dict[str, ft.Container | str | int]]
-        """
-        dict[
-            song ID, dict[
-                "item": container
-                "artist_name": str,
-                "album_name": str,
-                "song_name": str,
-                "song_length": int, (milliseconds),
-                "genres": list[str]
-            ]
-        ]
-        """
-
-        self.loading_song_items: dict[int, ft.Container] = {}
+        self.loading_song_items: dict[str, ft.Container] = {}
 
         self._initialize_controls()
 
     @staticmethod
-    def _create_loading_item(song_id: int) -> ft.Container:
+    def _create_loading_item(song_id: int, file_id: str) -> ft.Container:
         song_cover_art_loading = ft.Container(
             width=120,
             height=150,
@@ -61,7 +49,8 @@ class HomePage:
                 width=20,
                 height=20,
                 content=ft.ProgressRing(
-                    color=ft.Colors.BLACK,
+                    color=ft.Colors.GREY_300,
+                    stroke_width=2,
                 )
             ),
             alignment=ft.Alignment(0, 0)
@@ -89,7 +78,8 @@ class HomePage:
                 vertical_alignment=ft.CrossAxisAlignment.START
             ),
             data={
-                "song_id": song_id
+                "song_id": song_id,
+                "file_id": file_id,
             }
         )
 
@@ -103,16 +93,19 @@ class HomePage:
     def add_song_info(
             self,
             song_id: int,
+            file_id: str,
             artist_name: str,
             album_name: str,
             song_name: str,
             song_length: int,
             genres: list[str],
     ):
-        loading_song_item: ft.Container = self._create_loading_item(song_id=song_id)
+        loading_song_item: ft.Container = self._create_loading_item(song_id=song_id, file_id=file_id)
         self._add_song_item(loading_song_item)
 
         loading_song_content_row: ft.Row = loading_song_item.content
+
+        song_duration = format_length_from_milliseconds(song_length)
 
         genre_tags = (
             ft.Container(
@@ -126,7 +119,11 @@ class HomePage:
 
         loaded_song_info = ft.Column(
             [
-                ft.Text(artist_name), ft.Text(album_name), ft.Text(song_name), *genre_tags
+                ft.Text(artist_name),
+                ft.Text(album_name),
+                ft.Text(song_name),
+                ft.Text(song_duration),
+                *genre_tags
             ]
         )
 
@@ -134,31 +131,35 @@ class HomePage:
 
         loading_song_item.update()
 
-        self.loading_song_items[song_id] = loading_song_item
+        self.loading_song_items[file_id] = loading_song_item
 
-    def add_song_cover_art(
-            self,
-            song_id: int,
-            b64_image_bytes: str
-    ):
-        song_item: ft.Container = self.loading_song_items[song_id]
+    def stream_cover_art_chunks(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
+        song_item: ft.Container = self.loading_song_items[file_id]
         loading_song_content_row: ft.Row = song_item.content
 
-        image = ft.Container(
-            ft.Image(
-                src_base64=b64_image_bytes,
-                fit=ft.ImageFit.FILL
-            ),
-            border_radius=5,
-            height=150,
-            width=120,
-        )
+        if not loading_song_content_row.data:
+            image_container = ft.Container(
+                ft.Image(
+                    src_base64=b64_chunk,
+                    fit=ft.ImageFit.FILL
+                ),
+                border_radius=5,
+                height=150,
+                width=120,
+            )
 
-        loading_song_content_row.controls[0] = image
+            loading_song_content_row.controls[0] = image_container
+            loading_song_content_row.data = True
+        else:
+            image_container: ft.Container = loading_song_content_row.controls[0]
+            image: ft.Image = image_container.content
+
+            image.src_base64 += b64_chunk
 
         song_item.update()
 
-        del self.loading_song_items[song_id]
+        if is_last_chunk:
+            del self.loading_song_items[file_id]
 
     def _load_song_previews(self, *args):
         query = self.song_search.value
@@ -191,11 +192,12 @@ class HomePage:
 
         self.song_item_gridview: ft.GridView = ft.GridView(
             runs_count=1,
-            max_extent=300,
+            max_extent=320,
             child_aspect_ratio=1.0,
             spacing=5,
             run_spacing=5,
             padding=10,
+            cache_extent=10
         )
         self.load_more_button: ft.Container = ft.Container(
             content=ft.Text("load more", weight=ft.FontWeight.W_500, color=ft.Colors.WHITE),
@@ -458,11 +460,12 @@ class HomePage:
                                             expand=True,
                                             padding=10,
                                         ),
-                                        ft.Container(height=50,
-                                                     expand_loose=True,
-                                                     bgcolor=ft.Colors.BLUE_800,
-                                                     border_radius=5,
-                                                     ),
+                                        ft.Container(
+                                            height=50,
+                                            expand_loose=True,
+                                            bgcolor=ft.Colors.BLUE_800,
+                                            border_radius=5,
+                                        ),
                                     ],
                                 )
                             )
