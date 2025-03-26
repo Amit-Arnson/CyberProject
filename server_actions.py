@@ -33,7 +33,7 @@ from queries import (
 )
 
 from Compress.audio import get_audio_length
-from Utils.send_to_client_chunk import send_song_preview_chunks
+from Utils.send_to_client_chunk import send_song_preview_chunks, resend_file_chunks
 
 from Errors.raised_errors import (
     NoEncryption,
@@ -1127,7 +1127,7 @@ async def send_song_previews(
     except KeyError:
         payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
         raise InvalidPayload(
-            f"Invalid payload passed. expected key \"username\", \"password\", instead got {payload_keys}")
+            f"Invalid payload passed. expected key \"query\", instead got {payload_keys}")
 
     if len(search_query) > 100:
         raise TooLong("search query is too long, max length allowed is 100 characters", extra={"type": "search"})
@@ -1143,3 +1143,69 @@ async def send_song_previews(
         )
 
     await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
+
+
+async def resend_song_preview(
+        db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache
+):
+    """
+    this function is used to resend the client the "preview" image of a song, this is done because sometimes the client
+    loses the image of the preview
+
+    this function is tied to song/download/preview/resend (GET)
+
+    expected payload:
+    {
+        "song_id": int
+        "original_file_id": str
+    }
+
+    expected output (for each chunk):
+    {
+        -- note: the chunk's bytes are b64 encoded before sending due to flet limitations
+        "chunk": str,
+        "file_id": str,
+        "chunk_number": int,
+        "is_last_chunk": bool,
+        "song_id": int
+    }
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    payload = client_message.payload
+
+    try:
+        original_file_id = payload["original_file_id"]
+        song_id = payload["song_id"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(
+            f"Invalid payload passed. expected key \"original_file_id\", \"song_id\", instead got {payload_keys}")
+
+    await resend_file_chunks(transport=client, song_id=song_id, db_pool=db_pool, original_file_id=original_file_id)
