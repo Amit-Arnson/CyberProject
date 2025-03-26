@@ -1,5 +1,4 @@
 import asyncio
-from asyncio.transports import Transport
 
 import GUI.upload_song
 from pseudo_http_protocol import ServerMessage, ClientMessage
@@ -11,7 +10,6 @@ from DHE.dhe import DHE, generate_dhe_response
 import flet as ft
 from flet import Page
 
-# from gui_testing import MainPage
 from GUI.home_page import HomePage
 
 
@@ -142,20 +140,12 @@ class DownloadSong:
     def __init__(self):
         self._lock = asyncio.Lock()
 
-        self.preview_image_chunks: dict[str, list[tuple[int, str]]] = {}
-        """
-        dict[
-            file_id, tuple[chunk number, b64_chunk]
-        ]
-        """
-
-        self.preview_info_completed: set[int] = set()
+        self.preview_info_completed: set[str] = set()
         """
         a set of all of the preview info payloads that finished processing
         """
 
-    async def download_preview_details(self, page: Page, transport: EncryptedTransport, server_message: ServerMessage,
-                                       user_cache: ClientSideUserCache):
+    async def download_preview_details(self, page: Page, transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
         """
         this function gathers all the preview's details (e.g., artist name, song length, etc...) and sends them to the GUI
 
@@ -176,6 +166,7 @@ class DownloadSong:
         """
 
         payload = server_message.payload
+        session_token = user_cache.session_token
 
         try:
             song_id: int = payload["song_id"]
@@ -186,11 +177,12 @@ class DownloadSong:
             song_length: int = payload["song_length"]  # in milliseconds
             genres: list[str] = payload["genres"]
         except KeyError:
-            raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
+            raise  # todo: Handle malformed messages appropriately
 
         if hasattr(page, "view") and isinstance(page.view, HomePage):
             page.view.add_song_info(
                 song_id=song_id,
+                file_id=file_id,
                 artist_name=artist_name,
                 album_name=album_name,
                 song_name=song_name,
@@ -198,11 +190,37 @@ class DownloadSong:
                 song_length=song_length
             )
 
-            async with self._lock:
-                self.preview_info_completed.add(song_id)
+        async with self._lock:
+            self.preview_info_completed.add(file_id)
 
-    async def download_preview_chunks(self, page: Page, transport: EncryptedTransport, server_message: ServerMessage,
-                                      user_cache: ClientSideUserCache):
+        # Timeout loop for resending
+        max_retries = 3
+        retry_count = 0
+        while file_id in self.preview_info_completed:
+            await asyncio.sleep(2)
+
+            async with self._lock:
+                if file_id not in self.preview_info_completed:
+                    break
+
+            if retry_count < max_retries:
+                retry_count += 1
+                print(f"Resending request for file_id {file_id}, attempt {retry_count}")
+                transport.write(
+                    ClientMessage(
+                        authentication=session_token,
+                        method="get",
+                        endpoint="song/download/preview/resend",
+                        payload={
+                            "original_file_id": file_id,
+                            "song_id": song_id
+                        }
+                    ).encode()
+                )
+            else:
+                raise Exception(f"Exceeded maximum retries for file_id {file_id}")
+
+    async def download_preview_chunks(self, page: Page, _: EncryptedTransport, server_message: ServerMessage, __: ClientSideUserCache):
         """
         this function gathers all the preview (cover art) file chunks and combines them in a list to later be shown
         in the GUI
@@ -221,7 +239,6 @@ class DownloadSong:
         expected output:
         None
         """
-
         payload = server_message.payload
 
         try:
@@ -231,37 +248,27 @@ class DownloadSong:
             song_id = payload["song_id"]
             is_last_chunk: bool = payload["is_last_chunk"]
         except KeyError:
-            raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
+            raise  # todo: Handle malformed messages appropriately
 
+        # Wait for preview info to be completed
+        timeout_count = 20
+        while file_id not in self.preview_info_completed:
+            timeout_count -= 1
+            await asyncio.sleep(1)
+
+            print(f"{timeout_count} -> {file_id} -> #{chunk_number}")
+
+            if timeout_count <= 0:
+                raise Exception(f"song ID {song_id} with file ID {file_id} timed out awaiting preview info")
+
+        if hasattr(page, "view") and isinstance(page.view, HomePage):
+            page.view.stream_cover_art_chunks(
+                song_id=song_id,
+                file_id=file_id,
+                b64_chunk=chunk,
+                is_last_chunk=is_last_chunk
+            )
+
+        # Cleanup
         async with self._lock:
-            if file_id not in self.preview_image_chunks:
-                self.preview_image_chunks[file_id] = [(chunk_number, chunk)]
-            else:
-                self.preview_image_chunks[file_id].append((chunk_number, chunk))
-
-        if is_last_chunk:
-            b64_chunk_list: list[tuple[int, str]] = self.preview_image_chunks[file_id]
-
-            # sorts the chunks to be in the correct order
-            b64_chunk_list.sort(key=lambda x: x[0])
-
-            b64_file_bytes = "".join((b64_chunk for chunk_num, b64_chunk in b64_chunk_list))
-
-            timeout_count = 10
-            while song_id not in self.preview_info_completed:
-                timeout_count -= 1
-
-                await asyncio.sleep(1)
-
-                if timeout_count <= 0:
-                    raise Exception(f"song ID {song_id} with file ID {file_id} timed out awaiting for preview info")
-
-            if hasattr(page, "view") and isinstance(page.view, HomePage):
-                page.view.add_song_cover_art(
-                    song_id=song_id,
-                    b64_image_bytes=b64_file_bytes
-                )
-
-            async with self._lock:
-                del self.preview_image_chunks[file_id]
-                self.preview_info_completed.remove(song_id)
+            self.preview_info_completed.discard(file_id)
