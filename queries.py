@@ -212,6 +212,25 @@ class MediaFiles:
         return [row[0] for row in results]
 
     @staticmethod
+    async def fetch_preview_path(
+            connection: ProxiedConnection,
+            song_id: int,
+            default_cover_image_path: str = None
+    ) -> str:
+        query = f"""
+           SELECT file_path
+           FROM media_files
+           WHERE song_id = ? AND file_type = 'cover'
+        """
+
+        result = await connection.fetchone(query, song_id)
+
+        if not result:
+            return default_cover_image_path
+
+        return result[0]
+
+    @staticmethod
     async def bulk_fetch_preview_paths(
             connection: ProxiedConnection,
             song_ids: list[int],
