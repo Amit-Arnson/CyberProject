@@ -15,7 +15,8 @@ import logging
 
 import asqlite
 from queries import (
-    Music
+    Music,
+    MediaFiles
 )
 
 
@@ -74,6 +75,32 @@ async def send_song_preview_chunks(
         traceback.print_exc()
         raise e
 
+
+async def resend_file_chunks(
+        transport: EncryptedTransport,
+        db_pool: asqlite.Pool,
+        song_id: int,
+        original_file_id: str
+):
+    default_cover_image_path = await aos.path.abspath(r"./Assets/no_cover_art.webp")
+
+    async with db_pool.acquire() as connection:
+        cover_art_path = await MediaFiles.fetch_preview_path(
+            connection=connection,
+            song_id=song_id,
+            default_cover_image_path=default_cover_image_path
+        )
+
+    try:
+        await send_file_chunks(
+            transport=transport,
+            file_id=original_file_id,
+            song_id=song_id,
+            path=cover_art_path
+        )
+    except Exception as e:
+        traceback.print_exc()
+        raise e
 
 async def send_file_chunks(
         transport: EncryptedTransport,
