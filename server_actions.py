@@ -42,7 +42,8 @@ from Errors.raised_errors import (
     UserExists,
     InvalidPayload,
     TooShort,
-    InvalidDataType
+    InvalidDataType,
+    InvalidFile
 )
 
 
@@ -720,7 +721,10 @@ class UploadSong:
                     else:
                         raise Exception(f"upload song finish function timed out for request {request_id}")
 
-            audio_length = await get_audio_length(self.base_file_paths[(request_id, audio_file_id)])
+            try:
+                audio_length = await get_audio_length(self.base_file_paths[(request_id, audio_file_id)])
+            except Exception as e:
+                raise InvalidFile("the given audio file is invalid")
 
             async with db_pool.acquire() as connection:
                 async with connection.transaction():
@@ -1059,6 +1063,7 @@ async def send_song_previews(
         client_package: ClientPackage,
         client_message: ClientMessage,
         user_cache: UserCache):
+    # todo: add "limit" (int 1 - 50) and "filters" (dict) to expected payload
     """
     this function is used to send the client the "preview" of the songs, that contains the cover art, and the standard
     song data (song name, artist name, etc...)
