@@ -1,143 +1,64 @@
-"""
-all error classes here are built like this:
+class BaseError(Exception):
+    """Base class for all custom exceptions."""
 
-class ErrorName(Exception):
-    "doc-string explaining what this does"
-
-    def __init__(self, argument: str):
+    def __init__(self, argument: str, code: int, extra: dict = None):
         super().__init__(argument)
 
-        # the passed message to be sent to the client post-error
+        # Initialize common attributes
         self.message = argument
-
-        # the status code the error represents
-        self.code = # an integer code
-"""
+        self.code = code
+        self.extra = extra if extra else {}
 
 
-class InvalidPayload(Exception):
-    """Error that is thrown when the client passes an invalid payload"""
-
-    # view docstring at the top of the file to see comments.
+class InvalidPayload(BaseError):
+    """Error that is thrown when the client passes an invalid payload."""
     def __init__(self, argument: str, extra: dict = None):
-        super().__init__(argument)
-
-        if not extra:
-            self.extra: dict = {}
-        else:
-            self.extra = extra
-
-        self.message = argument
-        self.code = 400
+        super().__init__(argument, code=400, extra=extra)
 
 
-class InvalidDataType(Exception):
-    """Error that is thrown when the client passes an invalid type for an expected input"""
-
-    # view docstring at the top of the file to see comments.
+class InvalidDataType(BaseError):
+    """Error that is thrown when the client passes an invalid type for an expected input."""
     def __init__(self, argument: str, extra: dict = None):
-        super().__init__(argument)
-
-        if not extra:
-            self.extra: dict = {}
-        else:
-            self.extra = extra
-
-        self.message = argument
-        self.code = 400
+        super().__init__(argument, code=400, extra=extra)
 
 
-class TooLong(Exception):
-    """Error that is thrown when the client's input is "too long" (eg: username with many characters)"""
-
-    # view docstring at the top of the file to see comments.
+class TooLong(BaseError):
+    """Error that is thrown when the client's input is 'too long' (e.g., username with too many characters)."""
     def __init__(self, argument: str, extra: dict = None):
-        super().__init__(argument)
-
-        if not extra:
-            self.extra: dict = {}
-        else:
-            self.extra = extra
-
-        self.message = argument
-        self.code = 400
+        super().__init__(argument, code=400, extra=extra)
 
 
-class TooShort(Exception):
-    """Error that is thrown when the client's input is "too short" (eg: username with many characters)"""
-
-    # view docstring at the top of the file to see comments.
+class TooShort(BaseError):
+    """Error that is thrown when the client's input is 'too short' (e.g., username with too few characters)."""
     def __init__(self, argument: str, extra: dict = None):
-        super().__init__(argument)
-
-        if not extra:
-            self.extra: dict = {}
-        else:
-            self.extra = extra
-
-        self.message = argument
-        self.code = 400
+        super().__init__(argument, code=400, extra=extra)
 
 
-class UserExists(Exception):
-    """Error that is thrown if a user that is created already exists"""
-
-    # view docstring at the top of the file to see comments.
+class UserExists(BaseError):
+    """Error that is thrown if a user that is created already exists."""
     def __init__(self, argument: str, extra: dict = None):
-        super().__init__(argument)
-
-        if not extra:
-            self.extra: dict = {}
-        else:
-            self.extra = extra
-
-        self.message = argument
-        self.code = 409
+        super().__init__(argument, code=409, extra=extra)
 
 
-class InvalidCredentials(Exception):
-    """Error that is thrown when the user provides invalid login credentials"""
-
-    # view docstring at the top of the file to see comments.
+class InvalidCredentials(BaseError):
+    """Error that is thrown when the user provides invalid login credentials."""
     def __init__(self, argument: str, extra: dict = None):
-        super().__init__(argument)
-
-        if not extra:
-            self.extra: dict = {}
-        else:
-            self.extra = extra
-
-        self.message = argument
-        self.code = 401
+        super().__init__(argument, code=401, extra=extra)
 
 
-class NoEncryption(Exception):
-    """Error that is raised when the client *should* have an encrypted message and the key & IV saved in the cache, yet dont"""
-
-    # view docstring at the top of the file to see comments.
+class NoEncryption(BaseError):
+    """Error that is raised when the client *should* have an encrypted message but doesn't."""
     def __init__(self, argument: str, extra: dict = None):
-        super().__init__(argument)
-
-        if not extra:
-            self.extra: dict = {}
-        else:
-            self.extra = extra
-
-        self.message = argument
-        self.code = 500
+        super().__init__(argument, code=500, extra=extra)
 
 
-class InvalidCodec(Exception):
-    """Use this class to throw errors when an unacceptable file format / codec is used"""
-
-    # view docstring at the top of the file to see comments.
+class InvalidCodec(BaseError):
+    """Error that is thrown when an unacceptable file format/codec is used."""
     def __init__(self, argument: str, extra: dict = None):
-        super().__init__(argument)
+        super().__init__(argument, code=400, extra=extra)
 
-        if not extra:
-            self.extra: dict = {}
-        else:
-            self.extra = extra
 
-        self.message = argument
-        self.code = 400
+class InvalidFile(BaseError):
+    """Error that is thrown when a file fails an FFprobe for any reason"""
+    def __init__(self, argument: str, extra: dict = None):
+        super().__init__(argument, code=400, extra=extra)
