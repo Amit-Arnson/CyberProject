@@ -389,11 +389,18 @@ class MusicSearch:
         # Execute the FTS5 query with ordering
         fts5_results = await connection.fetchall(
             """
+            -- 'bm25(song_info_fts)' calculates relevance based on the BM25 algorithm, which ranks text matches by relevance.
             SELECT song_info.song_id, bm25(song_info_fts) AS relevance
             FROM song_info_fts
-            JOIN song_info ON song_info_fts.rowid = song_info.song_id
-            WHERE song_info_fts.song_name MATCH ?
+
+            JOIN song_info ON song_info_fts.rowid = song_info.song_id -- Connects the FTS5 row IDs to actual song IDs
+            -- 'song_info_fts' is the full-text search table created using FTS5. Its row IDs map to the corresponding song entries in 'song_info'.
+
+            WHERE song_info_fts.song_name MATCH ? -- Matches song names using FTS5's full-text search (e.g., "duc*" matches "duck")
+            -- 'MATCH' performs a loose search, allowing partial matches and word forms (prefix matching is enabled via '*').
+
             ORDER BY relevance ASC
+
             LIMIT ?;
             """, (search_query_fts5, limit)
         )
@@ -403,9 +410,13 @@ class MusicSearch:
             """
             SELECT song_info.song_id, editdist3(song_name_trigrams.word, ?) AS relevance
             FROM song_info
-            JOIN song_name_trigrams ON song_name_trigrams.rowid = song_info.song_id
-            WHERE song_name_trigrams.word LIKE ?
-              AND editdist3(song_name_trigrams.word, ?) <= ?
+
+            JOIN song_name_trigrams ON song_name_trigrams.rowid = song_info.song_id -- Connects trigram row IDs to actual song IDs
+            -- 'song_name_trigrams' stores word fragments (trigrams) for fuzzy search. Each row represents a word, broken into trigrams (e.g., "world" -> "wor", "orl", "rld").
+
+            WHERE song_name_trigrams.word LIKE ? -- Performs a prefix match for similar words (e.g., "worl%" matches "world")                
+              AND editdist3(song_name_trigrams.word, ?) <= ? -- Filters words within the given edit distance threshold (using fuzzy search)
+
             ORDER BY relevance ASC
             LIMIT ?;
             """, (search_query, search_query_like, search_query, fuzzy_precession, limit)
