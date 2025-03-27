@@ -37,13 +37,19 @@ class HomePage:
 
         self.loading_song_items: dict[str, ft.Container] = {}
 
+        self.preview_image_value_dict: dict[str, ...] = {
+            "expand": True,
+            "expand_loose": True,
+            "border_radius": 7
+        }
+
+        self.gridview_extent = 320
+
         self._initialize_controls()
 
-    @staticmethod
-    def _create_loading_item(song_id: int, file_id: str) -> ft.Container:
+    def _create_loading_item(self, song_id: int, file_id: str) -> ft.Container:
         song_cover_art_loading = ft.Container(
-            width=120,
-            height=150,
+            **self.preview_image_value_dict,
             bgcolor=ft.Colors.GREY,
             content=ft.Container(
                 width=20,
@@ -56,26 +62,67 @@ class HomePage:
             alignment=ft.Alignment(0, 0)
         )
 
+        off_hover_stack_gradient = ft.LinearGradient(
+            colors=[
+                ft.Colors.with_opacity(0.3, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0.025, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0.025, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0.3, ft.Colors.BLACK),
+            ],
+            begin=ft.alignment.top_center,
+            end=ft.alignment.bottom_center,
+        )
+
+        on_hover_stack_gradient = ft.LinearGradient(
+            colors=[
+                ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0.3, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0.3, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+            ],
+            begin=ft.alignment.top_center,
+            end=ft.alignment.bottom_center,
+        )
+
+        stack_gradient = ft.Container(
+            expand=True,
+            bgcolor=ft.Colors.GREEN,
+            gradient=off_hover_stack_gradient
+        )
+
         song_item_load: ft.Container = ft.Container(
             width=200,
             height=200,
             border_radius=5,
             bgcolor=ft.Colors.GREY_200,
-            padding=10,
-            content=ft.Row(
+            content=ft.Stack(
                 [
+                    # background
                     song_cover_art_loading,
-                    ft.Column(
-                        [
-                            ft.Container(
-                                height=20,
-                                width=100,
-                                bgcolor=ft.Colors.GREY_800
-                            ),
-                        ]
-                    )
+
+                    stack_gradient,
+
+                    # top column (artist/song/album name)
+                    ft.Column(),
+
+                    # bottom column (genres/length)
+                    ft.Column(),
                 ],
-                vertical_alignment=ft.CrossAxisAlignment.START
+                data={
+                    # used in the on_hover
+                    "off_hover_gradient": off_hover_stack_gradient,
+                    "on_hover_gradient": on_hover_stack_gradient,
+                    "gradient": stack_gradient,
+
+                    # used in the check when streaming cover art image bytes
+                    "has_loaded_initial_cover_bytes": False,
+                }
             ),
             data={
                 "song_id": song_id,
@@ -103,55 +150,127 @@ class HomePage:
         loading_song_item: ft.Container = self._create_loading_item(song_id=song_id, file_id=file_id)
         self._add_song_item(loading_song_item)
 
-        loading_song_content_row: ft.Row = loading_song_item.content
+        loading_song_content_stack: ft.Stack = loading_song_item.content
 
-        song_duration = format_length_from_milliseconds(song_length)
-
-        genre_tags = (
-            ft.Container(
-                content=ft.Text(genre, size=12),
-                bgcolor=ft.Colors.GREY_300,
-                border_radius=5,
-                padding=5
-            )
-            for genre in genres
+        genre_span = ft.Text(
+            spans=[ft.TextSpan(f"{genre}{', ' if i < len(genres) - 1 else ''}") for i, genre in enumerate(genres)],
+            size=12,
+            color=ft.Colors.with_opacity(0.8, ft.Colors.GREY_50),
+            weight=ft.FontWeight.W_500,
         )
 
-        loaded_song_info = ft.Column(
+        max_text_size = 20
+
+        sub_text_info_values = {
+            "size": max_text_size - 6,
+            "color": ft.Colors.WHITE,
+            "weight": ft.FontWeight.W_500,
+        }
+
+        # top column
+        song_info_column = ft.Column(
             [
-                ft.Text(artist_name),
-                ft.Text(album_name),
-                ft.Text(song_name),
-                ft.Text(song_duration),
-                *genre_tags
-            ]
+                ft.Text(song_name, size=max_text_size, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+
+                ft.Row(
+                    [
+                        ft.Text(album_name, **sub_text_info_values),
+                        ft.Text("•", **sub_text_info_values),
+                        ft.Text(artist_name, **sub_text_info_values)
+                    ],
+                    spacing=3,
+                    wrap=True
+                )
+            ],
+            spacing=0,
+            expand_loose=True,
+            expand=True,
         )
 
-        loading_song_content_row.controls[-1] = loaded_song_info
+        top_row = ft.Row(
+            [
+                song_info_column,
+                ft.Container(
+                    ft.Icon(
+                        ft.Icons.STAR_ROUNDED,
+                        color=ft.Colors.WHITE,
+                        size=30
+                    ),
+                    padding=5,
+
+                    # todo: implement this
+                    # this should only be visible when hovering. i need to check how i want to implement the on_hover
+                    visible=False
+                )
+            ],
+            vertical_alignment=ft.CrossAxisAlignment.START,
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+        )
+
+        loading_song_content_stack.controls[-2] = ft.Container(
+            top_row,
+            padding=5,
+        )
+
+        loading_song_content_stack.controls[-1] = ft.Container(
+            genre_span,
+            padding=5,
+            bottom=0,
+            height=100,
+            width=self.gridview_extent - 20,
+            alignment=ft.Alignment(-1, 1),
+        )
+
+        # an invisible container that is placed on top that is used to add all of the on_... events to the stack
+        event_container = ft.Container(
+            expand=True,
+            data=loading_song_content_stack,
+            on_hover=self._song_item_hover,
+        )
+
+        loading_song_content_stack.controls.append(event_container)
 
         loading_song_item.update()
 
         self.loading_song_items[file_id] = loading_song_item
 
+    @staticmethod
+    def _song_item_hover(event: ft.ControlEvent):
+        song_item_stack: ft.Stack = event.control.data
+
+        is_hovering = event.data == "true"
+
+        if is_hovering:
+            gradient = song_item_stack.data["on_hover_gradient"]
+        else:
+            gradient = song_item_stack.data["off_hover_gradient"]
+
+        gradient_container: ft.Container = song_item_stack.controls[2]
+        gradient_container.gradient = gradient
+
+        gradient_container.update()
+
     def stream_cover_art_chunks(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
         song_item: ft.Container = self.loading_song_items[file_id]
-        loading_song_content_row: ft.Row = song_item.content
+        loading_song_content_stack: ft.Stack = song_item.content
 
-        if not loading_song_content_row.data:
+        if not loading_song_content_stack.data["has_loaded_initial_cover_bytes"]:
             image_container = ft.Container(
                 ft.Image(
                     src_base64=b64_chunk,
-                    fit=ft.ImageFit.FILL
+                    fit=ft.ImageFit.FILL,
+                    # images below a certain resolution did not fully cover the container when using ImageFit, so i set
+                    # a manual width and height that will be equal to what the gridview allows and thus will always fit
+                    width=self.gridview_extent,
+                    height=self.gridview_extent,
                 ),
-                border_radius=5,
-                height=150,
-                width=120,
+                **self.preview_image_value_dict,
             )
 
-            loading_song_content_row.controls[0] = image_container
-            loading_song_content_row.data = True
+            loading_song_content_stack.controls[0] = image_container
+            loading_song_content_stack.data["has_loaded_initial_cover_bytes"] = True
         else:
-            image_container: ft.Container = loading_song_content_row.controls[0]
+            image_container: ft.Container = loading_song_content_stack.controls[0]
             image: ft.Image = image_container.content
 
             image.src_base64 += b64_chunk
@@ -186,18 +305,30 @@ class HomePage:
 
             self._load_song_previews()
 
+    def _clear_screen(self, update: bool = True):
+        for tab in self.tab_list:
+            tab: ft.Container
+
+            # reset all the tabs to be the default BLUE color, so that it removes the color of the selected tab (to
+            # allow for a new selection)
+            tab.bgcolor = ft.Colors.BLUE
+
+        self.song_item_gridview.controls.clear()
+
+        if update:
+            self.page.update()
+
     def _initialize_gridview(self):
         self.last_scroll_direction: str = ""
         self.test = 0
 
         self.song_item_gridview: ft.GridView = ft.GridView(
             runs_count=1,
-            max_extent=320,
+            max_extent=self.gridview_extent,
             child_aspect_ratio=1.0,
             spacing=5,
             run_spacing=5,
             padding=10,
-            cache_extent=10
         )
         self.load_more_button: ft.Container = ft.Container(
             content=ft.Text("load more", weight=ft.FontWeight.W_500, color=ft.Colors.WHITE),
@@ -274,7 +405,7 @@ class HomePage:
         if is_currently_hovering == "true":
             tab_container.bgcolor = ft.Colors.BLUE_400
         else:
-            tab_container.bgcolor = ft.Colors.BLUE
+            tab_container.bgcolor = tab_container.data
 
         tab_container.update()
 
@@ -285,6 +416,7 @@ class HomePage:
             "expand": True,
             "padding": 10,
             "on_hover": self._highlight_tab,
+            "data": ft.Colors.BLUE
         }
 
         self.home_tab: ft.Container = ft.Container(
@@ -293,11 +425,11 @@ class HomePage:
                 [
                     ft.Icon(
                         ft.Icons.HOME_ROUNDED,
-                        color=ft.Colors.WHITE
+                        color=ft.Colors.BLUE_50
                     ),
                     ft.Text(
                         "home",
-                        color=ft.Colors.WHITE,
+                        color=ft.Colors.BLUE_50,
                         weight=ft.FontWeight.W_500
                     )
                 ]
@@ -408,18 +540,20 @@ class HomePage:
             ),
         )
 
+        self.tab_list = [
+            self.home_tab,
+            self.browse,
+            self.favorites,
+            self.downloads,
+            self.recent,
+            self.trending,
+            self.your_uploads
+        ]
+
         self.navigation_row: ft.Container = ft.Container(
             content=ft.Row(
                 spacing=2,
-                controls=[
-                    self.home_tab,
-                    self.browse,
-                    self.favorites,
-                    self.downloads,
-                    self.recent,
-                    self.trending,
-                    self.your_uploads
-                ],
+                controls=self.tab_list,
             ),
         )
 
