@@ -142,6 +142,8 @@ async def song_upload_error(page: Page, _: EncryptedTransport, server_message: S
     # since the .show() method applies "self" to page.view, we can access the page's contents and controls (which are
     # normally saved in the self of the class) by accessing page.view
 
+    remove_upload_page_blocking_overplay(page=page)
+
     if hasattr(page, "view"):
         upload_page: GUI.upload_song.UploadPage = page.view
 

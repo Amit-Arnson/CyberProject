@@ -71,27 +71,10 @@ class ClientProtocol(asyncio.Protocol):
             # todo: think of a way for the client to communicate the error to the server (check server-side todo list for explanation)
             return
 
-        print(server_message)
+        # print(server_message)
 
         status_code = server_message.status.get("code")
         requested_endpoint = server_message.endpoint
-
-        # this is just a test function for creating a user. since i dont have the GUI made yet.
-        # todo: remove later
-        # if self.transport.key and self.transport.iv:
-        #     self.transport.write(
-        #         ClientMessage(
-        #             authentication=None,
-        #             method="post",
-        #             endpoint="user/signup",
-        #             payload={
-        #                 "username": "amit1234",
-        #                 "display_name": "amit",
-        #                 "password": "1234!"
-        #             }
-        #         ).encode()
-        #     )
-        #     print("sent to server :)")
 
         # currently we don't really care about the method. ill decide whether we even need a method from the server to
         # the client later on.
@@ -109,9 +92,6 @@ class ClientProtocol(asyncio.Protocol):
         elif requested_endpoint in self.error_endpoints:
             client_error_action_function = self.error_endpoints[requested_endpoint]
 
-            # remove the blocking overlay (assuming there is one, if not, it just ignores it)
-            self.error_endpoints.remove_upload_overlay(page=self.page)
-
             # these are all the functions to graphically display errors (as in, GUI)
             error_action = self.event_loop.create_task(client_error_action_function(self.page, self.transport, server_message, client_user_cache))
             error_action.add_done_callback(self.on_complete)
@@ -122,9 +102,6 @@ class ClientProtocol(asyncio.Protocol):
 
             if status_code in self.acceptable_status_codes:
                 return
-
-            # remove the blocking overlay (assuming there is one, if not, it just ignores it)
-            self.error_endpoints.remove_upload_overlay(page=self.page)
 
             status_message = server_message.status.get("message")
             self.page.server_error(
