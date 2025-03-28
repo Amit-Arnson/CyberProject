@@ -107,7 +107,7 @@ class ImageRemoveHover(ft.Stack):
 
 
 class UploadCoverArtDefault(ft.Stack):
-    def __init__(self, height: int = 150, width: int = 120):
+    def __init__(self, height: int = 150, width: int = 150):
         super().__init__()
 
         self.height = height
@@ -199,7 +199,7 @@ class UploadPage:
         self.upload_cover_art_default_content: ft.Container = ft.Container(
             UploadCoverArtDefault(),
             height=150,
-            width=120,
+            width=150,
             on_click=self._select_cover_art_file
         )
 
