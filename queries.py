@@ -363,20 +363,30 @@ class Music:
 
 class MusicSearch:
     @staticmethod
-    async def search_song(connection, search_query: str, limit: int = 10):
+    async def search_song(connection: ProxiedConnection, search_query: str, exclude: list[int], limit: int = 10):
         """returns a list of song IDs based off of a search query if given, else returns a random list of song IDs"""
         if search_query:
-            return await MusicSearch.search_song_by_name(connection=connection, search_query=search_query, limit=limit)
+            return await MusicSearch.search_song_by_name(
+                connection=connection,
+                search_query=search_query,
+                limit=limit,
+                exclude=exclude
+            )
 
-        return await MusicSearch.get_random_songs(connection=connection, limit=limit)
+        return await MusicSearch.get_random_songs(connection=connection, limit=limit, exclude=exclude)
 
     @staticmethod
-    async def search_song_by_name(connection, search_query: str, limit: int = 10, fuzzy_precession: int = 5) -> list[int]:
+    async def search_song_by_name(connection: ProxiedConnection,
+                                  search_query: str,
+                                  exclude: list[int],
+                                  limit: int = 10,
+                                  fuzzy_precession: int = 5) -> list[int]:
         """
         Searches for songs by name using FTS5 and spellfix, and returns the top 'limit' results ordered by relevance.
 
         :param connection: Database connection object.
         :param search_query: Search string entered by the user.
+        :param exclude: the list of song IDs to not include in the search
         :param limit: Number of results to return.
         :param fuzzy_precession: how exact the fuzzy search (using spellfix1) is. the larger the number, the broader it is
         (default 5)
@@ -386,9 +396,12 @@ class MusicSearch:
         search_query_fts5 = f"{search_query}*"  # For prefix matching in FTS5
         search_query_like = f"{search_query}%"  # For prefix matching in spellfix1
 
+        exclude_placeholders = ", ".join(["?"] * len(exclude)) if exclude else "NULL"  # Prevent empty placeholders
+        exclude_clause = f"AND song_info.song_id NOT IN ({exclude_placeholders})" if exclude else ""
+
         # Execute the FTS5 query with ordering
         fts5_results = await connection.fetchall(
-            """
+            f"""
             -- 'bm25(song_info_fts)' calculates relevance based on the BM25 algorithm, which ranks text matches by relevance.
             SELECT song_info.song_id, bm25(song_info_fts) AS relevance
             FROM song_info_fts
@@ -398,16 +411,18 @@ class MusicSearch:
 
             WHERE song_info_fts.song_name MATCH ? -- Matches song names using FTS5's full-text search (e.g., "duc*" matches "duck")
             -- 'MATCH' performs a loose search, allowing partial matches and word forms (prefix matching is enabled via '*').
+            
+            {exclude_clause} 
 
             ORDER BY relevance ASC
 
             LIMIT ?;
-            """, (search_query_fts5, limit)
+            """, (search_query_fts5, *exclude, limit)
         )
 
         # Execute the spellfix query with ordering
         spellfix_results = await connection.fetchall(
-            """
+            f"""
             SELECT song_info.song_id, editdist3(song_name_trigrams.word, ?) AS relevance
             FROM song_info
 
@@ -416,10 +431,12 @@ class MusicSearch:
 
             WHERE song_name_trigrams.word LIKE ? -- Performs a prefix match for similar words (e.g., "worl%" matches "world")                
               AND editdist3(song_name_trigrams.word, ?) <= ? -- Filters words within the given edit distance threshold (using fuzzy search)
-
+              {exclude_clause} 
+            
+            
             ORDER BY relevance ASC
             LIMIT ?;
-            """, (search_query, search_query_like, search_query, fuzzy_precession, limit)
+            """, (search_query, search_query_like, search_query, fuzzy_precession, *exclude, limit)
         )
 
         # Combine results, sorting by relevance
@@ -432,25 +449,81 @@ class MusicSearch:
         return matching_song_ids
 
     @staticmethod
-    async def get_random_songs(connection, limit: int = 10) -> list[int]:
+    async def search_song_by_genres(connection: ProxiedConnection, genres: list[str], exclude: list[int], limit: int = 10) -> list[int]:
+        if not genres:
+            return []
+
+        placeholders = ", ".join(["?"] * len(genres))  # Create placeholders (?, ?, ?, ...)
+
+        exclude_placeholders = ", ".join(["?"] * len(exclude))
+        exclude_query = f"AND song_id NOT IN ({exclude_placeholders})" if exclude else ""
+
+        results = await connection.fetchall(
+            f"SELECT song_id FROM genres WHERE genre_name IN ({placeholders}) {exclude_query} LIMIT ?;",
+            *genres, limit
+        )
+
+        return [row[0] for row in results]
+
+    @staticmethod
+    async def search_song_by_artist(connection: ProxiedConnection, artists: list[str], exclude: list[int], limit: int = 10) -> list[int]:
+        if not artists:
+            return []
+
+        placeholders = ", ".join(["?"] * len(artists))  # Create placeholders (?, ?, ?, ...)
+
+        exclude_placeholders = ", ".join(["?"] * len(exclude))
+        exclude_query = f"AND song_id NOT IN ({exclude_placeholders})" if exclude else ""
+
+        results = await connection.fetchall(
+            f"SELECT song_id FROM song_info WHERE artist_name IN ({placeholders}) {exclude_query} LIMIT ?;",
+            *artists, limit
+        )
+
+        return [row[0] for row in results]
+
+    @staticmethod
+    async def search_song_by_length(connection: ProxiedConnection, exclude: list[int], maximum: int | None = None, minimum: int = 0, limit: int = 10) -> list[int]:
+        search_parameters = [minimum]
+
+        upper_limit_query = ""
+        if maximum:
+            upper_limit_query = " AND song_length < ?"
+            search_parameters.append(maximum)
+
+        exclude_placeholders = ", ".join(["?"] * len(exclude))
+        exclude_query = f"AND song_id NOT IN ({exclude_placeholders})" if exclude else ""
+
+        results = await connection.fetchall(
+            f"""SELECT song_id FROM song_info WHERE song_length > ? {upper_limit_query} {exclude_query} LIMIT ?;""",
+            *search_parameters, limit
+        )
+
+        return [row[0] for row in results]
+
+    @staticmethod
+    async def get_random_songs(connection, exclude: list[int], limit: int = 10) -> list[int]:
         """
         Fetches random songs from the song_info table based on a given limit.
 
         :param connection: Database connection object.
+        :param exclude: the list of song IDs to specifically exclude from the search
         :param limit: The number of random songs to retrieve.
         :return: List of random song IDs.
         """
+
+        exclude_placeholders = ", ".join(["?"] * len(exclude))
+        exclude_query = f"WHERE song_id NOT IN ({exclude_placeholders})" if exclude else ""
+
         # Execute the query to fetch random song IDs
         random_songs = await connection.fetchall(
-            """
+            f"""
             SELECT song_id
-            FROM song_info
+            FROM song_info {exclude_query} 
             ORDER BY RANDOM()
             LIMIT ?;
-            """, (limit,)
+            """, *exclude, limit
         )
 
         # Return the list of random song IDs
         return [row[0] for row in random_songs]
-
-
