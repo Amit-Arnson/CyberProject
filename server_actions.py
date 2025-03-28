@@ -1063,7 +1063,7 @@ async def send_song_previews(
         client_package: ClientPackage,
         client_message: ClientMessage,
         user_cache: UserCache):
-    # todo: add "limit" (int 1 - 50) and "filters" (dict) to expected payload
+    # todo: implement rating and tempo filtering, by also implementing the features
     """
     this function is used to send the client the "preview" of the songs, that contains the cover art, and the standard
     song data (song name, artist name, etc...)
@@ -1072,7 +1072,23 @@ async def send_song_previews(
 
     expected payload:
     {
-        "query": str
+        "query": str,
+        "limit": int,
+        "exclude": list[song IDs],
+
+        -- note: any filter is optional, sending 1 filter does not mean you need to send all of them
+        "filters": {
+            "genres": list[str],
+            "artists": list[str],
+            -- in milliseconds
+            "duration": {"min": int, "max": int},
+
+            #- not implemented yet -#
+            -- in bpm
+            "tempo": {"min": int, "max": int},
+            -- between 1 and 5 (stars)
+            "rating": {"min": int, "max": int}
+        }
     }
 
     -- note: the output will be sent as chunks and multiple "messages". so the output here will be shown as a single
@@ -1127,12 +1143,18 @@ async def send_song_previews(
 
     payload = client_message.payload
 
+    # todo: send the limit and the exclude from the client
     try:
         search_query = payload["query"]
+        limit: int = payload["limit"]
+        exclude: list[int] = payload["exclude"]
+        filters: dict[str, ...] = payload["filters"]
     except KeyError:
         payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
         raise InvalidPayload(
-            f"Invalid payload passed. expected key \"query\", instead got {payload_keys}")
+            f"Invalid payload passed. expected key \"query\", \"limit\", \"exclude\","
+            f" \"filters\", instead got {payload_keys}"
+        )
 
     if len(search_query) > 100:
         raise TooLong("search query is too long, max length allowed is 100 characters", extra={"type": "search"})
@@ -1144,7 +1166,9 @@ async def send_song_previews(
     async with db_pool.acquire() as connection:
         matching_song_ids = await MusicSearch.search_song(
             connection=connection,
-            search_query=search_query
+            search_query=search_query,
+            limit=limit,
+            exclude=exclude
         )
 
     await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
