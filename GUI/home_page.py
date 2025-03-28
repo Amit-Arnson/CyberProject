@@ -65,11 +65,11 @@ class HomePage:
         off_hover_stack_gradient = ft.LinearGradient(
             colors=[
                 ft.Colors.with_opacity(0.3, ft.Colors.BLACK),
-                ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
                 ft.Colors.with_opacity(0.025, ft.Colors.BLACK),
                 ft.Colors.with_opacity(0, ft.Colors.BLACK),
                 ft.Colors.with_opacity(0.025, ft.Colors.BLACK),
-                ft.Colors.with_opacity(0.1, ft.Colors.BLACK),
+                ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
                 ft.Colors.with_opacity(0.3, ft.Colors.BLACK),
             ],
             begin=ft.alignment.top_center,
