@@ -240,7 +240,6 @@ class UploadPage:
     def _initialize_sidebar_top(self):
         pass
 
-    # todo: make it cancel the "upload" task when an error regarding invalid request ID is given (which can be checked with the error's "extras")
     async def _upload_all_files(self, *args):
         session_token: str = self.user_cache.session_token
         print(f"session token: {session_token}")
@@ -254,9 +253,12 @@ class UploadPage:
         album_name = self.song_album_textbox.value
         song_name = self.song_name_textbox.value
 
-        self._add_blocking_overlay()
+        # todo: validate that there is the bare minimum needed before trying to upload
+        # bare minimum is: audio, at least 1 tag, artist name, song name, album name
+        if not audio_path:
+            return
 
-        print(f"song path: {audio_path}")
+        self._add_blocking_overlay()
 
         # uses the page's async event loop to create a task
         self.send_chunks_task = self.page.loop.create_task(
@@ -354,8 +356,9 @@ class UploadPage:
         song_player_info_row: ft.Row = song_player_info.content
         # [0] -> play button
         # [1] -> duration
-        # [2] -> progress bar
-        # [3] -> sound icon
+        # [2] -> fast-backward
+        # [3] -> progress bar
+        # [4] -> fast-forward
 
         duration = format_length_from_milliseconds(song_length_milliseconds)
         new_duration_text = ft.Text(
@@ -406,8 +409,9 @@ class UploadPage:
         song_player_info_row: ft.Row = song_player_info.content
         # [0] -> play button
         # [1] -> duration
-        # [2] -> progress bar
-        # [3] -> sound icon
+        # [2] -> fast-backward
+        # [3] -> progress bar
+        # [4] -> fast-forward
 
         max_duration_format = format_length_from_milliseconds(max_duration)
         current_duration_format = format_length_from_milliseconds(current_duration_milliseconds)
@@ -421,11 +425,30 @@ class UploadPage:
 
         song_player_info_row.controls[1] = new_duration_text
 
-        progress_bar: ft.ProgressBar = song_player_info_row.controls[2]
+        progress_bar: ft.ProgressBar = song_player_info_row.controls[3]
 
         progress_bar.value = percentage_done
 
         song_player_info_row.update()
+
+    def move_ten_seconds(self, event: ft.ControlEvent):
+        move_button: ft.Container = event.control
+
+        is_action_skip = move_button.data == "forward"
+
+        if not hasattr(self, "audio_player"):
+            return
+
+        audio_player: fta.Audio = self.audio_player
+
+        current_position = audio_player.get_current_position()
+
+        if is_action_skip:
+            new_position = current_position + 10000
+        else:
+            new_position = current_position - 10000
+
+        audio_player.seek(new_position)
 
     def _set_restart_button(self, event: fta.AudioStateChangeEvent):
         is_finished: bool = event.state == fta.AudioState.COMPLETED
@@ -688,6 +711,13 @@ class UploadPage:
                             ft.Text(spans=[
                                 ft.TextSpan("0:00"), ft.TextSpan("/"), ft.TextSpan("0:00")
                             ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
+                            ft.Container(
+                                content=ft.Icon(
+                                    ft.Icons.FAST_REWIND_ROUNDED, ft.Colors.GREY_600, size=25
+                                ),
+                                on_click=self.move_ten_seconds,
+                                data="backward"
+                            ),
                             ft.ProgressBar(
                                 value=0.01,
                                 height=5,
@@ -697,7 +727,13 @@ class UploadPage:
                                 bgcolor=ft.Colors.GREY_400,
                                 border_radius=10,
                             ),
-                            ft.Icon(ft.Icons.VOLUME_UP_ROUNDED, ft.Colors.GREY_600, size=25),
+                            ft.Container(
+                                content=ft.Icon(
+                                    ft.Icons.FAST_FORWARD_ROUNDED, ft.Colors.GREY_600, size=25
+                                ),
+                                on_click=self.move_ten_seconds,
+                                data="forward"
+                            )
                         ]
                     ),
                     border_radius=90,
