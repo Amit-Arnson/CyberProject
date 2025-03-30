@@ -222,6 +222,17 @@ class UploadPage:
         self.cover_art_file_picker = ft.FilePicker()
         self.cover_art_file_picker.on_result = self._on_finish_cover_art_select
 
+        # size of the files in bytes
+        self.selected_audio_size = 0
+        self.selected_images_size = 0
+        self.selected_cover_art_size = 0
+
+        # mega byte = kilobyte * 1000
+        megabyte = 1024 * 1000
+        self.MAX_AUDIO_SIZE = 25 * megabyte
+        self.MAX_IMAGES_SIZE = 10 * megabyte
+        self.MAX_COVER_ART_SIZE = 2 * megabyte
+
         # add the file picker control to the page
         self.page.overlay.append(self.sound_file_picker)
         self.page.overlay.append(self.image_file_picker)
@@ -506,6 +517,7 @@ class UploadPage:
 
         # removes the selected song path from the saved paths
         self.selected_song_path = ""
+        self.selected_audio_size = 0
 
         for control in self.page_view.controls.copy():
             if isinstance(control, fta.Audio):
@@ -526,6 +538,13 @@ class UploadPage:
         file_path: str = audio_file.path
 
         self.selected_song_path = file_path
+        audio_size = audio_file.size
+
+        if audio_file > self.MAX_AUDIO_SIZE:
+            # todo: GUI error
+            raise
+
+        self.selected_audio_size = audio_size
 
         audio_file_details: ft.Container = ft.Container(
             padding=10,
@@ -556,20 +575,33 @@ class UploadPage:
         if not selected_files:
             return
 
-        file_paths: list[str] = [file.path for file in selected_files]
-        file_names: list[str] = [file.name for file in selected_files]
+        total_selected_size = sum((file.size for file in selected_files))
 
-        self._add_music_sheets_to_row(file_paths, file_names)
+        if self.selected_images_size + total_selected_size > self.MAX_IMAGES_SIZE:
+            # todo: show an error in the GUI
+            raise
+
+        # only continue actually adding the images if the new total size is in the allowed limit
+        self.selected_images_size += total_selected_size
+        # todo: display graphically the update in size (only needed for sheet selections since you can select multiple)
+
+        self._add_music_sheets_to_row(selected_files)
 
     def _remove_sheet_image(self, event: ft.ControlEvent):
         image_container = event.control
-        image_unique_id: int = image_container.data
+
+        image_unique_id: int = image_container.data["id"]
+        image_size: int = image_container.data["size"]
 
         # removes the container from the sheet row
         self.sheet_selector_row.controls.remove(image_container)
 
         # removes the path from the dictionary, along with its ID key
         del self.sheet_file_paths[image_unique_id]
+
+        # reduce the selected images sizes
+        self.selected_images_size -= image_size
+        # todo: update graphically
 
         self.sheet_selector_row.update()
 
@@ -584,6 +616,7 @@ class UploadPage:
 
         # removes everything from the paths dictionary
         self.sheet_file_paths.clear()
+        self.selected_images_size = 0
 
         if update:
             self.sheet_selector_row.update()
@@ -614,11 +647,14 @@ class UploadPage:
 
         image_container.update()
 
-    def _add_music_sheets_to_row(self, image_paths: list[str], image_names: list[str]):
+    def _add_music_sheets_to_row(self, selected_files: list[ft.core.file_picker.FilePickerFile]):
         image_containers: list[ft.Container] = []
 
-        for path, name in zip(image_paths, image_names):
+        for file in selected_files:
             current_id = self.sheet_image_container_id
+            path = file.path
+            name = file.name
+            size = file.size
 
             image_container = ft.Container(
                 width=150,
@@ -629,7 +665,10 @@ class UploadPage:
                     data=name
                 ),
                 border_radius=3,
-                data=current_id,
+                data={
+                    "id": current_id,
+                    "size": size
+                },
                 on_click=self._remove_sheet_image,
                 on_hover=self._hover_sheet_image,
             )
@@ -662,6 +701,7 @@ class UploadPage:
         """:param update: whether to automatically update the GUI to display the cleared state"""
 
         self.selected_cover_art_path = ""
+        self.selected_cover_art_size = 0
 
         self.song_selector_row.controls[0] = self.upload_cover_art_default_content
 
@@ -678,6 +718,13 @@ class UploadPage:
         file_path: str = cover_art_file.path
 
         self.selected_cover_art_path = file_path
+        cover_art_size = cover_art_file.size
+
+        if cover_art_size > self.MAX_COVER_ART_SIZE:
+            # todo: show GUI error
+            raise
+
+        self.selected_cover_art_size = cover_art_size
 
         self.song_selector_row.controls[0] = ft.Container(
             content=ft.Image(
