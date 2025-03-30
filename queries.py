@@ -393,11 +393,13 @@ class MusicSearch:
         :return: List of song IDs ordered by relevance.
         """
         # Prepare the search terms
-        search_query_fts5 = f"{search_query}*"  # For prefix matching in FTS5
-        search_query_like = f"{search_query}%"  # For prefix matching in spellfix1
+        search_query_fts5 = f'"{search_query}*"'  # For prefix matching in FTS5
+        search_query_like = f'"{search_query}%"'  # For prefix matching in spellfix1
 
         exclude_placeholders = ", ".join(["?"] * len(exclude)) if exclude else "NULL"  # Prevent empty placeholders
         exclude_clause = f"AND song_info.song_id NOT IN ({exclude_placeholders})" if exclude else ""
+
+        fts5_params = (search_query_fts5, *exclude, limit) if exclude else (search_query_fts5, limit)
 
         # Execute the FTS5 query with ordering
         fts5_results = await connection.fetchall(
@@ -408,17 +410,18 @@ class MusicSearch:
 
             JOIN song_info ON song_info_fts.rowid = song_info.song_id -- Connects the FTS5 row IDs to actual song IDs
             -- 'song_info_fts' is the full-text search table created using FTS5. Its row IDs map to the corresponding song entries in 'song_info'.
-
-            WHERE song_info_fts.song_name MATCH ? -- Matches song names using FTS5's full-text search (e.g., "duc*" matches "duck")
-            -- 'MATCH' performs a loose search, allowing partial matches and word forms (prefix matching is enabled via '*').
             
-            {exclude_clause} 
+            -- Matches song names using FTS5's full-text search (e.g., "duc*" matches "duck")
+            WHERE song_info_fts.song_name MATCH ? {exclude_clause}              
 
             ORDER BY relevance ASC
 
             LIMIT ?;
-            """, (search_query_fts5, *exclude, limit)
+            """, fts5_params
         )
+
+        spellfix_params = (search_query, search_query_like, search_query, fuzzy_precession, *exclude, limit)\
+            if exclude else (search_query, search_query_like, search_query, fuzzy_precession, limit)
 
         # Execute the spellfix query with ordering
         spellfix_results = await connection.fetchall(
@@ -436,7 +439,7 @@ class MusicSearch:
             
             ORDER BY relevance ASC
             LIMIT ?;
-            """, (search_query, search_query_like, search_query, fuzzy_precession, *exclude, limit)
+            """, spellfix_params
         )
 
         # Combine results, sorting by relevance
