@@ -334,6 +334,13 @@ class UploadPage:
             ft.Text(spans=[
                 ft.TextSpan("0:00"), ft.TextSpan("/"), ft.TextSpan("0:00")
             ], weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
+            ft.Container(
+                content=ft.Icon(
+                    ft.Icons.FAST_REWIND_ROUNDED, ft.Colors.GREY_600, size=25
+                ),
+                on_click=self._move_ten_seconds,
+                data="backward"
+            ),
             ft.ProgressBar(
                 value=0.01,
                 height=5,
@@ -343,7 +350,13 @@ class UploadPage:
                 bgcolor=ft.Colors.GREY_400,
                 border_radius=10,
             ),
-            ft.Icon(ft.Icons.VOLUME_UP_ROUNDED, ft.Colors.GREY_600, size=25),
+            ft.Container(
+                content=ft.Icon(
+                    ft.Icons.FAST_FORWARD_ROUNDED, ft.Colors.GREY_600, size=25
+                ),
+                on_click=self._move_ten_seconds,
+                data="forward"
+            )
         ]
 
         if update:
@@ -431,7 +444,7 @@ class UploadPage:
 
         song_player_info_row.update()
 
-    def move_ten_seconds(self, event: ft.ControlEvent):
+    def _move_ten_seconds(self, event: ft.ControlEvent):
         move_button: ft.Container = event.control
 
         is_action_skip = move_button.data == "forward"
@@ -442,6 +455,9 @@ class UploadPage:
         audio_player: fta.Audio = self.audio_player
 
         current_position = audio_player.get_current_position()
+
+        if not current_position:
+            return 
 
         if is_action_skip:
             new_position = current_position + 10000
@@ -715,7 +731,7 @@ class UploadPage:
                                 content=ft.Icon(
                                     ft.Icons.FAST_REWIND_ROUNDED, ft.Colors.GREY_600, size=25
                                 ),
-                                on_click=self.move_ten_seconds,
+                                on_click=self._move_ten_seconds,
                                 data="backward"
                             ),
                             ft.ProgressBar(
@@ -731,7 +747,7 @@ class UploadPage:
                                 content=ft.Icon(
                                     ft.Icons.FAST_FORWARD_ROUNDED, ft.Colors.GREY_600, size=25
                                 ),
-                                on_click=self.move_ten_seconds,
+                                on_click=self._move_ten_seconds,
                                 data="forward"
                             )
                         ]
