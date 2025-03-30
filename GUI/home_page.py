@@ -37,6 +37,10 @@ class HomePage:
 
         self.loading_song_items: dict[str, ft.Container] = {}
 
+        # this list is the "exclude" list
+        # this list is limited to 100 items, and is First In First Out (see self._add_excluded_song_id)
+        self.loaded_song_ids: list[int] = []
+
         self.preview_image_value_dict: dict[str, ...] = {
             "expand": True,
             "expand_loose": True,
@@ -137,6 +141,12 @@ class HomePage:
 
         self.song_item_gridview.update()
 
+    def _add_excluded_song_id(self, song_id: int):
+        if len(self.loaded_song_ids) >= 100:
+            self.loaded_song_ids.pop(0)
+
+        self.loaded_song_ids.append(song_id)
+
     def add_song_info(
             self,
             song_id: int,
@@ -149,6 +159,10 @@ class HomePage:
     ):
         loading_song_item: ft.Container = self._create_loading_item(song_id=song_id, file_id=file_id)
         self._add_song_item(loading_song_item)
+
+        # add the song ID to the loaded songs list, so that the client can request to exclude it when searching/loading
+        # more songs
+        self._add_excluded_song_id(song_id)
 
         loading_song_content_stack: ft.Stack = loading_song_item.content
 
@@ -289,7 +303,11 @@ class HomePage:
                 method="GET",
                 endpoint="song/download/preview",
                 payload={
-                    "query": query
+                    "query": query,
+                    "exclude": self.loaded_song_ids,
+                    "limit": 10,
+                    # filters is a required parameter, but it can be an empty dict to indicate none
+                    "filters": {}
                 }
             ).encode()
         )
@@ -314,6 +332,7 @@ class HomePage:
             tab.bgcolor = ft.Colors.BLUE
 
         self.song_item_gridview.controls.clear()
+        self.loaded_song_ids.clear()
 
         if update:
             self.page.update()
@@ -348,12 +367,21 @@ class HomePage:
             on_scroll=self._automatically_load_more,
         )
 
+    def _search(self, event):
+        print(event)
+
+        self._clear_screen(update=True)
+
+        # send the server the search request
+        self._load_song_previews()
+
     def _initialize_search_bar(self):
         self.song_search: ft.TextField = ft.TextField(
             border_width=0,
             border_radius=90,
             color=ft.Colors.WHITE,
             cursor_color=ft.Colors.WHITE70,
+            on_submit=self._search,
             expand=True
         )
 
