@@ -62,3 +62,10 @@ class InvalidFile(BaseError):
     """Error that is thrown when a file fails an FFprobe for any reason"""
     def __init__(self, argument: str, extra: dict = None):
         super().__init__(argument, code=400, extra=extra)
+
+
+class InvalidValue(BaseError):
+    """A general error that is thrown when a client sends over a value that is not valid (e.g., a value that is "too big/small" (such
+    as an integer that is over/under the value that the server expects)"""
+    def __init__(self, argument: str, extra: dict = None):
+        super().__init__(argument, code=400, extra=extra)
