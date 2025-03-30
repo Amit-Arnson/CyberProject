@@ -43,7 +43,8 @@ from Errors.raised_errors import (
     InvalidPayload,
     TooShort,
     InvalidDataType,
-    InvalidFile
+    InvalidFile,
+    InvalidValue
 )
 
 
@@ -1157,7 +1158,11 @@ async def send_song_previews(
         )
 
     if len(search_query) > 100:
-        raise TooLong("search query is too long, max length allowed is 100 characters", extra={"type": "search"})
+        raise TooLong("search query is too long, max length allowed is 100 characters")
+    if limit > 50 or limit <= 0:
+        raise InvalidValue("the limit must be a number between 1 and 50")
+    if len(exclude) > 100:
+        raise TooLong("the exclude list can only have up to 100 exclusions per request")
 
     # todo: add the isinstance check for all of the other functions in this file
     if not isinstance(search_query, str):
