@@ -264,10 +264,15 @@ class UploadPage:
         album_name = self.song_album_textbox.value
         song_name = self.song_name_textbox.value
 
-        # todo: validate that there is the bare minimum needed before trying to upload
-        # bare minimum is: audio, at least 1 tag, artist name, song name, album name
+        # todo: create the GUI error for these
         if not audio_path:
-            return
+            raise "No song selected"
+        # we don't check for "less than 100" on the names, or "less than 5" on the tags because the GUI already blocks
+        # anything over 100, so it would be pointless to check it.
+        # (if a malicious user uses a modified client, checking it here in addition to the GUI won't add any level of
+        # security, because the sever also checks it when it reaches the server)
+        if not artist_name or not album_name or not song_name or not tags:
+            raise "You must add a song name, album name, artist name and at least 1 tag"
 
         self._add_blocking_overlay()
 
@@ -404,7 +409,7 @@ class UploadPage:
     def _play_audio(self, event: ft.ControlEvent):
         play_button: ft.Container = event.control
 
-        if not hasattr(self, "audio_player"):
+        if not hasattr(self, "audio_player") or not self.audio_player:
             return
 
         if not self.audio_player.data["playing"]:
@@ -451,7 +456,9 @@ class UploadPage:
 
         progress_bar: ft.Slider = song_player_info_row.controls[3]
 
-        progress_bar.value = percentage_done
+        # sometimes the progress percent can be a bit over the max value (by 0.000X), so we take the min value between
+        # the current progress and the max, so that it never passes the max value
+        progress_bar.value = min(progress_bar.max, percentage_done)
 
         song_player_info_row.update()
 
@@ -460,7 +467,7 @@ class UploadPage:
 
         is_action_skip = move_button.data == "forward"
 
-        if not hasattr(self, "audio_player"):
+        if not hasattr(self, "audio_player") or not self.audio_player:
             return
 
         audio_player: fta.Audio = self.audio_player
@@ -479,10 +486,7 @@ class UploadPage:
 
     def _move_song_to_slider(self, event):
 
-        if not hasattr(self, "audio_player"):
-            return
-
-        if not self.audio_player:
+        if not hasattr(self, "audio_player") or not self.audio_player:
             return
 
         song_max_length = self.audio_player.get_duration()
@@ -498,9 +502,6 @@ class UploadPage:
 
         progress_bar: ft.Slider = song_player_info_row.controls[3]
         progress_bar.value = new_visual_slider_percentage
-
-        print(slider_percentage)
-        print(new_visual_slider_percentage)
 
         self.audio_player.seek(new_song_position)
 
