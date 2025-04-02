@@ -352,14 +352,14 @@ class UploadPage:
                 on_click=self._move_ten_seconds,
                 data="backward"
             ),
-            ft.ProgressBar(
+            ft.Slider(
                 value=0.01,
                 height=5,
                 expand_loose=True,
                 expand=True,
-                color=ft.Colors.GREY_600,
-                bgcolor=ft.Colors.GREY_400,
-                border_radius=10,
+                on_change_end=self._move_song_to_slider,
+                active_color=ft.Colors.GREY_600,
+                inactive_color=ft.Colors.GREY_400,
             ),
             ft.Container(
                 content=ft.Icon(
@@ -449,7 +449,7 @@ class UploadPage:
 
         song_player_info_row.controls[1] = new_duration_text
 
-        progress_bar: ft.ProgressBar = song_player_info_row.controls[3]
+        progress_bar: ft.Slider = song_player_info_row.controls[3]
 
         progress_bar.value = percentage_done
 
@@ -476,6 +476,35 @@ class UploadPage:
             new_position = current_position - 10000
 
         audio_player.seek(new_position)
+
+    def _move_song_to_slider(self, event):
+
+        if not hasattr(self, "audio_player"):
+            return
+
+        if not self.audio_player:
+            return
+
+        song_max_length = self.audio_player.get_duration()
+        slider_percentage = float(event.data)
+        new_song_position = int(song_max_length * slider_percentage)
+
+        # we calculate the new percentage in order to remove any rounding error done when the new song position is turned
+        # into an integer
+        new_visual_slider_percentage = new_song_position / song_max_length
+
+        song_player_info: ft.Container = self.song_selector_info_column.controls[1]
+        song_player_info_row: ft.Row = song_player_info.content
+
+        progress_bar: ft.Slider = song_player_info_row.controls[3]
+        progress_bar.value = new_visual_slider_percentage
+
+        print(slider_percentage)
+        print(new_visual_slider_percentage)
+
+        self.audio_player.seek(new_song_position)
+
+        progress_bar.update()
 
     def _set_restart_button(self, event: fta.AudioStateChangeEvent):
         is_finished: bool = event.state == fta.AudioState.COMPLETED
@@ -789,14 +818,14 @@ class UploadPage:
                                 on_click=self._move_ten_seconds,
                                 data="backward"
                             ),
-                            ft.ProgressBar(
+                            ft.Slider(
                                 value=0.01,
                                 height=5,
                                 expand_loose=True,
                                 expand=True,
-                                color=ft.Colors.GREY_600,
-                                bgcolor=ft.Colors.GREY_400,
-                                border_radius=10,
+                                on_change_end=self._move_song_to_slider,
+                                active_color=ft.Colors.GREY_600,
+                                inactive_color=ft.Colors.GREY_400,
                             ),
                             ft.Container(
                                 content=ft.Icon(
