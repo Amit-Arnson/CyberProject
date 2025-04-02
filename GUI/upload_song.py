@@ -228,10 +228,10 @@ class UploadPage:
         self.selected_cover_art_size = 0
 
         # mega byte = kilobyte * 1000
-        megabyte = 1024 * 1000
-        self.MAX_AUDIO_SIZE = 25 * megabyte
-        self.MAX_IMAGES_SIZE = 10 * megabyte
-        self.MAX_COVER_ART_SIZE = 2 * megabyte
+        self.MEGABYTE = 1024 * 1024
+        self.MAX_AUDIO_SIZE = 25 * self.MEGABYTE
+        self.MAX_IMAGES_SIZE = 10 * self.MEGABYTE
+        self.MAX_COVER_ART_SIZE = 2 * self.MEGABYTE
 
         # add the file picker control to the page
         self.page.overlay.append(self.sound_file_picker)
@@ -468,7 +468,7 @@ class UploadPage:
         current_position = audio_player.get_current_position()
 
         if not current_position:
-            return 
+            return
 
         if is_action_skip:
             new_position = current_position + 10000
@@ -540,9 +540,10 @@ class UploadPage:
         self.selected_song_path = file_path
         audio_size = audio_file.size
 
-        if audio_file > self.MAX_AUDIO_SIZE:
-            # todo: GUI error
-            raise
+        if audio_size > self.MAX_AUDIO_SIZE:
+            self._show_file_too_big_error(self.MAX_AUDIO_SIZE)
+
+            return
 
         self.selected_audio_size = audio_size
 
@@ -578,12 +579,14 @@ class UploadPage:
         total_selected_size = sum((file.size for file in selected_files))
 
         if self.selected_images_size + total_selected_size > self.MAX_IMAGES_SIZE:
-            # todo: show an error in the GUI
-            raise
+            # todo: show an error in the GUI (in the used/max GUI, not popup)
+            self._show_file_too_big_error(self.MAX_IMAGES_SIZE)
+
+            return
 
         # only continue actually adding the images if the new total size is in the allowed limit
         self.selected_images_size += total_selected_size
-        # todo: display graphically the update in size (only needed for sheet selections since you can select multiple)
+        self._update_sheet_selector_max_size_text()
 
         self._add_music_sheets_to_row(selected_files)
 
@@ -601,7 +604,7 @@ class UploadPage:
 
         # reduce the selected images sizes
         self.selected_images_size -= image_size
-        # todo: update graphically
+        self._update_sheet_selector_max_size_text()
 
         self.sheet_selector_row.update()
 
@@ -617,6 +620,8 @@ class UploadPage:
         # removes everything from the paths dictionary
         self.sheet_file_paths.clear()
         self.selected_images_size = 0
+
+        self._update_sheet_selector_max_size_text()
 
         if update:
             self.sheet_selector_row.update()
@@ -721,8 +726,9 @@ class UploadPage:
         cover_art_size = cover_art_file.size
 
         if cover_art_size > self.MAX_COVER_ART_SIZE:
-            # todo: show GUI error
-            raise
+            self._show_file_too_big_error(self.MAX_COVER_ART_SIZE)
+
+            return
 
         self.selected_cover_art_size = cover_art_size
 
@@ -746,6 +752,8 @@ class UploadPage:
         self._remove_cover_art_selection(update=False)
         self._remove_selected_song(update=False)
         self._clear_text_boxes(update=False)
+
+        self._update_sheet_selector_max_size_text(update=False)
 
         self.page_view.update()
 
@@ -855,11 +863,23 @@ class UploadPage:
             expand=True,
         )
 
+        self.sheet_selector_max_size_text: ft.Text = ft.Text(
+            f"0.0/{self.MAX_IMAGES_SIZE / self.MEGABYTE}MB",
+            weight=ft.FontWeight.W_500
+        )
         self.song_info_row: ft.Row = ft.Row(
             [
                 self.song_name_textbox, self.song_album_textbox, self.song_artist_textbox
             ],
         )
+
+    # only the sheet selector will visually keep track of the selected sizes, because the other 2 selectors only allow for
+    # 1 selection at a time, meaning you dont need to keep track of them (either it is within the allowed limits, or it isn't)
+    def _update_sheet_selector_max_size_text(self, update: bool = True):
+        self.sheet_selector_max_size_text.value = f"{self.selected_images_size / self.MEGABYTE:.2f}/{self.MAX_IMAGES_SIZE / self.MEGABYTE:.2f}MB"
+
+        if update:
+            self.sheet_selector_max_size_text.update()
 
     def _initialize_genre_tag_textbox(self):
         self.selected_genres_textbox = TagInput(
@@ -953,14 +973,14 @@ class UploadPage:
                         ft.Column(
                             [
                                 ft.Text("Add Music Sheets", weight=ft.FontWeight.BOLD),
+                                self.sheet_selector_max_size_text,
                                 self.sheet_selector_row,
                             ]
                         ),
 
                         ft.Divider(),
 
-                        # todo: clean up the code, and make it one button for an "everything upload"
-                        # currently it is only for testing
+                        # todo: clean up the code
                         ft.Row([
                             ft.Container(
                                 height=55,
@@ -1014,6 +1034,32 @@ class UploadPage:
             expand=True
         )
 
+    def _show_file_too_big_error(self, max_size: int):
+        max_size_string: str = f"{int(max_size / self.MEGABYTE)}MB"
+
+        error_popup = ft.AlertDialog(
+            open=True,
+            shape=ft.RoundedRectangleBorder(radius=10),
+            content=ft.Container(
+                width=350,
+                height=200,
+                padding=15,
+                content=ft.Column(
+                    [
+                        ft.Row(controls=[
+                            ft.Icon(ft.Icons.FILE_UPLOAD_OFF, color=ft.Colors.BLACK, size=30)
+                        ], alignment=ft.MainAxisAlignment.CENTER),
+                        ft.Text("This file exceeds the size limit", size=30, text_align=ft.TextAlign.CENTER),
+                        ft.Text(f"The max file size for the file type you are trying to upload is {max_size_string}", text_align=ft.TextAlign.CENTER)
+                    ],
+                    alignment=ft.MainAxisAlignment.START
+                ),
+            ),
+        )
+
+        self.append_error(error_popup)
+
+    # todo: also make this restriction server side, meaning that the server checks that the sizes are also valid
     def append_error(self, error_control: ft.Control):
         current_last_control_data = self.page_view.controls[-1].data
 
