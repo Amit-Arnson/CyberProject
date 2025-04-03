@@ -1082,13 +1082,13 @@ async def send_song_previews(
             "genres": list[str],
             "artists": list[str],
             -- in milliseconds
-            "duration": {"min": int, "max": int},
+            "duration": {"minimum": int, "maximum": int},
 
             #- not implemented yet -#
             -- in bpm
-            "tempo": {"min": int, "max": int},
+            "tempo": {"minimum": int, "maximum": int},
             -- between 1 and 5 (stars)
-            "rating": {"min": int, "max": int}
+            "rating": {"minimum": int, "maximum": int}
         }
     }
 
