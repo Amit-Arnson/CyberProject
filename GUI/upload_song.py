@@ -227,7 +227,6 @@ class UploadPage:
         self.selected_images_size = 0
         self.selected_cover_art_size = 0
 
-        # mega byte = kilobyte * 1000
         self.MEGABYTE = 1024 * 1024
         self.MAX_AUDIO_SIZE = 25 * self.MEGABYTE
         self.MAX_IMAGES_SIZE = 10 * self.MEGABYTE
@@ -355,7 +354,7 @@ class UploadPage:
                     ft.Icons.FAST_REWIND_ROUNDED, ft.Colors.GREY_600, size=25
                 ),
                 on_click=self._move_ten_seconds,
-                data="backward"
+                data="backward",
             ),
             ft.Slider(
                 value=0.01,
@@ -371,7 +370,7 @@ class UploadPage:
                     ft.Icons.FAST_FORWARD_ROUNDED, ft.Colors.GREY_600, size=25
                 ),
                 on_click=self._move_ten_seconds,
-                data="forward"
+                data="forward",
             )
         ]
 
@@ -821,7 +820,6 @@ class UploadPage:
                             ),
                             ft.Slider(
                                 value=0.01,
-                                height=5,
                                 expand_loose=True,
                                 expand=True,
                                 on_change_end=self._move_song_to_slider,
@@ -835,7 +833,7 @@ class UploadPage:
                                 on_click=self._move_ten_seconds,
                                 data="forward"
                             )
-                        ]
+                        ],
                     ),
                     border_radius=90,
                     padding=15,
@@ -945,29 +943,23 @@ class UploadPage:
         self._initialize_song_info_textbox()
         self._initialize_genre_tag_textbox()
 
-        # this is just a temporary container so that something takes that space up
         song_info_parameters = ft.Container(
             padding=ft.Padding(
-                right=25,
-                left=25,
+                right=50,
+                left=50,
                 top=5,
                 bottom=5
             ),
             expand=8,
             content=ft.Container(
-                padding=ft.Padding(
-                    right=25,
-                    left=25,
-                    top=0,
-                    bottom=0
-                ),
                 content=ft.Column(
                     [
                         ft.Container(
-                            content=ft.Text("UPLOAD SONG",
-                                            weight=ft.FontWeight.BOLD,
-                                            color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE),
-                                            size=35),
+                            content=ft.Text(
+                                "UPLOAD SONG",
+                                weight=ft.FontWeight.BOLD,
+                                color=ft.Colors.with_opacity(0.7, ft.Colors.WHITE),
+                                size=35),
                             expand=True,
                             expand_loose=True,
                             alignment=ft.Alignment(0, 0),
@@ -1023,7 +1015,6 @@ class UploadPage:
                                     size=15,
                                 ),
                                 alignment=ft.Alignment(0, 0),
-                                # bgcolor=ft.Colors.with_opacity(0.7, ft.Colors.RED_ACCENT_700)
                                 on_click=self._clear_page,
                             ),
                             ft.Container(
@@ -1080,7 +1071,8 @@ class UploadPage:
                             ft.Icon(ft.Icons.FILE_UPLOAD_OFF, color=ft.Colors.BLACK, size=30)
                         ], alignment=ft.MainAxisAlignment.CENTER),
                         ft.Text("This file exceeds the size limit", size=30, text_align=ft.TextAlign.CENTER),
-                        ft.Text(f"The max file size for the file type you are trying to upload is {max_size_string}", text_align=ft.TextAlign.CENTER)
+                        ft.Text(f"The max file size for the file type you are trying to upload is {max_size_string}",
+                                text_align=ft.TextAlign.CENTER)
                     ],
                     alignment=ft.MainAxisAlignment.START
                 ),
