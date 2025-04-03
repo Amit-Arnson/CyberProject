@@ -41,6 +41,24 @@ class HomePage:
         # this list is limited to 100 items, and is First In First Out (see self._add_excluded_song_id)
         self.loaded_song_ids: list[int] = []
 
+        self.current_filters: dict[str, ...] = {}
+        """
+        dict[
+            "genres": list[genre name],
+            "artist": list[artist name],
+            "duration": {
+                "minimum": integer duration in milliseconds,
+                "maximum": integer duration in milliseconds
+            }
+            
+            #--- not implemented yet ---#
+            -- in bpm
+            "tempo": {"minimum": int, "maximum": int},
+            -- between 1 and 5 (stars)
+            "rating": {"minimum": int, "maximum": int}
+        ]
+        """
+
         self.preview_image_value_dict: dict[str, ...] = {
             "expand": True,
             "expand_loose": True,
@@ -85,7 +103,6 @@ class HomePage:
                 ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
                 ft.Colors.with_opacity(0.3, ft.Colors.BLACK),
                 ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
-                ft.Colors.with_opacity(0, ft.Colors.BLACK),
                 ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
                 ft.Colors.with_opacity(0.3, ft.Colors.BLACK),
                 ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
@@ -295,6 +312,9 @@ class HomePage:
             del self.loading_song_items[file_id]
 
     def _load_song_previews(self, *args):
+        if not self.transport:
+            return
+
         query = self.song_search.value
 
         self.transport.write(
@@ -307,7 +327,7 @@ class HomePage:
                     "exclude": self.loaded_song_ids,
                     "limit": 10,
                     # filters is a required parameter, but it can be an empty dict to indicate none
-                    "filters": {}
+                    "filters": self.current_filters
                 }
             ).encode()
         )
@@ -639,6 +659,9 @@ class HomePage:
             expand=10,
             spacing=0,
         )
+
+        # automatically try to load the default song previews (which would be what the server recommends)
+        self._load_song_previews()
 
     def append_error(self, error_control: ft.Control):
         current_last_control_data = self.page_view.controls[-1].data
