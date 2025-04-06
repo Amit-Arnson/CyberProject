@@ -440,6 +440,13 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
 # however any file that was saved before the issue currently is not deleted, which is not the intended behaviour
 class UploadSong:
     def __init__(self):
+        # these are constant values that define how large the file/files can be.
+        # these values are also used in upload_song.py
+        self.MEGABYTE = 1024 * 1024
+        self.MAX_AUDIO_SIZE = 25 * self.MEGABYTE
+        self.MAX_IMAGES_SIZE = 10 * self.MEGABYTE
+        self.MAX_COVER_ART_SIZE = 2 * self.MEGABYTE
+
         # to prevent any data corruption/race conditions
         self._lock = asyncio.Lock()
 
@@ -476,6 +483,11 @@ class UploadSong:
                 "lock": asyncio.Lock,
             ]
         ]
+        """
+
+        self.file_save_paths: dict[str, set[str]] = {}
+        """
+        dict[request_id] -> set[full file paths]
         """
 
         self.base_file_parameters: dict[
@@ -516,8 +528,10 @@ class UploadSong:
         ]
         """
 
-        # dict[request_id, file_id] -> list[(chunk number, chunk bytes), ...]
         self.out_of_order_chunks: dict[tuple[str, str], list[tuple[int, bytes]]] = {}
+        """
+        dict[request_id, file_id] -> list[(chunk number, chunk bytes), ...]
+        """
 
     async def upload_song(
             self,
@@ -609,7 +623,7 @@ class UploadSong:
         elif len(song_name) < 1:
             raise TooShort("artist name too short, must be longer than 1 character", extra={"type": "song"})
 
-        # todo: decide whether i want to make only a set amount of tags available
+        # todo: decide whether i want to make only a set amount of tags available (as in, no custom genre tags)
 
         if request_id in self.song_information:
             raise InvalidPayload("the given request ID is already being answered")
@@ -929,6 +943,12 @@ class UploadSong:
                     "lock": asyncio.Lock(),
                 }
 
+                # this is used later in order to be able to delete the files from disc in case the request is invalidated
+                if request_id not in self.file_save_paths:
+                    self.file_save_paths[request_id] = {os.path.join(save_directory, full_file_id)}
+                else:
+                    self.file_save_paths[request_id].add(os.path.join(save_directory, full_file_id))
+
                 chunk_info = self.file_save_ids[(request_id, file_id)]
         else:
             # loads the values from the dictionary, so that they can be transferred into the FileChunk in order to be
@@ -1057,6 +1077,37 @@ class UploadSong:
                 del self.out_of_order_chunks[(request_id, file_id)]
             except KeyError:
                 pass
+
+    # todo: finish this function
+    # 1) delete the files from disc
+    # 2) delete all of the temp data, such as dicts
+    async def _delete_request_info(self, request_id: str):
+        request_info = self.song_information[request_id]
+
+        song_file_id: str = request_info["song_id"]
+        cover_art_file_id: str = request_info["cover_art_id"]
+        sheet_music_images_file_ids: list[str] = request_info["image_ids"]
+
+        request_file_ids: list[str] = [song_file_id, cover_art_file_id]
+        request_file_ids.extend(sheet_music_images_file_ids)
+
+        # remove the request from the saved requests so that any incoming chunk is also invalidated
+        async with self._lock:
+            #del self.song_information[request_id]
+            pass
+
+        for file_id in request_file_ids:
+            """
+            out_of_order_chunks
+            base_file_paths
+            base_file_parameters
+            file_save_ids
+            """
+
+            current_file = self.file_save_ids[(request_id, file_id)]
+            print(current_file["paths"])
+
+
 
 
 async def send_song_previews(
