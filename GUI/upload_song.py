@@ -251,8 +251,8 @@ class UploadPage:
         pass
 
     async def _upload_all_files(self, *args):
-        session_token: str = self.user_cache.session_token
-        print(f"session token: {session_token}")
+        session_token: str = self.user_cache.session_token if self.user_cache else None
+        # print(f"session token: {session_token}")
 
         image_paths: list[str] = list(self.sheet_file_paths.values())
         audio_path: str = self.selected_song_path
@@ -263,15 +263,14 @@ class UploadPage:
         album_name = self.song_album_textbox.value
         song_name = self.song_name_textbox.value
 
-        # todo: create the GUI error for these
-        if not audio_path:
-            raise "No song selected"
         # we don't check for "less than 100" on the names, or "less than 5" on the tags because the GUI already blocks
         # anything over 100, so it would be pointless to check it.
         # (if a malicious user uses a modified client, checking it here in addition to the GUI won't add any level of
         # security, because the sever also checks it when it reaches the server)
-        if not artist_name or not album_name or not song_name or not tags:
-            raise "You must add a song name, album name, artist name and at least 1 tag"
+        if not any((audio_path, album_name, artist_name, song_name, tags)):
+            self._show_invalid_selection_error()
+
+            return
 
         self._add_blocking_overlay()
 
@@ -1054,6 +1053,33 @@ class UploadPage:
             spacing=0,
             expand=True
         )
+
+    def _show_invalid_selection_error(self):
+        error_popup = ft.AlertDialog(
+            open=True,
+            shape=ft.RoundedRectangleBorder(radius=10),
+            content=ft.Container(
+                width=450,
+                height=215,
+                padding=5,
+                content=ft.Column(
+                    [
+                        ft.Row(controls=[
+                            ft.Icon(ft.Icons.CLOSE_ROUNDED, color=ft.Colors.RED, size=45)
+                        ], alignment=ft.MainAxisAlignment.CENTER),
+                        ft.Text("Invalid Upload Selection", size=30, text_align=ft.TextAlign.CENTER),
+                        ft.Text(f"You must upload at least:", text_align=ft.TextAlign.CENTER, size=20),
+                        ft.Text(f"1 audio file", text_align=ft.TextAlign.CENTER),
+                        ft.Text(f"1 genre", text_align=ft.TextAlign.CENTER),
+                        ft.Text(f"artist/album/song name", text_align=ft.TextAlign.CENTER),
+
+                    ],
+                    alignment=ft.MainAxisAlignment.START
+                ),
+            ),
+        )
+
+        self.append_error(error_popup)
 
     def _show_file_too_big_error(self, max_size: int):
         max_size_string: str = f"{int(max_size / self.MEGABYTE)}MB"
