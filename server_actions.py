@@ -957,6 +957,7 @@ class UploadSong:
 
         # todo: check the total size of the request (which is the total of current_size across all files), and the end size of the file (which will be the last current_size)
         # todo: check the number of files uploaded (and decide and what the max should be, probably like 20 for sheet images)
+        # i think i switched it from file amount to total file size, so we need to check that per category instead
         current_size = chunk_info["current_size"]
         file_extension: str = chunk_info["file_extension"]
         previous_chunk: int = chunk_info["previous_chunk"]
@@ -1108,8 +1109,6 @@ class UploadSong:
             print(current_file["paths"])
 
 
-
-
 async def send_song_previews(
         db_pool: asqlite.Pool,
         client_package: ClientPackage,
@@ -1196,6 +1195,7 @@ async def send_song_previews(
     payload = client_message.payload
 
     # todo: send the limit and the exclude from the client
+    # todo: check if i already send the limit and exclude (and if i do, remove this todo)
     try:
         search_query = payload["query"]
         limit: int = payload["limit"]
