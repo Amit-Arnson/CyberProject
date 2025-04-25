@@ -135,7 +135,14 @@ class ServerProtocol(asyncio.Protocol):
             # server function actions are specifically tied to endpoints that a client asks for. Functions that are not
             # directly related to an endpoint will not be inside the action list.
 
-            action = self.event_loop.create_task(server_action_function(self.db_pool, self.client_package, client_message, self.user_cache))
+            action = self.event_loop.create_task(
+                server_action_function(
+                    self.db_pool,
+                    self.client_package,
+                    client_message,
+                    self.user_cache
+                )
+            )
             action.add_done_callback(self.on_complete)
             action.end_point = requested_endpoint
         else:
