@@ -69,3 +69,20 @@ class InvalidValue(BaseError):
     as an integer that is over/under the value that the server expects)"""
     def __init__(self, argument: str, extra: dict = None):
         super().__init__(argument, code=400, extra=extra)
+
+
+class NotFound(BaseError):
+    """
+    An error that is shown when a specific combination of endpoint+method is not found
+    """
+    def __init__(self, argument: str, extra: dict = None):
+        super().__init__(argument, code=404, extra=extra)
+
+
+class Forbidden(BaseError):
+    """
+    An error that is shown when an invalid session token is passed, or a user with a session token that doesn't have
+    the correct authority tries to do something that requires a higher authority
+    """
+    def __init__(self, argument: str, extra: dict = None):
+        super().__init__(argument, code=403, extra=extra)
