@@ -10,7 +10,6 @@ from pseudo_http_protocol import ClientMessage, ServerMessage
 from Caches.client_cache import ClientPackage
 from Caches.user_cache import UserCache, UserCacheItem
 
-from AES_128 import cbc
 from DHE.dhe import DHE
 
 from FileSystem.base_file_system import System, FileChunk
@@ -105,21 +104,6 @@ async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, cl
 
     # adding the key to the EncryptedTransport
     client.key = aes_key
-
-    # this is just for testing. will remove later
-
-    # print(f"ckiv: {client.key, client.iv}")
-    # client.write(ServerMessage(
-    #         status={
-    #             "code": 000,
-    #             "message": "encryption key exchange"
-    #         },
-    #         method="initiate",
-    #         endpoint="key_exchange",
-    #         payload={
-    #             "testing": True
-    #         }
-    #     ).encode())
 
 
 async def user_signup_and_login(db_pool: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage,
@@ -221,6 +205,9 @@ async def user_signup_and_login(db_pool: asqlite.Pool, client_package: ClientPac
     # adding the user ID and session token to the client cache
     client_user_cache.user_id = user_id
     client_user_cache.session_token = user_session_token
+
+    # we need to add the UserCacheItem again so that it will also cache the session token (see .add() docs)
+    await user_cache.add(client_user_cache)
 
     # sends the client the session token and the user ID
     client.write(
@@ -417,6 +404,9 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
     # adding the user ID and session token to the client cache
     client_user_cache.user_id = user_id
     client_user_cache.session_token = user_session_token
+
+    # we need to add the UserCacheItem again so that it will also cache the session token (see .add() docs)
+    await user_cache.add(client_user_cache)
 
     # sends the client the session token and the user ID
     client.write(
@@ -992,7 +982,7 @@ class UploadSong:
             chunk_size = len(chunk)
             current_size += chunk_size
 
-            #async with self._lock:
+            # async with self._lock:
             # change the previous chunk to be the current chunk so that we can check it for the next chunk
             chunk_info["previous_chunk"] = previous_chunk + 1
 
