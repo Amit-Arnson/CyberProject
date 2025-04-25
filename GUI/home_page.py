@@ -4,6 +4,7 @@ from encryptions import EncryptedTransport
 from Caches.user_cache import ClientSideUserCache
 
 from GUI.Controls.navigation_sidebar import NavigationSidebar
+from GUI.song_view import SongView
 
 from pseudo_http_protocol import ClientMessage
 
@@ -69,7 +70,16 @@ class HomePage:
 
         self._initialize_controls()
 
-    def _create_loading_item(self, song_id: int, file_id: str) -> ft.Container:
+    def _create_loading_item(
+            self,
+            song_id: int,
+            file_id: str,
+            artist_name: str,
+            album_name: str,
+            song_name: str,
+            song_length: int,  # milliseconds
+            genres: list[str]
+    ) -> ft.Container:
         song_cover_art_loading = ft.Container(
             **self.preview_image_value_dict,
             bgcolor=ft.Colors.GREY,
@@ -146,12 +156,45 @@ class HomePage:
                 }
             ),
             data={
+                "cover_art": song_cover_art_loading,
                 "song_id": song_id,
                 "file_id": file_id,
-            }
+                "artist_name": artist_name,
+                "album_name": album_name,
+                "song_name": song_name,
+                "song_length": song_length,
+                "genres": genres
+            },
+            on_click=self._open_song_view
         )
 
         return song_item_load
+
+    def _open_song_view(self, event: ft.ControlEvent):
+        song_item = event.control
+
+        song_data: dict[str, str | int | list[str]] = song_item.data
+
+        loading_song_content_stack: ft.Stack = song_item.content
+
+        image_container: ft.Container = loading_song_content_stack.controls[0]
+        image: ft.Image = image_container.content
+
+        song_view = SongView(
+            user_cache=self.user_cache,
+            cover_art_b64=image.src_base64,
+            song_id=song_data["song_id"],
+            artist_name=song_data["artist_name"],
+            album_name=song_data["album_name"],
+            song_name=song_data["song_name"],
+            song_length=song_data["song_length"],
+            genres=song_data["genres"],
+            open=True
+        )
+
+        self.page_view.controls.append(song_view)
+
+        self.page_view.update()
 
     def _add_song_item(self, item: ft.Container):
         self.song_item_gridview.controls.append(item)
@@ -174,7 +217,15 @@ class HomePage:
             song_length: int,
             genres: list[str],
     ):
-        loading_song_item: ft.Container = self._create_loading_item(song_id=song_id, file_id=file_id)
+        loading_song_item: ft.Container = self._create_loading_item(
+            song_id=song_id,
+            file_id=file_id,
+            artist_name=artist_name,
+            album_name=album_name,
+            song_name=song_name,
+            song_length=song_length,
+            genres=genres
+        )
         self._add_song_item(loading_song_item)
 
         # add the song ID to the loaded songs list, so that the client can request to exclude it when searching/loading
