@@ -66,6 +66,23 @@ class UserCache:
             # address is a requirement for UserCacheItem meaning we don't need to check for it
             self._cache_via_address[user_address] = cache_item
 
+    def is_valid_session(self, token: str):
+        """
+        returns True when:
+        1) the token is None
+        2) the token is a valid session token
+
+        returns False when:
+        1) 1* and 2* are not fulfilled
+        """
+        if token is None:
+            return True
+
+        if token in self._cache_dict:
+            return True
+
+        return False
+
     def __getitem__(self, item: str | Address) -> UserCacheItem | None:
         """
         :param item: a user's session token or address

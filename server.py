@@ -9,6 +9,10 @@ from Caches.client_cache import Address, ClientPackage
 from pseudo_http_protocol import ClientMessage, ServerMessage, MalformedMessage
 from Endpoints.server_endpoints import EndPoints, EndPoint
 
+from Errors.raised_errors import (
+    NotFound, Forbidden
+)
+
 import asyncio
 from asyncio import transports, Task
 
@@ -119,7 +123,12 @@ class ServerProtocol(asyncio.Protocol):
         given_method = client_message.method
         client_session_token = client_message.authentication
 
-        # todo: validate authentication (session token)
+        if not self.user_cache.is_valid_session(client_session_token):
+            self._send_error(
+                Forbidden("Invalid session token passed"),
+                endpoint=requested_endpoint
+            )
+
         if EndPoint(endpoint=requested_endpoint, method=given_method, authentication=client_session_token) in self.endpoints:
             server_action_function = self.endpoints[requested_endpoint]
 
@@ -130,10 +139,39 @@ class ServerProtocol(asyncio.Protocol):
             action.add_done_callback(self.on_complete)
             action.end_point = requested_endpoint
         else:
-            pass
-            # todo: add error function to return an error to the client
+            self._send_error(
+                NotFound(f"Requested endpoint ({given_method.upper()} {requested_endpoint}) not found"),
+                endpoint=requested_endpoint
+            )
 
-    # todo: find a way to tell the client the error in a way that can be graphically visualized
+    def _send_error(self, error: BaseException, endpoint: str):
+        # if the error is not a custom error, then it is assumed that it is an internal server error.
+        error_code = 500
+        if hasattr(error, "code"):
+            error_code = error.code
+
+        error_message = "an internal server error occurred"
+        if hasattr(error, "message"):
+            error_message = error.message
+
+        extra: dict = {}
+        if hasattr(error, "extra"):
+            extra = error.extra
+
+        transport = self.client_package.client
+
+        transport.write(
+            ServerMessage(
+                status={
+                    "code": error_code,
+                    "message": error_message,
+                },
+                method="respond",
+                endpoint=f"{endpoint}/error",
+                payload=extra
+            ).encode(),
+        )
+
     def on_complete(self, action: Task):
         """
             this is the callback function for the created tasks. once a task is finished (either normally or by error),
@@ -145,36 +183,7 @@ class ServerProtocol(asyncio.Protocol):
             # raise action.exception()
             error = action.exception()
 
-            logging.error(action.exception())
-            print(f"Task failed with exception: {action.exception()}")
-
-            # if the error is not a custom error, then it is assumed that it is an internal server error.
-            error_code = 500
-            if hasattr(error, "code"):
-                error_code = error.code
-
-            error_message = "an internal server error occurred"
-            if hasattr(error, "message"):
-                error_message = error.message
-
-            extra: dict = {}
-            if hasattr(error, "extra"):
-                extra = error.extra
-
-            transport = self.client_package.client
-
-            transport.write(
-                ServerMessage(
-                    status={
-                        "code": error_code,
-                        "message": error_message,
-                    },
-                    method="respond",
-                    # todo: figure out what the endpoint here will be
-                    endpoint=f"{action.end_point}/error",
-                    payload=extra
-                ).encode(),
-            )
+            self._send_error(error, endpoint=action.end_point)
         else:
             print(f"Task completed successfully with result: {action.result()}")
 
@@ -195,19 +204,6 @@ async def main() -> None:
 
     # create the directory (check doc-string for more info)
     file_system.initialize()
-
-    # todo: create file compression.
-    
-    # # test code:
-    # with open("C:\\Users\\amita\OneDrive\Pictures\DuckOpng.png", "rb") as fff:
-    #     bb: bytes = fff.read()
-    #
-    # # temp = BaseFile(file_path="C:\\Users\\amita\OneDrive\Pictures\DuckOpng.png")
-    # temp = await BaseFile.from_bytes(bb)
-    # await temp.load()
-    #
-    # await file_system.save(temp, uploaded_by_id="testest")
-
     event_loop = asyncio.get_event_loop()
 
     # event_loop.create_server() expects a Callable to create a new instance of the protocol class. I want to pass a database
