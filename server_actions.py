@@ -1044,7 +1044,6 @@ class UploadSong:
                 # to upload the whole request again instead of having missing information in the upload
 
             print("last chunk was sent. deleting info now")
-            # todo: add saving the file to the audio/image table
             await self._delete_chunk_info(request_id, file_id)
 
             self.base_file_parameters[(request_id, file_id)] = chunk_file_information
@@ -1184,8 +1183,7 @@ async def send_song_previews(
 
     payload = client_message.payload
 
-    # todo: send the limit and the exclude from the client
-    # todo: check if i already send the limit and exclude (and if i do, remove this todo)
+    # todo: implement filters on the client, then make them work on the server
     try:
         search_query = payload["query"]
         limit: int = payload["limit"]

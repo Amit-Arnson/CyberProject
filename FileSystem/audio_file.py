@@ -1,6 +1,7 @@
 from FileSystem.base_file_system import BaseFile
 
 
+# todo: check if i still need this class, as i do things based on chunks now instead of fully loaded files
 class AudioFile(BaseFile):
     """a child class of BaseFile designed to limit files to certain extensions and size"""
     def __init__(self, file_path: str):

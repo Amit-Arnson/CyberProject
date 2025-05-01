@@ -58,7 +58,6 @@ async def send_chunk(
     request_id: str = fast_create_unique_id(artist_name, album_name, song_name, *tags[:4])
 
     if not song_path:
-        # todo: change into GUI later
         raise Exception("song is a required selection")
 
     song_id: str = fast_create_unique_id("song", request_id)
@@ -108,7 +107,6 @@ async def send_chunk(
 
     # both cover art and sheet images ARE allowed to be empty.
 
-    # todo: handle "cover" type images in the server
     # send the cover art image
     await send_file_chunks(
         transport=transport,
@@ -143,7 +141,6 @@ async def send_chunk(
     )
 
 
-# todo: check if this function actually needs to be async
 async def send_file_chunks(
         transport: EncryptedTransport,
         session_token: str,

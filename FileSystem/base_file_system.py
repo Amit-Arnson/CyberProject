@@ -180,7 +180,6 @@ class System:
             final_file_path = os.path.join(chunk.save_directory, final_file_id)
 
             # we check that the file's integrity is valid and that there is no corrupt data
-            # todo: make this check for both audio (which it already does) and images (which it might but im not sure)
             file_is_valid: bool = await is_valid_file(final_file_path)
 
             if not file_is_valid:
@@ -366,6 +365,7 @@ class FileChunk:
                 async with self._lock:
                     await self._write(path)
             else:
+                # todo: check if this if-statement is still necessary, since i fix the out-of-order chunks beforehand
                 # todo: make it be able to "insert" correctly
                 raise Exception(f"out of order chunks: {self.file_id}")
         except Exception as e:

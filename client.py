@@ -11,8 +11,6 @@ from Endpoints.client_error_endpoints import ErrorEndPoints
 
 from encryptions import EncryptedTransport
 
-# todo: do NOT use global variables with flet. i want to make the GUI classes in different files.
-# what is allowed? sharing "global" info with ft.Page
 import flet as ft
 
 from GUI.login import LoginPage
@@ -46,7 +44,6 @@ class ClientProtocol(asyncio.Protocol):
 
         self.page = page
         self.page.transport = self.transport
-        # todo: figure out a good way to communicate between action functions and page.
 
     def connection_made(self, transport: transports.Transport) -> None:
         self.transport = EncryptedTransport(transport=transport)

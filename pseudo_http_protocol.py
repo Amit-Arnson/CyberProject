@@ -174,7 +174,6 @@ class ClientMessage:
         return self._dictionary()[item]
 
 
-# todo: change complicated encoded/normal syntax into Class.from_bytes(...) like i did with ClientMessage
 @dataclass
 class ServerMessage:
     """
@@ -205,7 +204,6 @@ class ServerMessage:
         self._encoded = self.__str__().encode()
         return self._encoded
 
-    # todo: check if .decode() is needed, because .from_bytes(...) exists
     def decode(self) -> dict[str, Any]:
         """
         returns the loaded json gotten from self.encoded.

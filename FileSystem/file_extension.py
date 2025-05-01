@@ -28,6 +28,10 @@ magic_numbers: dict[bytes, tuple[str, str]] = {
 
 # todo: magic numbers can be faked. add further validation for file checking.
 
+# -----------------------------------------------------------------------------------
+# todo: check if this file is still needed, as extensions are checked per-chunk basis
+# -----------------------------------------------------------------------------------
+
 
 class Extension:
     def __init__(self, file: bytes):
