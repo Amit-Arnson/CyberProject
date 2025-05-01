@@ -341,7 +341,6 @@ class SignupPage:
             spacing=0,
         )
 
-    # todo: fix the issue where it ruins the page view when it opens the banner
     def _raise_error_banner(self, error: ft.Control):
         """
             accepts the control which will be displayed to the user.
@@ -362,7 +361,8 @@ class SignupPage:
             open=True
         )
 
-        self.page.add(banner)
+        self.page_view.controls.append(banner)
+        self.page_view.update()
 
     def _switch_to_login(self, e):
         # importing LoginPage inside the function so that circular import error doesn't happen.
@@ -408,7 +408,7 @@ class SignupPage:
 
         print("here")
 
-        # todo: implement a minimum length check (server-side and client side)
+        # todo: implement a minimum length check (client side)
         username = self.username_textbox.value
         display_name = self.display_name_textbox.value
 
