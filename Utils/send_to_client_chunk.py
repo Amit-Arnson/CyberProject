@@ -69,7 +69,8 @@ async def send_song_preview_chunks(
                 transport=transport,
                 file_id=file_id,
                 song_id=song_id,
-                path=song_path
+                path=song_path,
+                endpoint="song/download/preview/file"
             )
     except Exception as e:
         traceback.print_exc()
@@ -96,17 +97,46 @@ async def resend_file_chunks(
             transport=transport,
             file_id=original_file_id,
             song_id=song_id,
-            path=cover_art_path
+            path=cover_art_path,
+            endpoint="song/download/preview/file"
         )
     except Exception as e:
         traceback.print_exc()
         raise e
+
+
+async def send_song_audio_chunks(
+    transport: EncryptedTransport,
+    db_pool: asqlite.Pool,
+    song_id: int,
+):
+    file_id = fast_create_unique_id(song_id)
+
+    async with db_pool.acquire() as connection:
+        audio_path = await MediaFiles.fetch_audio_path(
+            connection=connection,
+            song_id=song_id,
+        )
+
+    try:
+        await send_file_chunks(
+            transport=transport,
+            file_id=file_id,
+            song_id=song_id,
+            path=audio_path,
+            endpoint="song/download/audio"
+        )
+    except Exception as e:
+        traceback.print_exc()
+        raise e
+
 
 async def send_file_chunks(
         transport: EncryptedTransport,
         path: str,
         file_id: str,
         song_id: int,
+        endpoint: str,
         chunk_size: int = 30,
 ):
     """
@@ -119,8 +149,7 @@ async def send_file_chunks(
     :param song_id: the song's database ID
     :param chunk_size: the size (in kilobytes) which you want to each chunk to be, must be divisible by 3 for padding-less
     base64 compatibility, default 30.
-
-    sends to (endpoint): songs/download/preview/file (POST)
+    :param endpoint: the client-side endpoint which to send the file chunks (POST)
     """
     if not path:
         logging.error(f"missing \"path\" in send_to_client_chunk.send_file_chunks() for song ID {song_id}")
@@ -165,7 +194,7 @@ async def send_file_chunks(
                         "message": "success"
                     },
                     method="POST",
-                    endpoint="song/download/preview/file",
+                    endpoint=endpoint,
                     payload=payload
                 ).encode()
             )
