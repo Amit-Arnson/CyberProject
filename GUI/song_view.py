@@ -7,14 +7,16 @@ from Caches.user_cache import ClientSideUserCache
 from Utils.format import format_length_from_milliseconds
 
 
+# todo: stream the song chunks and buffer the audio player with the chunks. implement in the same way as the song previews
 class SongPlayer(ft.Container):
     def __init__(
             self,
             song_id: int,
             song_length: int,  # milliseconds
-            audio_player: fta.Audio
+            audio_player: fta.Audio = None,
+            **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.song_id = song_id
         self.song_length = song_length
@@ -34,9 +36,9 @@ class SongPlayer(ft.Container):
                 on_change_end=None,  # todo: add the on_change event to change the song location
                 active_color=ft.Colors.GREY_600,
                 inactive_color=ft.Colors.GREY_400,
-            ),
+        )
 
-        self.length_total = ft.Container = ft.Container(
+        self.length_total: ft.Container = ft.Container(
             content=ft.Text(self.song_length_string, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
         )
 
@@ -49,8 +51,30 @@ class SongPlayer(ft.Container):
         )
         """this is the top row that contains the progress bar and the song length/song passed"""
 
-        self.functional_row = ft.Row(
+        self.rewind_10_seconds: ft.Container = ft.Container(
+            content=ft.Icon(ft.Icons.FAST_REWIND_ROUNDED, ft.Colors.GREY_600, size=25),
+            on_click=self._move_ten_seconds,
+            data="backward",
+        )
 
+        self.play_button: ft.Container = ft.Container(
+            ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_600, size=40),
+            on_click=self._play_audio,
+        )
+
+        self.skip_10_seconds: ft.Container = ft.Container(
+            content=ft.Icon(ft.Icons.FAST_FORWARD_ROUNDED, ft.Colors.GREY_600, size=25),
+            on_click=self._move_ten_seconds,
+            data="forward",
+        )
+
+        self.functional_row = ft.Row(
+            [
+                self.rewind_10_seconds,
+                self.play_button,
+                self.skip_10_seconds
+            ],
+            alignment=ft.MainAxisAlignment.CENTER
         )
         """this is the bottom row that contains the fast forward/backward and the play/resume/replay button"""
 
@@ -60,6 +84,85 @@ class SongPlayer(ft.Container):
                 self.functional_row
             ]
         )
+
+    def _update_audio_progress_bar(self, change_event: fta.AudioPositionChangeEvent):
+        current_duration_milliseconds: int = change_event.position
+        max_duration: int = self.audio_player.get_duration()
+
+        # if there is no max duration, that means the user just removed the audio from being selected
+        if not max_duration:
+            return
+
+        percentage_done = current_duration_milliseconds / max_duration
+
+        current_duration_format = format_length_from_milliseconds(current_duration_milliseconds)
+
+        self.length_passed.content=ft.Text(current_duration_format, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
+
+        # sometimes the progress percent can be a bit over the max value (by 0.000X), so we take the min value between
+        # the current progress and the max, so that it never passes the max value
+        self.progress_bar.value = min(self.progress_bar.max, percentage_done)
+
+        self.update()
+
+    def _move_song_to_slider(self, event):
+
+        if not hasattr(self, "audio_player") or not self.audio_player:
+            return
+
+        song_max_length = self.audio_player.get_duration()
+        slider_percentage = float(event.data)
+        new_song_position = int(song_max_length * slider_percentage)
+
+        # we calculate the new percentage in order to remove any rounding error done when the new song position is turned
+        # into an integer
+        new_visual_slider_percentage = new_song_position / song_max_length
+
+        self.progress_bar.value = new_visual_slider_percentage
+
+        self.audio_player.seek(new_song_position)
+
+        self.progress_bar.update()
+
+    def _play_audio(self, event: ft.ControlEvent):
+        play_button: ft.Container = event.control
+
+        if not hasattr(self, "audio_player") or not self.audio_player:
+            return
+
+        if not self.audio_player.data["playing"]:
+            changed_icon = ft.Icon(ft.Icons.PAUSE_ROUNDED, ft.Colors.GREY_600, size=40)
+            self.audio_player.resume()
+            self.audio_player.data["playing"] = True
+        else:
+            changed_icon = ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, ft.Colors.GREY_600, size=40)
+            self.audio_player.pause()
+            self.audio_player.data["playing"] = False
+
+        play_button.content = changed_icon
+        play_button.update()
+
+    def _move_ten_seconds(self, event: ft.ControlEvent):
+        move_button: ft.Container = event.control
+
+        is_action_skip = move_button.data == "forward"
+
+        if not hasattr(self, "audio_player") or not self.audio_player:
+            return
+
+        audio_player: fta.Audio = self.audio_player
+
+        current_position = audio_player.get_current_position()
+
+        if not current_position:
+            return
+
+        if is_action_skip:
+            new_position = current_position + 10000
+        else:
+            new_position = current_position - 10000
+
+        audio_player.seek(new_position)
 
     def _update_song_length_passed(self, passed: int):
         """:param passed: the amount of time passed in milliseconds"""
@@ -86,18 +189,67 @@ class SongView(ft.AlertDialog):
         super().__init__(**kwargs)
         self.shape = ft.RoundedRectangleBorder(radius=10)
 
+        self.audio_player = fta.Audio(
+            src_base64="0",
+            data={"playing": False}
+        )
+
         self.cover_art_width = 300
-        self.cover_art_hight = 300
+        self.cover_art_height = 300
         self.b64_bytes = cover_art_b64
+
+        self.song_id = song_id
+        self.song_length = song_length
+        self.song_name = song_name
+        self.artist_name = artist_name
 
         self.genres = genres
 
-        content_container = ft.Container(
+        self.graphical_information: ft.Row = ft.Row(
+            [
+                self._create_cover_art(),
+                ft.Column(
+                    [
+                        ft.Text(song_name, size=35, weight=ft.FontWeight.W_500),
+                        ft.Text(artist_name, size=30, weight=ft.FontWeight.W_200)
+                    ],
+                    alignment=ft.MainAxisAlignment.START,
+                    spacing=0
+                )
+            ],
+            vertical_alignment=ft.CrossAxisAlignment.START
+        )
+        """displays the purely graphical information, such as cover art and song/artist name"""
+
+        self.functional_information: ft.Row = ft.Row(
+            [
+                self.audio_player,
+                SongPlayer(
+                    song_id=self.song_id,
+                    song_length=self.song_length,
+                    audio_player=self.audio_player,
+                    height=100,
+                    expand=True,
+                    expand_loose=True,
+                )
+            ],
+        )
+        """displays the functional information, which is the GUI that can be interacted with (such as the play bar)"""
+
+        self.display_column: ft.Column = ft.Column(
+            [
+                self.graphical_information,
+                self.functional_information
+            ],
             width=1000,
-            height=700
+            height=700,
+            spacing=50,
         )
 
-        self.content = content_container
+        self.content = self.display_column
+
+    def on_dismiss(self):
+        self.audio_player.release()
 
     def _create_genre_list(self) -> list[ft.Container]:
         return [
@@ -117,5 +269,5 @@ class SongView(ft.AlertDialog):
             # images below a certain resolution did not fully cover the container when using ImageFit, so i set
             # a manual width and height that will be equal to what the gridview allows and thus will always fit
             width=self.cover_art_width,
-            height=self.cover_art_hight,
+            height=self.cover_art_height,
         )
