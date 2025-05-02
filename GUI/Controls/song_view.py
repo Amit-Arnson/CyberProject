@@ -97,7 +97,7 @@ class SongPlayer(ft.Container):
 
     def _update_audio_progress_bar(self, change_event: fta.AudioPositionChangeEvent):
         current_duration_milliseconds: int = change_event.position
-        max_duration: int = self.audio_player.get_duration()
+        max_duration: int = self.song_length
 
         if not max_duration:
             return
@@ -132,7 +132,7 @@ class SongPlayer(ft.Container):
         if not hasattr(self, "audio_player") or not self.audio_player:
             return
 
-        song_max_length = self.audio_player.get_duration()
+        song_max_length = self.song_length
         slider_percentage = float(event.data)
         new_song_position = int(song_max_length * slider_percentage)
 
@@ -231,7 +231,8 @@ class SongView(ft.AlertDialog):
                 ft.Column(
                     [
                         ft.Text(song_name, size=35, weight=ft.FontWeight.W_500),
-                        ft.Text(artist_name, size=30, weight=ft.FontWeight.W_200)
+                        ft.Text(artist_name, size=30, weight=ft.FontWeight.W_200),
+                        ft.Row([*self._create_genre_list()])
                     ],
                     alignment=ft.MainAxisAlignment.START,
                     spacing=0
