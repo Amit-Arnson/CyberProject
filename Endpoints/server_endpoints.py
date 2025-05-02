@@ -6,7 +6,8 @@ from server_actions import (
     user_signup_and_login,
     UploadSong,
     send_song_previews,
-    resend_song_preview
+    resend_song_preview,
+    send_song_audio
 )
 
 from dataclasses import dataclass
@@ -100,6 +101,11 @@ class EndPoints:
             "song/download/preview/resend": (
                 EndPointRequires(method="get", authentication=True),
                 resend_song_preview,
+            ),
+
+            "song/download/audio": (
+                EndPointRequires(method="get", authentication=True),
+                send_song_audio
             )
 
         }

@@ -32,7 +32,7 @@ from queries import (
 )
 
 from Compress.audio import get_audio_length
-from Utils.send_to_client_chunk import send_song_preview_chunks, resend_file_chunks
+from Utils.send_to_client_chunk import send_song_preview_chunks, resend_file_chunks, send_song_audio_chunks
 
 from Errors.raised_errors import (
     NoEncryption,
@@ -1282,3 +1282,66 @@ async def resend_song_preview(
             f"Invalid payload passed. expected key \"original_file_id\", \"song_id\", instead got {payload_keys}")
 
     await resend_file_chunks(transport=client, song_id=song_id, db_pool=db_pool, original_file_id=original_file_id)
+
+
+async def send_song_audio(
+        db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache
+):
+    """
+    this function is used to send the song audio chunks
+
+    this function is tied to song/download/audio (GET)
+
+    expected payload:
+    {
+        "song_id": int
+    }
+
+    expected output (for each chunk):
+    {
+        -- note: the chunk's bytes are b64 encoded before sending due to flet limitations
+        "chunk": str,
+        "file_id": str,
+        "chunk_number": int,
+        "is_last_chunk": bool,
+        "song_id": int
+    }
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    payload = client_message.payload
+
+    try:
+        song_id = payload["song_id"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(
+            f"Invalid payload passed. expected key \"song_id\", instead got {payload_keys}")
+
+    await send_song_audio_chunks(transport=client, song_id=song_id, db_pool=db_pool)
