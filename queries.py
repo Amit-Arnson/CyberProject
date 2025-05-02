@@ -255,6 +255,24 @@ class MediaFiles:
         # Ensure all song_ids are accounted for, using a default path if missing
         return [song_paths.get(song_id, default_cover_image_path) for song_id in song_ids]
 
+    @staticmethod
+    async def fetch_audio_path(
+            connection: ProxiedConnection,
+            song_id: int,
+    ) -> str | None:
+        query = f"""
+           SELECT file_path
+           FROM media_files
+           WHERE song_id = ? AND file_type = 'audio'
+        """
+
+        result = await connection.fetchone(query, song_id)
+
+        if not result:
+            return None
+
+        return result[0]
+
 
 class Music:
     @staticmethod
