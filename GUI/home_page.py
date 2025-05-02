@@ -66,6 +66,13 @@ class HomePage:
 
         self.gridview_extent = 320
 
+        self.song_view_popup: SongView | None = None
+        self.is_viewing_song = False
+        """
+            this is a check in order to see if the user is currently viewing a song using the SongView, this is important
+            for the audio file chunk buffering.
+        """
+
         self._initialize_controls()
 
     def _create_loading_item(
@@ -179,6 +186,7 @@ class HomePage:
         image: ft.Image = image_container.content
 
         song_view = SongView(
+            transport=self.transport,
             user_cache=self.user_cache,
             cover_art_b64=image.src_base64,
             song_id=song_data["song_id"],
@@ -187,10 +195,14 @@ class HomePage:
             song_name=song_data["song_name"],
             song_length=song_data["song_length"],
             genres=song_data["genres"],
-            open=True
+            open=True,
         )
 
+        self.is_viewing_song = True
+
         self.page_view.controls.append(song_view)
+
+        self.song_view_popup = song_view
 
         self.page_view.update()
 
@@ -204,6 +216,22 @@ class HomePage:
             self.loaded_song_ids.pop(0)
 
         self.loaded_song_ids.append(song_id)
+
+    @staticmethod
+    def _song_item_hover(event: ft.ControlEvent):
+        song_item_stack: ft.Stack = event.control.data
+
+        is_hovering = event.data == "true"
+
+        if is_hovering:
+            gradient = song_item_stack.data["on_hover_gradient"]
+        else:
+            gradient = song_item_stack.data["off_hover_gradient"]
+
+        gradient_container: ft.Container = song_item_stack.controls[2]
+        gradient_container.gradient = gradient
+
+        gradient_container.update()
 
     def add_song_info(
             self,
@@ -314,22 +342,6 @@ class HomePage:
 
         self.loading_song_items[file_id] = loading_song_item
 
-    @staticmethod
-    def _song_item_hover(event: ft.ControlEvent):
-        song_item_stack: ft.Stack = event.control.data
-
-        is_hovering = event.data == "true"
-
-        if is_hovering:
-            gradient = song_item_stack.data["on_hover_gradient"]
-        else:
-            gradient = song_item_stack.data["off_hover_gradient"]
-
-        gradient_container: ft.Container = song_item_stack.controls[2]
-        gradient_container.gradient = gradient
-
-        gradient_container.update()
-
     def stream_cover_art_chunks(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
         song_item: ft.Container = self.loading_song_items[file_id]
         loading_song_content_stack: ft.Stack = song_item.content
@@ -359,6 +371,15 @@ class HomePage:
 
         if is_last_chunk:
             del self.loading_song_items[file_id]
+
+    async def stream_audio_chunks(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
+        if self.song_view_popup:
+            await self.song_view_popup.stream_audio_chunks(
+                file_id=file_id,
+                song_id=song_id,
+                b64_chunk=b64_chunk,
+                is_last_chunk=is_last_chunk
+            )
 
     def _load_song_previews(self, *args):
         if not self.transport:
