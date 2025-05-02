@@ -99,7 +99,6 @@ class SongPlayer(ft.Container):
         current_duration_milliseconds: int = change_event.position
         max_duration: int = self.audio_player.get_duration()
 
-        # if there is no max duration, that means the user just removed the audio from being selected
         if not max_duration:
             return
 
@@ -147,15 +146,8 @@ class SongPlayer(ft.Container):
 
         self.progress_bar.update()
 
-    async def _play_audio(self, event: ft.ControlEvent):
-        play_button: ft.Container = event.control
+    async def _play_audio(self, *args):
         self.load_audio()
-
-        while self.audio_player.src_base64 == "0":
-            await asyncio.sleep(0.1)
-
-            if not self.audio_player.src_base64 == "0":
-                break
 
         if not hasattr(self, "audio_player") or not self.audio_player:
             return
@@ -169,8 +161,8 @@ class SongPlayer(ft.Container):
             self.audio_player.pause()
             self.audio_player.data["playing"] = False
 
-        play_button.content = changed_icon
-        play_button.update()
+        self.play_button.content = changed_icon
+        self.play_button.update()
 
     def _move_ten_seconds(self, event: ft.ControlEvent):
         move_button: ft.Container = event.control
@@ -219,6 +211,7 @@ class SongView(ft.AlertDialog):
             src_base64="0",
             data={"playing": False},
             autoplay=True,
+            release_mode=fta.audio.ReleaseMode.STOP
         )
 
         self.cover_art_width = 300
@@ -277,6 +270,9 @@ class SongView(ft.AlertDialog):
         self.content = self.display_column
         self.on_dismiss = self._on_dismiss
 
+    # currently buffering does not work as once you update the page, the audio restarts to the start.
+    # todo: see if i should create a temp file and use src instead (not sure if it will work or not)
+    # todo: see if i should create a proxy http server to send the bytes and use src instead of b64. this will 100% work but will require a lot of work
     async def stream_audio_chunks(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
         if not song_id == self.song_id:
             return

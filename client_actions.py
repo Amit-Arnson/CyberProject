@@ -333,7 +333,6 @@ async def buffer_audio(
         raise  # todo: Handle malformed messages appropriately
 
     if hasattr(page, "view") and isinstance(page.view, HomePage) and page.view.is_viewing_song:
-        print(chunk)
         await page.view.stream_audio_chunks(
             song_id=song_id,
             file_id=file_id,
