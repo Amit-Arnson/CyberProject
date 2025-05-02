@@ -145,7 +145,8 @@ class DownloadSong:
         a set of all of the preview info payloads that finished processing
         """
 
-    async def download_preview_details(self, page: Page, transport: EncryptedTransport, server_message: ServerMessage, user_cache: ClientSideUserCache):
+    async def download_preview_details(self, page: Page, transport: EncryptedTransport, server_message: ServerMessage,
+                                       user_cache: ClientSideUserCache):
         """
         this function gathers all the preview's details (e.g., artist name, song length, etc...) and sends them to the GUI
 
@@ -220,7 +221,8 @@ class DownloadSong:
             else:
                 raise Exception(f"Exceeded maximum retries for file_id {file_id}")
 
-    async def download_preview_chunks(self, page: Page, _: EncryptedTransport, server_message: ServerMessage, __: ClientSideUserCache):
+    async def download_preview_chunks(self, page: Page, _: EncryptedTransport, server_message: ServerMessage,
+                                      __: ClientSideUserCache):
         """
         this function gathers all the preview (cover art) file chunks and combines them in a list to later be shown
         in the GUI
@@ -272,3 +274,48 @@ class DownloadSong:
         # Cleanup
         async with self._lock:
             self.preview_info_completed.discard(file_id)
+
+
+async def buffer_audio(
+        page: Page,
+        transport: EncryptedTransport,
+        server_message: ServerMessage,
+        user_cache: ClientSideUserCache
+):
+    """
+    this function is used in order to buffer the song audio chunks in the current audio player
+
+    tied to song/download/audio
+
+    expected payload:
+    {
+        "chunk": str,
+        "file_id": str,
+        "chunk_number": int,
+        "is_last_chunk": bool,
+        "song_id": int
+    }
+
+    expected output:
+    None
+    """
+
+    payload = server_message.payload
+
+    try:
+        chunk: str = payload["chunk"]
+        chunk_number: int = payload["chunk_number"]
+        file_id = payload["file_id"]
+        song_id = payload["song_id"]
+        is_last_chunk: bool = payload["is_last_chunk"]
+    except KeyError:
+        raise  # todo: Handle malformed messages appropriately
+
+    if hasattr(page, "view") and isinstance(page.view, HomePage) and page.view.is_viewing_song:
+        print(chunk)
+        await page.view.stream_audio_chunks(
+            song_id=song_id,
+            file_id=file_id,
+            b64_chunk=chunk,
+            is_last_chunk=is_last_chunk
+        )
