@@ -13,8 +13,12 @@ from flet import Page
 from GUI.home_page import HomePage
 
 
-async def complete_authentication(_: Page, transport: EncryptedTransport, server_message: ServerMessage,
-                                  __: ClientSideUserCache):
+async def complete_authentication(
+        _: Page,
+        transport: EncryptedTransport,
+        server_message: ServerMessage,
+        __: ClientSideUserCache
+):
     """
     this function is used to finish transferring the key using dhe.
     it sends the client's public key back to the server.
@@ -71,8 +75,12 @@ async def complete_authentication(_: Page, transport: EncryptedTransport, server
     transport.key = aes_key
 
 
-async def user_login(page: Page, transport: EncryptedTransport, server_message: ServerMessage,
-                     user_cache: ClientSideUserCache):
+async def user_login(
+        page: Page,
+        transport: EncryptedTransport,
+        server_message: ServerMessage,
+        user_cache: ClientSideUserCache
+):
     """
     this function expects the login result from requesting a login from the server.
     it then saves the session token and the user ID to the ClientSideUserCache.
@@ -107,8 +115,12 @@ async def user_login(page: Page, transport: EncryptedTransport, server_message: 
     HomePage(page).show()
 
 
-async def song_upload_finish(page: Page, transport: EncryptedTransport, server_message: ServerMessage,
-                             user_cache: ClientSideUserCache):
+async def song_upload_finish(
+        page: Page,
+        transport: EncryptedTransport,
+        server_message: ServerMessage,
+        user_cache: ClientSideUserCache
+):
     """
     this function is used in order to stop the "uploading" overlay-blocking GUI when the server finishes processing
     all the sent data
@@ -145,8 +157,13 @@ class DownloadSong:
         a set of all of the preview info payloads that finished processing
         """
 
-    async def download_preview_details(self, page: Page, transport: EncryptedTransport, server_message: ServerMessage,
-                                       user_cache: ClientSideUserCache):
+    async def download_preview_details(
+            self,
+            page: Page,
+            transport: EncryptedTransport,
+            server_message: ServerMessage,
+            user_cache: ClientSideUserCache
+    ):
         """
         this function gathers all the preview's details (e.g., artist name, song length, etc...) and sends them to the GUI
 
@@ -221,8 +238,12 @@ class DownloadSong:
             else:
                 raise Exception(f"Exceeded maximum retries for file_id {file_id}")
 
-    async def download_preview_chunks(self, page: Page, _: EncryptedTransport, server_message: ServerMessage,
-                                      __: ClientSideUserCache):
+    async def download_preview_chunks(
+            self, page: Page,
+            _: EncryptedTransport,
+            server_message: ServerMessage,
+            __: ClientSideUserCache
+    ):
         """
         this function gathers all the preview (cover art) file chunks and combines them in a list to later be shown
         in the GUI
