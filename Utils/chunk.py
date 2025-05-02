@@ -20,7 +20,7 @@ class FileTypes(enum.Enum):
     AUDIO = "audio"
 
 
-def fast_create_unique_id(*args: str) -> str:
+def fast_create_unique_id(*args: str | int) -> str:
     """creates a unique ID from the given arguments in a none-secure way (however does not contain repetition)"""
     unique_id = []
 
