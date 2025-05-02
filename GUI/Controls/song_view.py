@@ -1,3 +1,6 @@
+import typing
+
+import asyncio
 import flet as ft
 import flet_audio as fta
 
@@ -6,6 +9,8 @@ from Caches.user_cache import ClientSideUserCache
 
 from Utils.format import format_length_from_milliseconds
 
+from pseudo_http_protocol import ClientMessage
+
 
 # todo: stream the song chunks and buffer the audio player with the chunks. implement in the same way as the song previews
 class SongPlayer(ft.Container):
@@ -13,7 +18,8 @@ class SongPlayer(ft.Container):
             self,
             song_id: int,
             song_length: int,  # milliseconds
-            audio_player: fta.Audio = None,
+            audio_player: fta.Audio,
+            load_audio: typing.Callable,
             **kwargs
     ):
         super().__init__(**kwargs)
@@ -21,6 +27,7 @@ class SongPlayer(ft.Container):
         self.song_id = song_id
         self.song_length = song_length
         self.audio_player = audio_player
+        self.load_audio = load_audio
 
         self.song_length_string = format_length_from_milliseconds(self.song_length)
 
@@ -29,11 +36,11 @@ class SongPlayer(ft.Container):
         )
 
         self.progress_bar = ft.Slider(
-                value=0.01,
+                value=0,
                 height=5,
                 expand_loose=True,
                 expand=True,
-                on_change_end=None,  # todo: add the on_change event to change the song location
+                on_change_end=self._move_song_to_slider,
                 active_color=ft.Colors.GREY_600,
                 inactive_color=ft.Colors.GREY_400,
         )
@@ -85,6 +92,9 @@ class SongPlayer(ft.Container):
             ]
         )
 
+        self.audio_player.on_position_changed = self._update_audio_progress_bar
+        self.audio_player.on_state_changed = self._set_restart_button
+
     def _update_audio_progress_bar(self, change_event: fta.AudioPositionChangeEvent):
         current_duration_milliseconds: int = change_event.position
         max_duration: int = self.audio_player.get_duration()
@@ -97,13 +107,26 @@ class SongPlayer(ft.Container):
 
         current_duration_format = format_length_from_milliseconds(current_duration_milliseconds)
 
-        self.length_passed.content=ft.Text(current_duration_format, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
+        self.length_passed.content = ft.Text(current_duration_format, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600)
 
         # sometimes the progress percent can be a bit over the max value (by 0.000X), so we take the min value between
         # the current progress and the max, so that it never passes the max value
         self.progress_bar.value = min(self.progress_bar.max, percentage_done)
 
         self.update()
+
+    def _set_restart_button(self, event: fta.AudioStateChangeEvent):
+        is_finished: bool = event.state == fta.AudioState.COMPLETED
+
+        if not is_finished:
+            return
+
+        restart_listen_icon = ft.Icon(ft.Icons.REPLAY_ROUNDED, ft.Colors.GREY_600, size=40)
+        self.play_button.content = restart_listen_icon
+
+        self.audio_player.data["playing"] = False
+
+        self.play_button.update()
 
     def _move_song_to_slider(self, event):
 
@@ -124,8 +147,15 @@ class SongPlayer(ft.Container):
 
         self.progress_bar.update()
 
-    def _play_audio(self, event: ft.ControlEvent):
+    async def _play_audio(self, event: ft.ControlEvent):
         play_button: ft.Container = event.control
+        self.load_audio()
+
+        while self.audio_player.src_base64 == "0":
+            await asyncio.sleep(0.1)
+
+            if not self.audio_player.src_base64 == "0":
+                break
 
         if not hasattr(self, "audio_player") or not self.audio_player:
             return
@@ -164,18 +194,11 @@ class SongPlayer(ft.Container):
 
         audio_player.seek(new_position)
 
-    def _update_song_length_passed(self, passed: int):
-        """:param passed: the amount of time passed in milliseconds"""
-
-        passed_string = format_length_from_milliseconds(passed)
-        self.length_passed.content = ft.Text(passed_string, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600),
-
-        self.length_passed.update()
-
 
 class SongView(ft.AlertDialog):
     def __init__(
             self,
+            transport: EncryptedTransport,
             user_cache: ClientSideUserCache,
             cover_art_b64: str,
             song_id: int,
@@ -189,9 +212,13 @@ class SongView(ft.AlertDialog):
         super().__init__(**kwargs)
         self.shape = ft.RoundedRectangleBorder(radius=10)
 
+        self.transport = transport
+        self.user_cache = user_cache
+
         self.audio_player = fta.Audio(
             src_base64="0",
-            data={"playing": False}
+            data={"playing": False},
+            autoplay=True,
         )
 
         self.cover_art_width = 300
@@ -228,6 +255,7 @@ class SongView(ft.AlertDialog):
                     song_id=self.song_id,
                     song_length=self.song_length,
                     audio_player=self.audio_player,
+                    load_audio=self._request_song_chunks,
                     height=100,
                     expand=True,
                     expand_loose=True,
@@ -247,9 +275,29 @@ class SongView(ft.AlertDialog):
         )
 
         self.content = self.display_column
+        self.on_dismiss = self._on_dismiss
 
-    def on_dismiss(self):
+    async def stream_audio_chunks(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
+        if not song_id == self.song_id:
+            return
+
+        # if the src == "0" it means the song wasn't loaded yet
+        if self.audio_player.src_base64 == "0":
+            self.audio_player.src_base64 = b64_chunk
+        else:
+            self.audio_player.src_base64 += b64_chunk
+
+        self.audio_player.update()
+
+    def _on_dismiss(self, *args):
+        self.audio_player.pause()
         self.audio_player.release()
+
+        self.audio_player.update()
+
+        if hasattr(self.page, "view"):
+            self.page.view.is_viewing_song = False
+            self.page.view.song_view_popup = None
 
     def _create_genre_list(self) -> list[ft.Container]:
         return [
@@ -270,4 +318,20 @@ class SongView(ft.AlertDialog):
             # a manual width and height that will be equal to what the gridview allows and thus will always fit
             width=self.cover_art_width,
             height=self.cover_art_height,
+        )
+
+    def _request_song_chunks(self):
+        # if the src == "0" it means the song wasn't loaded yet
+        if self.audio_player.src_base64 != "0":
+            return
+
+        self.transport.write(
+            ClientMessage(
+                authentication=self.user_cache.session_token,
+                method="GET",
+                endpoint="song/download/audio",
+                payload={
+                    "song_id": self.song_id
+                }
+            ).encode()
         )
