@@ -4,11 +4,9 @@ from encryptions import EncryptedTransport
 from Caches.user_cache import ClientSideUserCache
 
 from GUI.Controls.navigation_sidebar import NavigationSidebar
-from GUI.song_view import SongView
+from GUI.Controls.song_view import SongView
 
 from pseudo_http_protocol import ClientMessage
-
-from Utils.format import format_length_from_milliseconds
 
 
 class HomePage:
