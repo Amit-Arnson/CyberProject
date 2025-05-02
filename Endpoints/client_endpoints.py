@@ -4,7 +4,8 @@ from client_actions import (
     complete_authentication,
     user_login,
     song_upload_finish,
-    DownloadSong
+    DownloadSong,
+    buffer_audio
 )
 
 
@@ -17,7 +18,8 @@ class EndPoints:
             "user/login": user_login,
             "song/upload/finish": song_upload_finish,
             "song/download/preview": download_song_state.download_preview_details,
-            "song/download/preview/file": download_song_state.download_preview_chunks
+            "song/download/preview/file": download_song_state.download_preview_chunks,
+            "song/download/audio": buffer_audio
         }
         # endpoint -> function
 
