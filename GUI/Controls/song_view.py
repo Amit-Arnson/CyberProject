@@ -12,7 +12,6 @@ from Utils.format import format_length_from_milliseconds
 from pseudo_http_protocol import ClientMessage
 
 
-# todo: stream the song chunks and buffer the audio player with the chunks. implement in the same way as the song previews
 class SongPlayer(ft.Container):
     def __init__(
             self,
