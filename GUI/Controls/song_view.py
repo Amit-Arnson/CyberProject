@@ -1,8 +1,11 @@
+import pprint
 import typing
 
 import asyncio
 import flet as ft
 import flet_audio as fta
+
+from GUI.Controls.subwindow import SubWindow
 
 from encryptions import EncryptedTransport
 from Caches.user_cache import ClientSideUserCache
@@ -35,13 +38,13 @@ class SongPlayer(ft.Container):
         )
 
         self.progress_bar = ft.Slider(
-                value=0,
-                height=5,
-                expand_loose=True,
-                expand=True,
-                on_change_end=self._move_song_to_slider,
-                active_color=ft.Colors.GREY_600,
-                inactive_color=ft.Colors.GREY_400,
+            value=0,
+            height=5,
+            expand_loose=True,
+            expand=True,
+            on_change_end=self._move_song_to_slider,
+            active_color=ft.Colors.GREY_600,
+            inactive_color=ft.Colors.GREY_400,
         )
 
         self.length_total: ft.Container = ft.Container(
@@ -105,7 +108,8 @@ class SongPlayer(ft.Container):
 
         current_duration_format = format_length_from_milliseconds(current_duration_milliseconds)
 
-        self.length_passed.content = ft.Text(current_duration_format, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_600)
+        self.length_passed.content = ft.Text(current_duration_format, weight=ft.FontWeight.BOLD,
+                                             color=ft.Colors.GREY_600)
 
         # sometimes the progress percent can be a bit over the max value (by 0.000X), so we take the min value between
         # the current progress and the max, so that it never passes the max value
@@ -229,12 +233,28 @@ class SongView(ft.AlertDialog):
                 self._create_cover_art(),
                 ft.Column(
                     [
-                        ft.Text(song_name, size=35, weight=ft.FontWeight.W_500),
-                        ft.Text(artist_name, size=30, weight=ft.FontWeight.W_200),
-                        ft.Row([*self._create_genre_list()])
+                        ft.Column(
+                            [
+                                ft.Text(song_name, size=35, weight=ft.FontWeight.W_500),
+                                ft.Text(artist_name, size=30, weight=ft.FontWeight.W_200),
+                            ],
+                            spacing=0,
+                        ),
+                        ft.Row([*self._create_genre_list()], wrap=True),
+                        ft.Row(
+                            [
+                                ft.Icon(ft.Icons.STAR_ROUNDED, color=ft.Colors.BLACK),
+                                ft.Icon(ft.Icons.DOWNLOAD, color=ft.Colors.BLACK),
+                                ft.Icon(ft.Icons.COMMENT_ROUNDED, color=ft.Colors.BLACK),
+                                ft.Container(
+                                    content=ft.Icon(ft.Icons.SIM_CARD_DOWNLOAD_ROUNDED, color=ft.Colors.BLACK),
+                                    on_click=self._open_sheet_music_popup
+                                )
+                            ]
+                        )
                     ],
                     alignment=ft.MainAxisAlignment.START,
-                    spacing=0
+                    spacing=10
                 )
             ],
             vertical_alignment=ft.CrossAxisAlignment.START
@@ -267,8 +287,35 @@ class SongView(ft.AlertDialog):
             spacing=50,
         )
 
-        self.content = self.display_column
+        self.view = ft.Stack(
+            [
+                self.display_column
+            ],
+            width=1000,
+            height=700,
+            clip_behavior=ft.ClipBehavior.HARD_EDGE
+        )
+
+        self.is_viewing_comments = False
+        self.is_viewing_sheets = False
+
+        self.content = self.view
         self.on_dismiss = self._on_dismiss
+
+    def _open_sheet_music_popup(self, event):
+        if self.is_viewing_sheets:
+            return
+
+        self.is_viewing_sheets = True
+
+        dialog = SubWindow(self._close_sheet_music_popup)
+
+        self.view.controls.append(dialog)
+
+        self.update()
+
+    def _close_sheet_music_popup(self):
+        self.is_viewing_sheets = False
 
     # currently buffering does not work as once you update the page, the audio restarts to the start.
     # todo: see if i should create a temp file and use src instead (not sure if it will work or not)
