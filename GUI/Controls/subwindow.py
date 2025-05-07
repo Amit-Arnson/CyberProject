@@ -4,7 +4,12 @@ import flet as ft
 
 
 class SubWindow(ft.GestureDetector):
-    def __init__(self, on_close: typing.Callable, radius: int = 10, **kwargs):
+    def __init__(self,
+                 on_close: typing.Callable,
+                 radius: int = 10,
+                 width: int = 100,
+                 height: int = 100,
+                 **kwargs):
         super().__init__(**kwargs)
 
         self.on_close = on_close
@@ -58,15 +63,15 @@ class SubWindow(ft.GestureDetector):
         )
         self.mouse_cursor = ft.MouseCursor.RESIZE_UP_RIGHT_DOWN_LEFT
 
-        self.width = 100
-        self.height = 100
+        self.width = width
+        self.height = height
 
         # self.width/height update when scaled, we need the original unchanged value for __on_scale_update
         self.original_width = self.width
         self.original_height = self.height
 
-        self.left = 100
-        self.top = 100
+        self.left = 0.5
+        self.top = 0.5
         self.on_scale_update = self.__on_scale_update
 
     def set_content(self, control: ft.Control | ft.Container):
@@ -93,14 +98,15 @@ class SubWindow(ft.GestureDetector):
         if new_width < self.original_width or new_height < self.original_height:
             return
 
-        is_scaling_from_left = event.local_focal_point_x < event.control.width / 2
-        is_scaling_from_top = event.local_focal_point_y < event.control.height / 2
-
-        if is_scaling_from_left:
-            event.control.left -= event.focal_point_delta_x
-
-        if is_scaling_from_top:
-            event.control.top -= event.focal_point_delta_y
+        # todo: fix the issues with scaling from left/top
+        # is_scaling_from_left = event.local_focal_point_x < event.control.width / 2
+        # is_scaling_from_top = event.local_focal_point_y < event.control.height / 2
+        #
+        # if is_scaling_from_left:
+        #     event.control.left -= event.focal_point_delta_x
+        #
+        # if is_scaling_from_top:
+        #     event.control.top -= event.focal_point_delta_y
 
         # Update size
         event.control.width = new_width
