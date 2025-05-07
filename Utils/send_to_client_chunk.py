@@ -131,6 +131,33 @@ async def send_song_audio_chunks(
         raise e
 
 
+async def send_song_sheet_chunks(
+    transport: EncryptedTransport,
+    db_pool: asqlite.Pool,
+    song_id: int,
+):
+    async with db_pool.acquire() as connection:
+        sheet_paths = await MediaFiles.fetch_sheet_image_paths(
+            connection=connection,
+            song_id=song_id,
+        )
+
+    try:
+        for path in sheet_paths:
+            file_id = fast_create_unique_id(song_id)
+
+            await send_file_chunks(
+                transport=transport,
+                file_id=file_id,
+                song_id=song_id,
+                path=path,
+                endpoint="song/download/sheet"
+            )
+    except Exception as e:
+        traceback.print_exc()
+        raise e
+
+
 async def send_file_chunks(
         transport: EncryptedTransport,
         path: str,
