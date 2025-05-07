@@ -273,6 +273,24 @@ class MediaFiles:
 
         return result[0]
 
+    @staticmethod
+    async def fetch_sheet_image_paths(
+            connection: ProxiedConnection,
+            song_id: int,
+    ) -> list[str]:
+        query = f"""
+           SELECT file_path
+           FROM media_files
+           WHERE song_id = ? AND file_type = 'sheet'
+        """
+
+        results = await connection.fetchall(query, song_id)
+
+        if not results:
+            return []
+
+        return [result[0] for result in results]
+
 
 class Music:
     @staticmethod
