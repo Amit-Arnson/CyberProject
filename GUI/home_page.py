@@ -381,6 +381,15 @@ class HomePage:
                 is_last_chunk=is_last_chunk
             )
 
+    async def stream_sheet_chunks(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
+        if self.song_view_popup:
+            await self.song_view_popup.stream_sheet_chunks(
+                file_id=file_id,
+                song_id=song_id,
+                b64_chunk=b64_chunk,
+                is_last_chunk=is_last_chunk
+            )
+
     def _load_song_previews(self, *args):
         if not self.transport:
             return
