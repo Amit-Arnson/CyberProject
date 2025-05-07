@@ -339,3 +339,47 @@ async def buffer_audio(
             b64_chunk=chunk,
             is_last_chunk=is_last_chunk
         )
+
+
+async def load_sheet_images(
+        page: Page,
+        transport: EncryptedTransport,
+        server_message: ServerMessage,
+        user_cache: ClientSideUserCache
+):
+    """
+    this function is used in order to load the sheet image view in the SongView
+
+    tied to song/download/sheet
+
+    expected payload:
+    {
+        "chunk": str,
+        "file_id": str,
+        "chunk_number": int,
+        "is_last_chunk": bool,
+        "song_id": int
+    }
+
+    expected output:
+    None
+    """
+
+    payload = server_message.payload
+
+    try:
+        chunk: str = payload["chunk"]
+        chunk_number: int = payload["chunk_number"]
+        file_id = payload["file_id"]
+        song_id = payload["song_id"]
+        is_last_chunk: bool = payload["is_last_chunk"]
+    except KeyError:
+        raise  # todo: Handle malformed messages appropriately
+
+    if hasattr(page, "view") and isinstance(page.view, HomePage) and page.view.is_viewing_song:
+        await page.view.stream_sheet_chunks(
+            song_id=song_id,
+            file_id=file_id,
+            b64_chunk=chunk,
+            is_last_chunk=is_last_chunk
+        )
