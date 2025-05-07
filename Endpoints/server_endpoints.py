@@ -7,7 +7,8 @@ from server_actions import (
     UploadSong,
     send_song_previews,
     resend_song_preview,
-    send_song_audio
+    send_song_audio,
+    send_song_sheets
 )
 
 from dataclasses import dataclass
@@ -106,6 +107,11 @@ class EndPoints:
             "song/download/audio": (
                 EndPointRequires(method="get", authentication=True),
                 send_song_audio
+            ),
+
+            "song/download/sheets": (
+                EndPointRequires(method="get", authentication=True),
+                send_song_sheets
             )
 
         }
