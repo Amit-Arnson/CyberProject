@@ -190,6 +190,102 @@ class SongPlayer(ft.Container):
         audio_player.seek(new_position)
 
 
+class SheetView(ft.Container):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.sheet_images: list[tuple[str, ft.Container]] = []
+        """list[tuple[file id, sheet image]]]"""
+
+        self.expand = True
+
+        self.sheet_row: ft.Row = ft.Row(
+            wrap=True,
+            tight=True,
+        )
+
+        no_sheets_found = ft.Container(
+            ft.Text("No Sheets Found"),
+            expand_loose=True,
+            height=300,
+            alignment=ft.Alignment(0, 0)
+        )
+        self.has_started_loading = False
+
+        self.content = ft.Container(
+            content=no_sheets_found
+        )
+
+    def _upsize_image(self, event):
+        self.sheet_row.controls.append(
+            ft.AlertDialog(
+                open=True,
+                content=ft.Container(
+                    width=450,
+                    height=600,
+                    content=event.control.content,
+                    border_radius=10,
+                    padding=10
+                ),
+                bgcolor=ft.Colors.with_opacity(1, ft.Colors.WHITE)
+            )
+        )
+
+        self.update()
+
+    def get_sheet_container(self, file_id: str) -> ft.Container | None:
+        for saved_file_id, image in self.sheet_images:
+            if saved_file_id == file_id:
+                return image
+
+        return None
+
+    def add_chunk(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
+        if not self.has_started_loading:
+            self.content = ft.Container(
+                self.sheet_row,
+                alignment=ft.Alignment(-1, -1),
+                padding=ft.Padding(
+                    top=15,
+                    bottom=5,
+                    right=5,
+                    left=5
+                )
+            )
+
+            self.has_started_loading = True
+
+        image_container = self.get_sheet_container(file_id)
+
+        if not image_container:
+            image_container = ft.Container(
+                width=150,
+                height=200,
+                content=ft.Image(
+                    src_base64=b64_chunk,
+                    fit=ft.ImageFit.FILL,
+                    width=150,
+                    height=200,
+                    border_radius=10
+                ),
+                on_click=self._upsize_image,
+                border_radius=10,
+                bgcolor=ft.Colors.GREY_600,
+                border=ft.border.all(width=2, color=ft.Colors.GREY_400)
+            )
+
+            self.sheet_images.append(
+                (file_id, image_container)
+            )
+
+            self.sheet_row.controls.append(image_container)
+        else:
+            image: ft.Image = image_container.content
+            image.src_base64 += b64_chunk
+
+        self.update()
+
+
 class SongView(ft.AlertDialog):
     def __init__(
             self,
@@ -293,11 +389,14 @@ class SongView(ft.AlertDialog):
             ],
             width=1000,
             height=700,
-            clip_behavior=ft.ClipBehavior.HARD_EDGE
+            clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
         )
 
         self.is_viewing_comments = False
         self.is_viewing_sheets = False
+
+        self.sheet_music_view_control = SheetView()
+        self.has_loaded_sheets = False
 
         self.content = self.view
         self.on_dismiss = self._on_dismiss
@@ -308,11 +407,19 @@ class SongView(ft.AlertDialog):
 
         self.is_viewing_sheets = True
 
-        dialog = SubWindow(self._close_sheet_music_popup)
+        dialog = SubWindow(
+            width=500,
+            height=300,
+            on_close=self._close_sheet_music_popup
+        )
+
+        dialog.set_content(self.sheet_music_view_control)
 
         self.view.controls.append(dialog)
 
         self.update()
+
+        self._request_song_sheet_chunks()
 
     def _close_sheet_music_popup(self):
         self.is_viewing_sheets = False
@@ -331,6 +438,9 @@ class SongView(ft.AlertDialog):
             self.audio_player.src_base64 += b64_chunk
 
         self.audio_player.update()
+
+    async def stream_sheet_chunks(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
+        self.sheet_music_view_control.add_chunk(file_id, song_id, b64_chunk, is_last_chunk)
 
     def _on_dismiss(self, *args):
         self.audio_player.pause()
@@ -378,3 +488,20 @@ class SongView(ft.AlertDialog):
                 }
             ).encode()
         )
+
+    def _request_song_sheet_chunks(self):
+        if self.has_loaded_sheets:
+            return
+
+        self.transport.write(
+            ClientMessage(
+                authentication=self.user_cache.session_token,
+                method="GET",
+                endpoint="song/download/sheets",
+                payload={
+                    "song_id": self.song_id
+                }
+            ).encode()
+        )
+
+        self.has_loaded_sheets = True
