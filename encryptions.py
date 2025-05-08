@@ -166,14 +166,14 @@ class EncryptedTransport(asyncio.Transport):
             cipher = self._buffer[:self._expected_data_length]
             self._buffer = self._buffer[self._expected_data_length:]  # Remove processed data
 
+            # now that we have the whole cipher, we can finally check that the HMAC matches before decrypting
             cipher = self._verify_hmac(cipher)
 
-            # Decrypt the data
             decrypted_data = aes_cbc_decrypt(cipher, key=self.key)
 
             # Clear buffer and reset state
             self._clear_buffer()
-            self._expected_data_length = None  # Reset for the next message
+            self._expected_data_length = None
 
             return decrypted_data
 
