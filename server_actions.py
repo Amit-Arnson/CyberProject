@@ -52,6 +52,9 @@ from Errors.raised_errors import (
 )
 
 
+from RSASigning.private import async_rsa_decrypt
+
+
 async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage,
                               user_cache: UserCache):
     """
@@ -61,7 +64,8 @@ async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, cl
 
     expected payload:
     {
-        "public": int
+        "public": int,
+        "HMAC_key": bytes
     }
 
     expected output: no message sent (none)
@@ -86,9 +90,15 @@ async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, cl
 
     try:
         client_public_value = payload["public"]
+        encrypted_hmac_key = payload["HMAC_key"]
     except KeyError:
         payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
-        raise InvalidPayload(f"Invalid payload passed. expected key \"public\", instead got {payload_keys}")
+        raise InvalidPayload(f"Invalid payload passed. expected key \"public\", \"HMAC_key\", instead got {payload_keys}")
+
+    decrypted_hmac_key = await async_rsa_decrypt(encrypted_hmac_key)
+
+    if len(decrypted_hmac_key) != 32:
+        raise InvalidValue("HMAC key for SHA256 must be 32 bytes")
 
     server_dhe = DHE(
         e=client_user_cache.dhe_exponent,
@@ -107,8 +117,9 @@ async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, cl
     # adds the derived key to the global user cache
     client_user_cache.aes_key = aes_key
 
-    # adding the key to the EncryptedTransport
+    # adding the AES key and HMAC key to the EncryptedTransport
     client.key = aes_key
+    client.hmac_key = decrypted_hmac_key
 
 
 async def user_signup_and_login(db_pool: asqlite.Pool, client_package: ClientPackage, client_message: ClientMessage,
