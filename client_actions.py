@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 import GUI.upload_song
 from pseudo_http_protocol import ServerMessage, ClientMessage
@@ -12,7 +13,7 @@ from flet import Page
 
 from GUI.home_page import HomePage
 
-from RSASigning.public import verify_async
+from RSASigning.public import verify_async, async_rsa_encrypt
 
 
 async def complete_authentication(
@@ -68,13 +69,18 @@ async def complete_authentication(
 
     client_public_value = client_dhe.calculate_public()
 
+    # this is used for anti-bit flipping. the key is encrypted with the hard-coded RSA public key, and decrypted server
+    # side using the hard-coded private key.
+    hmac_key = os.urandom(32)
+
     transport.write(
         ClientMessage(
             authentication=None,
             method="respond",
             endpoint="authentication/key_exchange",
             payload={
-                "public": client_public_value
+                "public": client_public_value,
+                "HMAC_key": await async_rsa_encrypt(hmac_key)
             }
         ).encode()
     )
@@ -85,6 +91,7 @@ async def complete_authentication(
 
     transport.iv = aes_iv
     transport.key = aes_key
+    transport.hmac_key = hmac_key
 
 
 async def user_login(
