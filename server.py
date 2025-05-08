@@ -25,6 +25,8 @@ from FileSystem.base_file_system import System, BaseFile
 from initiate_database import CreateTables
 from Utils.sqlite3_ext import create_connection_pool
 
+from RSASigning.signature import sign_sync
+
 # The IP and PORT of the server.
 IP = "127.0.0.1"
 PORT = 5555
@@ -32,6 +34,8 @@ PORT = 5555
 # cache's a user's auth information such as user ID, aes key and session token.
 cached_authorization = UserCache()
 server_endpoints = EndPoints()
+
+SIGNATURE = sign_sync(IP.encode())
 
 
 # note that read/write using asyncio's protocol adds its own buffer, so we don't need to manually add one.
@@ -78,6 +82,7 @@ class ServerProtocol(asyncio.Protocol):
                 "mod": prime_modulus,
                 "public": shared_public,
                 "iv": aes_iv,
+                "signature": SIGNATURE
             }
         )
 
