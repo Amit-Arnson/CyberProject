@@ -220,12 +220,16 @@ class SheetView(ft.Container):
         self.sheet_row.controls.append(
             ft.AlertDialog(
                 open=True,
-                content=ft.Container(
-                    width=450,
-                    height=600,
-                    content=event.control.content,
-                    border_radius=10,
-                    padding=10
+                content=ft.InteractiveViewer(
+                    ft.Container(
+                        width=450,
+                        height=600,
+                        content=event.control.content,
+                        border_radius=10,
+                        padding=10
+                    ),
+                    min_scale=0.1,
+                    max_scale=15,
                 ),
                 bgcolor=ft.Colors.with_opacity(1, ft.Colors.WHITE)
             )
