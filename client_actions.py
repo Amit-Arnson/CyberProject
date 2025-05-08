@@ -12,6 +12,8 @@ from flet import Page
 
 from GUI.home_page import HomePage
 
+from RSASigning.verification import verify_async
+
 
 async def complete_authentication(
         _: Page,
@@ -32,7 +34,8 @@ async def complete_authentication(
         "base": int,
         "mod": int,
         "public": int,
-        "iv": bytes
+        "iv": bytes,
+        "signature": byes
     }
 
     expected output:
@@ -49,8 +52,17 @@ async def complete_authentication(
         server_public_value = payload["public"]
 
         aes_iv = payload["iv"]
+
+        signature = payload["signature"]
     except KeyError:
         raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
+
+    server_ip, server_port = transport.get_extra_info('peername')
+
+    is_message_from_server = await verify_async(server_ip.encode(), signature)
+
+    if not is_message_from_server:
+        raise # todo: figure out which error to raise when MITM attack
 
     client_dhe: DHE = generate_dhe_response(mod=dhe_mod, base=dhe_base)
 
