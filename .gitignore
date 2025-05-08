@@ -6,3 +6,5 @@
 *.db-wal
 *.env
 /SavedFiles
+/RSASigning/private_key.pem
+/RSASigning/public_key.pem
