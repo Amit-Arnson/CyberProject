@@ -7,6 +7,9 @@ from AES_128 import cbc
 
 from Crypto.Cipher import AES
 
+from hashlib import sha256
+from hmac import compare_digest
+
 
 def pad(plaintext):
     """Pads the plaintext to make its length a multiple of 16 bytes (block size)."""
@@ -59,11 +62,15 @@ class EncryptedTransport(asyncio.Transport):
             transport: asyncio.Transport,
             key: Optional[bytes] = None,
             iv: Optional[bytes] = None,
+            hmac_key: Optional[bytes] = None,
     ):
         super().__init__()
         self._transport = transport
         self.key = key
         self.iv = iv
+
+        # used to protect against bit flipping attacks
+        self.hmac_key = hmac_key
 
         self._buffer = b""  # Buffer for incoming fragmented data
         self._expected_data_length = None
@@ -74,6 +81,34 @@ class EncryptedTransport(asyncio.Transport):
         if iv and len(iv) != 16:
             raise ValueError(f"expected 16 byte IV, got {len(iv)} bytes instead")
 
+    def _hmac_digest(self, content: bytes) -> bytes:
+        return sha256(self.hmac_key + sha256(self.hmac_key + content).digest()).digest()
+
+    def _implement_hmac(self, data: bytes) -> bytes:
+        """adds a 32 byte HMAC using a given key and sha256"""
+
+        if not self.hmac_key:
+            return data
+
+        added_hmac = self._hmac_digest(data)
+
+        return data + added_hmac
+
+    def _verify_hmac(self, data: bytes) -> bytes:
+        if not self.hmac_key:
+            return data
+
+        added_hmac, original_data = data[-32:], data[:-32]
+
+        expected_hmac = self._hmac_digest(original_data)
+
+        # i use compare_digest instead of == to prevent timing attacks. Unlike ==, compare_digest performs a constant-time comparison,
+        # preventing attackers from inferring information based on comparison timing.
+        if not compare_digest(expected_hmac, added_hmac):
+            raise ValueError("HMAC verification failed")
+
+        return original_data
+
     def write(self, data: bytes) -> None:
         """
         Uses asyncio.Transport's write() while encrypting using AES-128-CBC.
@@ -82,6 +117,7 @@ class EncryptedTransport(asyncio.Transport):
 
         if self.key and self.iv:
             encrypted_data = aes_cbc_encrypt(data, key=self.key, iv=self.iv)
+            encrypted_data = self._implement_hmac(encrypted_data)
 
             # Calculate and include the length prefix (16 bytes), this is practically a buffer protocol
             data_length_block = str(len(encrypted_data)).rjust(16, "0").encode()
@@ -129,6 +165,8 @@ class EncryptedTransport(asyncio.Transport):
             # Extract the full payload
             cipher = self._buffer[:self._expected_data_length]
             self._buffer = self._buffer[self._expected_data_length:]  # Remove processed data
+
+            cipher = self._verify_hmac(cipher)
 
             # Decrypt the data
             decrypted_data = aes_cbc_decrypt(cipher, key=self.key)
