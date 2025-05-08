@@ -25,7 +25,7 @@ from FileSystem.base_file_system import System, BaseFile
 from initiate_database import CreateTables
 from Utils.sqlite3_ext import create_connection_pool
 
-from RSASigning.private_key import sign_sync
+from RSASigning.private import sign_sync
 
 # The IP and PORT of the server.
 IP = "127.0.0.1"

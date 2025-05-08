@@ -12,7 +12,7 @@ from flet import Page
 
 from GUI.home_page import HomePage
 
-from RSASigning.public_key import verify_async
+from RSASigning.public import verify_async
 
 
 async def complete_authentication(
