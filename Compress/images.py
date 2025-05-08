@@ -16,9 +16,19 @@ async def compress_to_webp(
 
     compressed_extension = "webp"
 
+    extra_compression_ffmpeg_values: dict[str, ...] = {
+        "-compression_level": 6,
+        "-preset": "text",
+        "-map_metadata": -1,
+        "-map_chapters": -1,
+        "-lossless": 0
+    }
+
     ffmpeg_values = FFmpegImage(
         codec=Codec.WEBP,
-        quality=30
+        quality=100,
+    ).to_dict(
+        extra=extra_compression_ffmpeg_values
     )
 
     total_size = await compress_and_replace(
