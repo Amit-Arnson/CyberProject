@@ -5,7 +5,6 @@ from typing import Optional
 
 from AES_128 import cbc
 
-
 from Crypto.Cipher import AES
 
 
@@ -55,7 +54,12 @@ def aes_cbc_decrypt(ciphertext, key):
 # todo: fix my cbc code and not use pycryptodome, currently it seems that my code is simply too slow
 # issue: when sending over large data or data in general very fast, it breaks the padding and unpadding for some reason
 class EncryptedTransport(asyncio.Transport):
-    def __init__(self, transport: asyncio.Transport, key: Optional[bytes] = None, iv: Optional[bytes] = None):
+    def __init__(
+            self,
+            transport: asyncio.Transport,
+            key: Optional[bytes] = None,
+            iv: Optional[bytes] = None,
+    ):
         super().__init__()
         self._transport = transport
         self.key = key
@@ -75,6 +79,7 @@ class EncryptedTransport(asyncio.Transport):
         Uses asyncio.Transport's write() while encrypting using AES-128-CBC.
         Data is only encrypted if a key and IV are passed.
         """
+
         if self.key and self.iv:
             encrypted_data = aes_cbc_encrypt(data, key=self.key, iv=self.iv)
 
@@ -99,6 +104,7 @@ class EncryptedTransport(asyncio.Transport):
         Decrypts the incoming data using the key and IV that were initially passed, using AES-128-CBC.
         Buffers fragmented data until it forms full blocks.
         """
+
         if self.key and self.iv:
             self._buffer += data
 
@@ -146,7 +152,7 @@ class EncryptedTransport(asyncio.Transport):
     def write_eof(self) -> None:
         self._transport.write_eof()
 
-    def get_extra_info(self, name: str, default: Optional[None] = None) -> Optional[None]:
+    def get_extra_info(self, name: str, default: Optional[None] = None) -> ...:
         return self._transport.get_extra_info(name, default)
 
     def close(self) -> None:
