@@ -453,6 +453,12 @@ class UploadSong:
         self.MAX_IMAGES_SIZE = 10 * self.MEGABYTE
         self.MAX_COVER_ART_SIZE = 2 * self.MEGABYTE
 
+        self.MAX_SIZE_DICT: dict[str, int] = {
+            "audio": self.MAX_AUDIO_SIZE,
+            "sheet": self.MAX_IMAGES_SIZE,
+            "cover": self.MAX_COVER_ART_SIZE
+        }
+
         # to prevent any data corruption/race conditions
         self._lock = asyncio.Lock()
 
@@ -460,6 +466,10 @@ class UploadSong:
             str, dict[str, str | list[str]]
         ] = {}
         """
+        this dictionary is used for all of the metadata of an upload, and as such includes all of the song info (such as
+        album/artist/song names) and also includes the temporary request_file_id and request_id which can be later used to
+        associate a file chunk's upload with the correct song
+        
         gotten from song/upload
         dict[
             request_id, dict[
@@ -473,6 +483,17 @@ class UploadSong:
                         "image_ids": list[str],
             ]
         ]
+        """
+
+        self.song_upload_size_info: dict[str, dict[str, int]] = {}
+        """
+        this is used to store the uploaded sizes of the content uploaded per request. this is done in order to limit the max
+        upload size allowed.
+        
+        the reason we dont check the upload size when the chunks arrive is due to the fact that the "sheet" file_type is
+        allowed to have multiple files, with a max upload size of the total files combined.
+        
+        dict[request_id -> dict["audio": int, "sheet": int, "cover": int]]
         """
 
         self.file_save_ids: dict[
@@ -905,11 +926,6 @@ class UploadSong:
 
         try:
             request_id: str = payload["request_id"]
-            # todo: use file_type in order to correctly save the file info into the db
-            # "audio" for the song itself
-            # "sheet" for the sheet music
-            # "cover" for the song thumbnail (which is also "image" but should have it's own table
-            # todo: create "thumbnail" table in db
             file_type: str = payload["file_type"]
             file_id: str = payload["file_id"]
             chunk: bytes = payload["chunk"]
@@ -922,12 +938,13 @@ class UploadSong:
                 f"Invalid payload passed. expected keys \"request_id\", \"file_type\", \"file_id\", \"chunk\", "
                 f"\"chunk_number\", \"is_last_chunk\", \"expected_size\", instead got {payload_keys}")
 
-        # if the request was invalid (or was invalidated due to an internal error), it shouldn't try to upload the
-        # files
+        if file_type not in ("sheet", "cover", "audio"):
+            raise InvalidValue("file_type must be of value \"sheet\", \"cover\" or \"audio\"")
+
+        # if the request was invalid (or was invalidated due to an internal error), it shouldn't try to upload the files
         if request_id not in self.song_information:
             raise InvalidPayload(f"request ID {request_id} details were not found or are invalid/were invalidated")
 
-        #async with self._lock:
         # checks if the file chunks have already started, or if the current chunk is the first of the file
         chunk_info = self.file_save_ids.get((request_id, file_id), {})
 
@@ -961,9 +978,6 @@ class UploadSong:
             # saved onto the disc later on
             save_directory, cluster_id, full_file_id = chunk_info["paths"]
 
-        # todo: check the total size of the request (which is the total of current_size across all files), and the end size of the file (which will be the last current_size)
-        # todo: check the number of files uploaded (and decide and what the max should be, probably like 20 for sheet images)
-        # i think i switched it from file amount to total file size, so we need to check that per category instead
         current_size = chunk_info["current_size"]
         file_extension: str = chunk_info["file_extension"]
         previous_chunk: int = chunk_info["previous_chunk"]
@@ -996,6 +1010,22 @@ class UploadSong:
 
             # adds the chunk size (in Bytes) to the total file size
             chunk_size = len(chunk)
+
+            if request_id not in self.song_upload_size_info:
+                self.song_upload_size_info[request_id] = {
+                    "sheet": 0,
+                    "cover": 0,
+                    "audio": 0,
+                }
+
+            self.song_upload_size_info[request_id][file_type] += chunk_size
+
+            current_file_type_size = self.song_upload_size_info[request_id][file_type]
+
+            if current_file_type_size > self.MAX_SIZE_DICT[file_type]:
+                raise InvalidValue(
+                    f"maximum size allowed for file type(s) of {file_type} is {self.MAX_SIZE_DICT[file_type]} bytes. received {current_size} bytes")
+
             current_size += chunk_size
 
             # async with self._lock:
@@ -1049,6 +1079,7 @@ class UploadSong:
 
             # todo: add a system that deletes the previously saved chunks
 
+            print(f"error: {e}")
             logging.error(e, exc_info=True)
             raise e
 
@@ -1081,6 +1112,7 @@ class UploadSong:
             try:
                 del self.file_save_ids[(request_id, file_id)]
                 del self.out_of_order_chunks[(request_id, file_id)]
+                del self.song_upload_size_info[request_id]
             except KeyError:
                 pass
 
