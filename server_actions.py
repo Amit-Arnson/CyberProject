@@ -1,5 +1,7 @@
 import logging
 import os
+import aiofiles.os as aos
+import pathlib
 
 import bisect
 import traceback
@@ -441,9 +443,7 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
     )
 
 
-# todo: if a request is invalidated at any point, DELETE all of the current information (including already saved files) that are related to that request
-# currently i think i delete all the memory saved to RAM (like dicts), and i dont save to DB if there is an issue with the request ID
-# however any file that was saved before the issue currently is not deleted, which is not the intended behaviour
+# todo: check that all of the temp data is deleted after the request succeeds OR fails
 class UploadSong:
     def __init__(self):
         # these are constant values that define how large the file/files can be.
@@ -939,10 +939,14 @@ class UploadSong:
                 f"\"chunk_number\", \"is_last_chunk\", \"expected_size\", instead got {payload_keys}")
 
         if file_type not in ("sheet", "cover", "audio"):
+            await self._delete_request_info(request_id)
+
             raise InvalidValue("file_type must be of value \"sheet\", \"cover\" or \"audio\"")
 
         # if the request was invalid (or was invalidated due to an internal error), it shouldn't try to upload the files
         if request_id not in self.song_information:
+            await self._delete_request_info(request_id)
+
             raise InvalidPayload(f"request ID {request_id} details were not found or are invalid/were invalidated")
 
         # checks if the file chunks have already started, or if the current chunk is the first of the file
@@ -1005,9 +1009,6 @@ class UploadSong:
                 # Update `previous_chunk` in the chunk info dictionary
                 self.file_save_ids[(request_id, file_id)]["previous_chunk"] = previous_chunk
         else:
-            # see to do at the top of self.compress
-            # compressed_chunk = await self.compress(chunk)
-
             # adds the chunk size (in Bytes) to the total file size
             chunk_size = len(chunk)
 
@@ -1023,12 +1024,12 @@ class UploadSong:
             current_file_type_size = self.song_upload_size_info[request_id][file_type]
 
             if current_file_type_size > self.MAX_SIZE_DICT[file_type]:
-                raise InvalidValue(
-                    f"maximum size allowed for file type(s) of {file_type} is {self.MAX_SIZE_DICT[file_type]} bytes. received {current_size} bytes")
+                await self._delete_request_info(request_id)
+
+                raise InvalidValue(f"maximum size allowed for file type(s) of {file_type} is {self.MAX_SIZE_DICT[file_type]} bytes. received {current_size} bytes")
 
             current_size += chunk_size
 
-            # async with self._lock:
             # change the previous chunk to be the current chunk so that we can check it for the next chunk
             chunk_info["previous_chunk"] = previous_chunk + 1
 
@@ -1061,10 +1062,6 @@ class UploadSong:
             # we then set the current chunk's extension to whatever we have saved before (if any)
             file_chunk.file_extension = file_extension
 
-        # note that if the chunk goes to be saved and has **no file extension** (None), the whole file may be dismissed as invalid
-
-        # todo: add the above comment as functional code
-
         try:
             chunk_file_information = await file_system.save_stream(
                 chunk=file_chunk,
@@ -1075,16 +1072,21 @@ class UploadSong:
         except Exception as e:
 
             # removes any current data about the chunks
-            await self._delete_chunk_info(request_id, file_id)
+            #await self._delete_chunk_info(request_id, file_id)
 
             # todo: add a system that deletes the previously saved chunks
 
             print(f"error: {e}")
             logging.error(e, exc_info=True)
+
+            await self._delete_request_info(request_id)
+
             raise e
 
         if is_last_chunk:
             if current_size != expected_file_size:
+                await self._delete_request_info(request_id)
+
                 raise Exception(f"received file size was less or more than expected (by {abs(current_size - expected_file_size)} bytes)")
                 # todo: add a system to delete the files on error so we don't have necessary files
                 # i will also probably invalidate the entire request if any part of it errors, so that users will have
@@ -1106,44 +1108,97 @@ class UploadSong:
                 self.base_file_set[request_id] = {file_id}
 
     async def _delete_chunk_info(self, request_id: str, file_id: str):
-        """tries to delete the information saved about a specific file's chunks"""
+        """deletes the information saved about a specific file's chunks"""
 
         async with self._lock:
-            try:
-                del self.file_save_ids[(request_id, file_id)]
-                del self.out_of_order_chunks[(request_id, file_id)]
-                del self.song_upload_size_info[request_id]
-            except KeyError:
-                pass
+            self.out_of_order_chunks.pop((request_id, file_id), None)
+            self.song_upload_size_info.pop(request_id, None)
 
-    # todo: finish this function
-    # 1) delete the files from disc
-    # 2) delete all of the temp data, such as dicts
     async def _delete_request_info(self, request_id: str):
-        request_info = self.song_information[request_id]
+        try:
+            request_info = self.song_information.pop(request_id, None)
 
-        song_file_id: str = request_info["song_id"]
-        cover_art_file_id: str = request_info["cover_art_id"]
-        sheet_music_images_file_ids: list[str] = request_info["image_ids"]
+            if not request_info:
+                print(f"request info for {request_id} not found")
+                return
 
-        request_file_ids: list[str] = [song_file_id, cover_art_file_id]
-        request_file_ids.extend(sheet_music_images_file_ids)
+            song_file_id: str = request_info["song_id"]
+            cover_art_file_id: str = request_info["cover_art_id"]
+            sheet_music_images_file_ids: list[str] = request_info["image_ids"]
 
-        # remove the request from the saved requests so that any incoming chunk is also invalidated
-        async with self._lock:
-            #del self.song_information[request_id]
-            pass
+            request_file_ids: list[str] = [song_file_id, cover_art_file_id]
+            request_file_ids.extend(sheet_music_images_file_ids)
 
-        for file_id in request_file_ids:
-            """
-            out_of_order_chunks
-            base_file_paths
-            base_file_parameters
-            file_save_ids
-            """
+            print(request_file_ids)
 
-            current_file = self.file_save_ids[(request_id, file_id)]
-            print(current_file["paths"])
+            for file_id in request_file_ids:
+                # we remove the info by popping it, since it wont be used beyond this function and we need to clear the
+                # memory.
+                current_file = self.file_save_ids.pop((request_id, file_id), None)
+
+                if not current_file:
+                    print(f"couldnt find file info for {file_id}")
+                    continue
+
+                await self._delete_chunk_info(request_id, file_id)
+
+                file_async_lock: asyncio.Lock = current_file["lock"]
+
+                save_dir, _, file_path = current_file["paths"]
+                file_codec = current_file["file_extension"]
+
+                print(file_codec)
+
+                if not file_codec:
+                    print(f"no codec found for {save_dir}/{file_path}")
+                    return
+
+                full_path = os.path.join(save_dir, file_path) + f".{file_codec}"
+
+                # if the file reached a stage where it was successfully saved before the error occurred, it will have a
+                # different codec (image -> webp, audio -> aac) than the original uploaded file. For this reason, i check
+                # if the saved path (that only saves when the file is fully valid) exists and if it is any different
+                # from the codec that the full_file currently is.
+
+                # we remove the info by popping it, since it wont be used beyond this function and we need to clear the
+                # memory.
+                saved_file_path = self.base_file_paths.pop((request_id, file_id), full_path)
+
+                if full_path != saved_file_path:
+                    full_path = saved_file_path
+
+                does_path_currently_exist = False
+
+                give_up_counter = 3
+                while not does_path_currently_exist:
+                    does_path_currently_exist = await aos.path.exists(full_path)
+                    if does_path_currently_exist:
+                        break
+
+                    print(does_path_currently_exist)
+                    give_up_counter -= 1
+
+                    await asyncio.sleep(10)
+
+                    if give_up_counter <= 0:
+                        break
+
+                print(full_path)
+
+                if give_up_counter <= 0:
+                    logging.error(f"failed to find file {full_path} in under 3 seconds. skipping file")
+                    continue
+
+                async with file_async_lock:
+                    await aos.remove(full_path)
+
+                await self._delete_chunk_info(request_id, file_id)
+
+                self.base_file_parameters.pop((request_id, file_id))
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise e
 
 
 async def send_song_previews(
