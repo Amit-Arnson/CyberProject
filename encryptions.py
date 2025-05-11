@@ -1,5 +1,4 @@
 import base64
-import hashlib
 
 import asyncio
 from typing import Optional
@@ -12,6 +11,7 @@ from hashlib import sha256
 from hmac import compare_digest
 
 from dataclasses import dataclass
+
 
 def pad(plaintext):
     """Pads the plaintext to make its length a multiple of 16 bytes (block size)."""
@@ -84,8 +84,8 @@ class HMAC:
         return key_1, key_2
 
     def derive(self, data: bytes) -> bytes:
-        key_1 = getattr(self, "_key_1", None)
-        key_2 = getattr(self, "_key_2", None)
+        key_1: bytes = getattr(self, "_key_1", None)
+        key_2: bytes = getattr(self, "_key_2", None)
 
         if key_1 is None or key_2 is None:
             key_1, key_2 = self.create_expanded_keys()
