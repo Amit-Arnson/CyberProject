@@ -1,4 +1,5 @@
 import base64
+import hashlib
 
 import asyncio
 from typing import Optional
@@ -10,6 +11,7 @@ from Crypto.Cipher import AES
 from hashlib import sha256
 from hmac import compare_digest
 
+from dataclasses import dataclass
 
 def pad(plaintext):
     """Pads the plaintext to make its length a multiple of 16 bytes (block size)."""
@@ -54,6 +56,45 @@ def aes_cbc_decrypt(ciphertext, key):
     return unpad(plaintext)
 
 
+@dataclass(frozen=True)
+class HMAC:
+    key: bytes
+    size: int = 32
+    _algorithm = sha256
+
+    def hash(self, data: bytes) -> bytes:
+        return self._algorithm(data).digest()
+
+    def sized_key(self) -> bytes:
+        if len(self.key) > self.size:
+            return self.hash(self.key)
+        elif len(self.key) < self.size:
+            return self.key.rjust(self.size, b"0")
+
+        return self.key
+
+    def create_expanded_keys(self) -> tuple[bytes, bytes]:
+        sk = self.sized_key()
+
+        # in order for proper auth code, we need to XOR the initial key with 2 different constant values in order to get
+        # 2 new keys that will actually be used in the hmac hashing.
+        key_1 = bytes([b ^ 0x36 for b in sk])
+        key_2 = bytes([b ^ 0x5c for b in sk])
+
+        return key_1, key_2
+
+    def derive(self, data: bytes) -> bytes:
+        key_1 = getattr(self, "_key_1", None)
+        key_2 = getattr(self, "_key_2", None)
+
+        if key_1 is None or key_2 is None:
+            key_1, key_2 = self.create_expanded_keys()
+            object.__setattr__(self, "_key_1", key_1)
+            object.__setattr__(self, "_key_2", key_2)
+
+        return self.hash(key_2 + self.hash(key_1 + data))
+
+
 # todo: fix my cbc code and not use pycryptodome, currently it seems that my code is simply too slow
 # issue: when sending over large data or data in general very fast, it breaks the padding and unpadding for some reason
 class EncryptedTransport(asyncio.Transport):
@@ -72,6 +113,10 @@ class EncryptedTransport(asyncio.Transport):
         # used to protect against bit flipping attacks
         self.hmac_key = hmac_key
 
+        self.hmac = None
+        if self.hmac_key:
+            self.hmac = HMAC(self.hmac_key)
+
         self._buffer = b""  # Buffer for incoming fragmented data
         self._expected_data_length = None
 
@@ -81,26 +126,33 @@ class EncryptedTransport(asyncio.Transport):
         if iv and len(iv) != 16:
             raise ValueError(f"expected 16 byte IV, got {len(iv)} bytes instead")
 
-    def _hmac_digest(self, content: bytes) -> bytes:
-        return sha256(self.hmac_key + sha256(self.hmac_key + content).digest()).digest()
+    def _does_hmac_exist(self) -> bool:
+        if not self.hmac_key:
+            return False
+        elif self.hmac_key and not self.hmac:
+            self.hmac = HMAC(self.hmac_key)
+
+        return True
 
     def _implement_hmac(self, data: bytes) -> bytes:
         """adds a 32 byte HMAC using a given key and sha256"""
 
-        if not self.hmac_key:
+        if not self._does_hmac_exist():
             return data
 
-        added_hmac = self._hmac_digest(data)
+        added_hmac = self.hmac.derive(data)
 
         return data + added_hmac
 
     def _verify_hmac(self, data: bytes) -> bytes:
-        if not self.hmac_key:
+        if not self._does_hmac_exist():
             return data
 
         added_hmac, original_data = data[-32:], data[:-32]
 
-        expected_hmac = self._hmac_digest(original_data)
+        expected_hmac = self.hmac.derive(original_data)
+
+        print(added_hmac, expected_hmac)
 
         # i use compare_digest instead of == to prevent timing attacks. Unlike ==, compare_digest performs a constant-time comparison,
         # preventing attackers from inferring information based on comparison timing.
