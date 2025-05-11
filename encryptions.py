@@ -152,8 +152,6 @@ class EncryptedTransport(asyncio.Transport):
 
         expected_hmac = self.hmac.derive(original_data)
 
-        print(added_hmac, expected_hmac)
-
         # i use compare_digest instead of == to prevent timing attacks. Unlike ==, compare_digest performs a constant-time comparison,
         # preventing attackers from inferring information based on comparison timing.
         if not compare_digest(expected_hmac, added_hmac):
