@@ -2,9 +2,10 @@ import base64
 import time
 
 from dotenv import load_dotenv
+import secrets
+import string
 
 import os
-import secrets
 
 from uuid import uuid4
 from hashlib import sha256
@@ -88,8 +89,6 @@ def generate_session_token(user_id: str) -> str:
 
 if __name__ == "__main__":
     # the pepper in secrets.env was created using this script
-    import secrets
-    import string
 
 
     def generate_pepper(length=32):

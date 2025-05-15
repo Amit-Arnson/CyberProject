@@ -1,6 +1,3 @@
-import logging
-import os
-
 import asqlite
 
 from Caches.user_cache import UserCache, UserCacheItem

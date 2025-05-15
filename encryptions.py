@@ -229,9 +229,9 @@ class EncryptedTransport(asyncio.Transport):
 
         return data
 
-    def _clear_buffer(self, leeway: int = 0):
+    def _clear_buffer(self):
         """clears the current buffer so that we don't accumulate tons of data on the memory"""
-        if len(self._buffer) > self._expected_data_length + leeway:
+        if len(self._buffer) > self._expected_data_length:
             self._buffer = b""
 
     def can_write_eof(self) -> bool:
