@@ -1,6 +1,4 @@
 # this file is used as a way to organize all the needed SQL queries
-import json
-import sqlite3
 import time
 
 from asqlite import ProxiedConnection
