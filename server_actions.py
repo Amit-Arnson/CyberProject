@@ -30,7 +30,8 @@ from queries import (
     FileSystem,
     MediaFiles,
     Music,
-    MusicSearch
+    MusicSearch,
+    RecommendationAlgorithm
 )
 
 from Compress.audio import get_audio_length
@@ -1321,6 +1322,103 @@ async def send_song_previews(
     await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
 
 
+async def send_recommended_song_previews(
+        db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache):
+    """
+    this function is used to send the client the "preview" of the songs that are recommended based on genre algorithm,
+    that contains the cover art, and the standard song data (song name, artist name, etc...)
+
+    this function is tied to song/recommended/download/preview (GET)
+
+    expected payload:
+    {
+        "query": str,
+        "limit": int,
+        "exclude": list[song IDs],
+    }
+
+    -- note: the output will be sent as chunks and multiple "messages". so the output here will be shown as a single
+    message for a single song preview.
+    --note: this function will only FETCH the song information from the database, the chunk sending will happen in a
+    Utils function (outside of server_actions)
+
+    expected output (for starting message):
+    {
+        "file_id": str
+        "song_id": int,
+        "artist_name": str,
+        "album_name": str,
+        "song_name": str,
+        "genres": list[str]
+    }
+
+    expected output (for each chunk):
+    {
+        -- note: the chunk's bytes are b64 encoded before sending due to flet limitations
+        "chunk": str,
+        "file_id": str,
+        "chunk_number": int,
+        "is_last_chunk": bool,
+        "song_id": int
+    }
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    payload = client_message.payload
+
+    try:
+        limit: int = payload["limit"]
+        exclude: list[int] = payload["exclude"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(
+            f"Invalid payload passed. expected key \"limit\", \"exclude\", instead got {payload_keys}"
+        )
+
+    if limit > 50 or limit <= 0:
+        raise InvalidValue("the limit must be a number between 1 and 50")
+    if len(exclude) > 100:
+        raise TooLong("the exclude list can only have up to 100 exclusions per request")
+
+    async with db_pool.acquire() as connection:
+        matching_song_ids = await RecommendationAlgorithm.fetch_recommended_songs(
+            connection=connection,
+            user_id=client_user_cache.user_id,
+            limit=limit,
+            exclude=exclude
+        )
+
+    print(f"matching song ids: {matching_song_ids}")
+
+    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
+
+
 async def resend_song_preview(
         db_pool: asqlite.Pool,
         client_package: ClientPackage,
@@ -1447,6 +1545,14 @@ async def send_song_audio(
         raise InvalidPayload(
             f"Invalid payload passed. expected key \"song_id\", instead got {payload_keys}")
 
+    async with db_pool.acquire() as connection:
+        await RecommendationAlgorithm.increase_genre_score_by_song_id(
+            connection=connection,
+            user_id=client_user_cache.user_id,
+            song_id=song_id,
+            score_increase=2
+        )
+
     await send_song_audio_chunks(transport=client, song_id=song_id, db_pool=db_pool)
 
 
@@ -1508,5 +1614,13 @@ async def send_song_sheets(
     except KeyError:
         payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
         raise InvalidPayload(f"Invalid payload passed. expected key \"song_id\", instead got {payload_keys}")
+
+    async with db_pool.acquire() as connection:
+        await RecommendationAlgorithm.increase_genre_score_by_song_id(
+            connection=connection,
+            user_id=client_user_cache.user_id,
+            song_id=song_id,
+            score_increase=1
+        )
 
     await send_song_sheet_chunks(transport=client, song_id=song_id, db_pool=db_pool)
