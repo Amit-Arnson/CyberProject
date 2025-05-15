@@ -26,6 +26,7 @@ class CreateTables:
             self._create_song_info_table(cursor)
             self._create_media_files_table(cursor)
             self._create_genres_table(cursor)
+            self._create_favorite_genres_tale(cursor)
 
             # Commit changes
             connection.commit()
@@ -141,6 +142,19 @@ class CreateTables:
                 PRIMARY KEY (song_id, file_id),
                 FOREIGN KEY (song_id) REFERENCES song_info (song_id),
                 FOREIGN KEY (file_id) REFERENCES files (file_id)
+            );
+            """
+        )
+
+    @staticmethod
+    def _create_favorite_genres_tale(cursor):
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS favorite_genres (
+                user_id TEXT NOT NULL,
+                genre TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                PRIMARY KEY (user_id, genre)
             );
             """
         )

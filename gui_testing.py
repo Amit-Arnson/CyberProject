@@ -310,3 +310,47 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     ft.app(main)
+
+# def count_lines_of_code(directory):
+#     import os
+#
+#     total_lines = 0
+#     file_count = 0
+#     result = []
+#     no_good_folders = {
+#         "C:\\Users\\amita\PycharmProjects\FinalCyberProject\\venv",
+#     }
+#     for foldername, subfolders, filenames in os.walk(directory):
+#         for bad_folder in no_good_folders:
+#             if foldername.lower().startswith(bad_folder.lower()):
+#                 print(f"skipping over {foldername}")
+#                 continue
+#
+#         if "__" in foldername or "-" in foldername:
+#             print(f"skipping over {foldername}")
+#             continue
+#
+#         for filename in filenames:
+#             if filename.endswith('.py'):
+#                 filepath = os.path.join(foldername, filename)
+#                 try:
+#                     with open(filepath, 'r', encoding='utf-8') as file:
+#                         lines = file.readlines()
+#                         line_count = len(lines)
+#                         total_lines += line_count
+#                         file_count += 1
+#                         result.append((f"{filename}", line_count))
+#                 except Exception as e:
+#                     result.append((f"Could not read {filename}: {e}", 0))
+#
+#     result.sort(key=lambda _: _[1], reverse=True)
+#     return total_lines, file_count, result
+#
+#
+# if __name__ == "__main__":
+#     # asyncio.run(main2())
+#     tl, fc, r = count_lines_of_code("C:\\Users\\amita\PycharmProjects\FinalCyberProject")
+#     print(f"total lines in project: {tl}")
+#     print(f"total file count: {fc}")
+#     print(r)
+#     print(f"avg per file: {tl/fc}")
