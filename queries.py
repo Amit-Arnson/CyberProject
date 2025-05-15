@@ -541,7 +541,7 @@ class MusicSearch:
         return [row[0] for row in results]
 
     @staticmethod
-    async def get_random_songs(connection, exclude: list[int], limit: int = 10) -> list[int]:
+    async def get_random_songs(connection: ProxiedConnection, exclude: list[int], limit: int = 10) -> list[int]:
         """
         Fetches random songs from the song_info table based on a given limit.
 
@@ -566,3 +566,67 @@ class MusicSearch:
 
         # Return the list of random song IDs
         return [row[0] for row in random_songs]
+
+
+class RecommendationAlgorithm:
+    @staticmethod
+    async def increase_genre_score_by_song_id(connection: ProxiedConnection, user_id: str, song_id: int, score_increase: int):
+        genres: list[Row] = await connection.fetchall(
+            """SELECT genre_name FROM genres WHERE song_id = ?""",
+            song_id,
+        )
+
+        values = [(user_id, genre[0], score_increase) for genre in genres]
+
+        await connection.executemany(
+            """
+            INSERT INTO favorite_genres (user_id, genre, score)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id, genre) DO UPDATE SET score = score + excluded.score
+            """,
+            values
+        )
+
+    @staticmethod
+    async def increase_genre_score(connection: ProxiedConnection, user_id: str, genre: str, score_increase: int):
+        await connection.execute(
+            """
+            INSERT INTO favorite_genres (user_id, genre, score)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id, genre) DO UPDATE SET score = score + excluded.score
+            """,
+            user_id, genre, score_increase
+        )
+
+    @staticmethod
+    async def fetch_top_genres(connection: ProxiedConnection, user_id: str) -> list[str]:
+        genres = await connection.fetchall(
+            """SELECT genre FROM favorite_genres WHERE user_id = ? ORDER BY score DESC""",
+            user_id,
+        )
+
+        top_10_list: list[str] = [genre[0] for genre in genres][:10]
+
+        return top_10_list
+
+    @staticmethod
+    async def fetch_recommended_songs(connection: ProxiedConnection, user_id: str, exclude: list[int], limit: int = 10) -> list[int]:
+        recommended_genres = await RecommendationAlgorithm.fetch_top_genres(connection, user_id)
+
+        if not recommended_genres:
+            return []
+
+        placeholders = ",".join("?" for _ in recommended_genres)
+
+        exclude_placeholders = ", ".join(["?"] * len(exclude))
+        exclude_query = f"AND song_id NOT IN ({exclude_placeholders})" if exclude else ""
+
+        query = f"""
+            SELECT song_id FROM genres
+            WHERE genre_name IN ({placeholders}) {exclude_query}
+            LIMIT ?;
+        """
+
+        song_ids = await connection.fetchall(query, *recommended_genres, *exclude, limit)
+
+        return [song_id[0] for song_id in song_ids]
