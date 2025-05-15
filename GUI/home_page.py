@@ -73,6 +73,9 @@ class HomePage:
             for the audio file chunk buffering.
         """
 
+        self.navigate_data = {}
+        """the data that the current navigate tab is on, this is used for the "load more" button"""
+
         self._initialize_controls()
 
     def _create_loading_item(
@@ -396,18 +399,26 @@ class HomePage:
 
         query = self.song_search.value
 
+        print(self.navigate_data)
+
+        endpoint = self.navigate_data.get("endpoint", "song/download/preview")
+        payload = self.navigate_data.get(
+            "payload",
+            {
+                "query": query,
+                "exclude": self.loaded_song_ids,
+                "limit": 10,
+                # filters is a required parameter, but it can be an empty dict to indicate none
+                "filters": self.current_filters
+            }
+        )
+
         self.transport.write(
             ClientMessage(
                 authentication=self.user_cache.session_token,
                 method="GET",
-                endpoint="song/download/preview",
-                payload={
-                    "query": query,
-                    "exclude": self.loaded_song_ids,
-                    "limit": 10,
-                    # filters is a required parameter, but it can be an empty dict to indicate none
-                    "filters": self.current_filters
-                }
+                endpoint=endpoint,
+                payload=payload
             ).encode()
         )
 
@@ -532,9 +543,17 @@ class HomePage:
         if is_currently_hovering == "true":
             tab_container.bgcolor = ft.Colors.BLUE_400
         else:
-            tab_container.bgcolor = tab_container.data
+            tab_container.bgcolor = tab_container.data["color"]
 
         tab_container.update()
+
+    def _navigate(self, event):
+        self._clear_screen(update=True)
+
+        self.loaded_song_ids.clear()
+
+        self.navigate_data = event.control.data
+        self._load_song_previews()
 
     def _initialize_navigation_tabs(self):
         nav_tab_dict: dict[str, ...] = {
@@ -543,7 +562,7 @@ class HomePage:
             "expand": True,
             "padding": 10,
             "on_hover": self._highlight_tab,
-            "data": ft.Colors.BLUE
+            "on_click": self._navigate
         }
 
         self.home_tab: ft.Container = ft.Container(
@@ -560,7 +579,10 @@ class HomePage:
                         weight=ft.FontWeight.W_500
                     )
                 ]
-            )
+            ),
+            data={
+                "color": ft.Colors.BLUE,
+            }
         )
 
         self.browse: ft.Container = ft.Container(
@@ -577,7 +599,12 @@ class HomePage:
                         weight=ft.FontWeight.W_500
                     )
                 ]
-            )
+            ),
+            data={
+                "color": ft.Colors.BLUE,
+                "endpoint": "song/browse",  # -> list[genres]
+                "payload": {}
+            }
         )
 
         self.favorites: ft.Container = ft.Container(
@@ -594,24 +621,36 @@ class HomePage:
                         weight=ft.FontWeight.W_500
                     )
                 ]
-            )
+            ),
+            data={
+                "color": ft.Colors.BLUE,
+                "endpoint": "song/favorites/download/preview"
+            }
         )
 
-        self.downloads: ft.Container = ft.Container(
+        self.recommended: ft.Container = ft.Container(
             **nav_tab_dict,
             content=ft.Row(
                 [
                     ft.Icon(
-                        ft.Icons.DOWNLOAD_FOR_OFFLINE_ROUNDED,
+                        ft.Icons.FAVORITE,
                         color=ft.Colors.WHITE
                     ),
                     ft.Text(
-                        "downloads",
+                        "recommended",
                         color=ft.Colors.WHITE,
                         weight=ft.FontWeight.W_500
                     )
                 ]
-            )
+            ),
+            data={
+                "color": ft.Colors.BLUE,
+                "endpoint": "song/recommended/download/preview",
+                "payload": {
+                    "exclude": self.loaded_song_ids,
+                    "limit": 10
+                }
+            }
         )
 
         self.recent: ft.Container = ft.Container(
@@ -628,25 +667,33 @@ class HomePage:
                         weight=ft.FontWeight.W_500
                     )
                 ]
-            )
+            ),
+            data={
+                "color": ft.Colors.BLUE,
+                "endpoint": "song/recent/download/preview"
+            }
         )
 
-        self.trending: ft.Container = ft.Container(
-            **nav_tab_dict,
-            content=ft.Row(
-                [
-                    ft.Icon(
-                        ft.Icons.TRENDING_UP_ROUNDED,
-                        color=ft.Colors.WHITE
-                    ),
-                    ft.Text(
-                        "trending",
-                        color=ft.Colors.WHITE,
-                        weight=ft.FontWeight.W_500
-                    )
-                ]
-            )
-        )
+        # self.trending: ft.Container = ft.Container(
+        #     **nav_tab_dict,
+        #     content=ft.Row(
+        #         [
+        #             ft.Icon(
+        #                 ft.Icons.TRENDING_UP_ROUNDED,
+        #                 color=ft.Colors.WHITE
+        #             ),
+        #             ft.Text(
+        #                 "trending",
+        #                 color=ft.Colors.WHITE,
+        #                 weight=ft.FontWeight.W_500
+        #             )
+        #         ]
+        #     ),
+        #     data={
+        #         "color": ft.Colors.BLUE,
+        #         "endpoint": "song/trending/download/preview"
+        #     }
+        # )
 
         self.your_uploads: ft.Container = ft.Container(
             **nav_tab_dict,
@@ -665,15 +712,20 @@ class HomePage:
                     )
                 ],
             ),
+            data={
+                "color": ft.Colors.BLUE,
+                "endpoint": "song/uploads/download/preview",
+                "payload": {}
+            }
         )
 
         self.tab_list = [
             self.home_tab,
             self.browse,
             self.favorites,
-            self.downloads,
+            self.recommended,
             self.recent,
-            self.trending,
+            # self.trending,
             self.your_uploads
         ]
 
