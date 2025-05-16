@@ -16,6 +16,16 @@ def remove_upload_page_blocking_overplay(page: Page):
         page.view.remove_blocking_overlay()
 
 
+async def pre_message_error(page: Page, _: EncryptedTransport, server_message: ServerMessage, __: ClientSideUserCache):
+    status_code = server_message.status.get("code")
+    status_message = server_message.status.get("message")
+
+    page.server_error(
+        ft.Text(
+            f"{status_message}\n\nstatus: {status_code}"
+        )
+    )
+
 async def login_error(page: Page, _: EncryptedTransport, server_message: ServerMessage, __: ClientSideUserCache):
     """
     this function is used to visually display that an error occurred when trying to log in.
