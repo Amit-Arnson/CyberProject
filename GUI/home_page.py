@@ -8,6 +8,8 @@ from GUI.Controls.song_view import SongView
 
 from pseudo_http_protocol import ClientMessage
 
+import hashlib
+
 
 class HomePage:
     def __init__(self, page: ft.Page):
@@ -36,9 +38,17 @@ class HomePage:
 
         self.loading_song_items: dict[str, ft.Container] = {}
 
-        # this list is the "exclude" list
-        # this list is limited to 100 items, and is First In First Out (see self._add_excluded_song_id)
         self.loaded_song_ids: list[int] = []
+        """
+            this list is the "exclude" list.
+            this list is limited to 100 items, and is First In First Out (see self._add_excluded_song_id)
+        """
+
+        self.loaded_genre_names: list[str] = []
+        """
+            this is purely used for tracking the "browse" tab. it tracks which genres the server has already sent in order
+            to be able to add them to an excluded list
+        """
 
         self.current_filters: dict[str, ...] = {}
         """
@@ -75,6 +85,9 @@ class HomePage:
 
         self.navigate_data = {}
         """the data that the current navigate tab is on, this is used for the "load more" button"""
+
+        self.page.recently_viewed_songs = []
+        """the list of the recently viewed song IDs, saved to page as to be persistent per-run instead of per-page"""
 
         self._initialize_controls()
 
@@ -182,6 +195,15 @@ class HomePage:
         song_item = event.control
 
         song_data: dict[str, str | int | list[str]] = song_item.data
+        song_id = song_data["song_id"]
+
+        self.page.recently_viewed_songs: list[int]
+
+        if len(self.page.recently_viewed_songs) > 100:
+            self.page.recently_viewed_songs.pop(0)
+
+        if song_id not in self.page.recently_viewed_songs:
+            self.page.recently_viewed_songs.append(song_id)
 
         loading_song_content_stack: ft.Stack = song_item.content
 
@@ -393,6 +415,39 @@ class HomePage:
                 is_last_chunk=is_last_chunk
             )
 
+    @staticmethod
+    def _string_to_hex_color(string: str) -> str:
+        hash_bytes = hashlib.sha256(string.encode()).digest()
+        r, g, b = hash_bytes[0], hash_bytes[1], hash_bytes[2]
+        return f'#{r:02x}{g:02x}{b:02x}'  # HEX color string
+
+    async def add_genres_browse(self, genres: list[str]):
+        for genre in genres:
+            if len(self.loaded_genre_names) > 100:
+                self.loaded_genre_names.pop(0)
+
+            self.loaded_genre_names.append(genre)
+
+            genre_container = ft.Container(
+                content=ft.Text(genre, size=30, weight=ft.FontWeight.W_500),
+                bgcolor=self._string_to_hex_color(genre),
+                alignment=ft.Alignment(0, 0),
+                border_radius=10,
+                on_click=self._navigate,
+                data={
+                    "endpoint": "song/genres/download/preview",
+                    "payload": {
+                        "exclude": self.loaded_song_ids,
+                        "limit": 10,
+                        "genre": genre
+                    }
+                }
+            )
+
+            self.song_item_gridview.controls.append(genre_container)
+
+        self.song_item_gridview.update()
+
     def _load_song_previews(self, *args):
         if not self.transport:
             return
@@ -459,6 +514,7 @@ class HomePage:
             run_spacing=5,
             padding=10,
         )
+
         self.load_more_button: ft.Container = ft.Container(
             content=ft.Text("load more", weight=ft.FontWeight.W_500, color=ft.Colors.WHITE),
             height=50,
@@ -551,6 +607,7 @@ class HomePage:
         self._clear_screen(update=True)
 
         self.loaded_song_ids.clear()
+        self.loaded_genre_names.clear()
 
         self.navigate_data = event.control.data
         self._load_song_previews()
@@ -602,8 +659,10 @@ class HomePage:
             ),
             data={
                 "color": ft.Colors.BLUE,
-                "endpoint": "song/browse",  # -> list[genres]
-                "payload": {}
+                "endpoint": "song/genres",  # -> list[genres]
+                "payload": {
+                    "exclude": self.loaded_genre_names,
+                }
             }
         )
 
@@ -670,30 +729,14 @@ class HomePage:
             ),
             data={
                 "color": ft.Colors.BLUE,
-                "endpoint": "song/recent/download/preview"
+                "endpoint": "song/recent/download/preview",
+                "payload": {
+                    "include": self.page.recently_viewed_songs,
+                    "exclude": self.loaded_song_ids,
+                    "limit": 10
+                }
             }
         )
-
-        # self.trending: ft.Container = ft.Container(
-        #     **nav_tab_dict,
-        #     content=ft.Row(
-        #         [
-        #             ft.Icon(
-        #                 ft.Icons.TRENDING_UP_ROUNDED,
-        #                 color=ft.Colors.WHITE
-        #             ),
-        #             ft.Text(
-        #                 "trending",
-        #                 color=ft.Colors.WHITE,
-        #                 weight=ft.FontWeight.W_500
-        #             )
-        #         ]
-        #     ),
-        #     data={
-        #         "color": ft.Colors.BLUE,
-        #         "endpoint": "song/trending/download/preview"
-        #     }
-        # )
 
         self.your_uploads: ft.Container = ft.Container(
             **nav_tab_dict,
@@ -715,7 +758,10 @@ class HomePage:
             data={
                 "color": ft.Colors.BLUE,
                 "endpoint": "song/uploads/download/preview",
-                "payload": {}
+                "payload": {
+                    "exclude": self.loaded_song_ids,
+                    "limit": 10
+                }
             }
         )
 
@@ -725,7 +771,6 @@ class HomePage:
             self.favorites,
             self.recommended,
             self.recent,
-            # self.trending,
             self.your_uploads
         ]
 
