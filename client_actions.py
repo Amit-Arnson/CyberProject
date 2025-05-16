@@ -214,7 +214,7 @@ class DownloadSong:
             song_length: int = payload["song_length"]  # in milliseconds
             genres: list[str] = payload["genres"]
         except KeyError:
-            raise  # todo: Handle malformed messages appropriately
+            raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
         if hasattr(page, "view") and isinstance(page.view, HomePage):
             page.view.add_song_info(
@@ -229,6 +229,9 @@ class DownloadSong:
 
         async with self._lock:
             self.preview_info_completed.add(file_id)
+
+        # sometimes the song image does not arrive as expected, this is mainly caused by client-side lag. this can be fixed
+        # by requesting the image from the server if we notice that it doesnt arrive at a reasonable time
 
         # Timeout loop for resending
         max_retries = 3
@@ -290,7 +293,7 @@ class DownloadSong:
             song_id = payload["song_id"]
             is_last_chunk: bool = payload["is_last_chunk"]
         except KeyError:
-            raise  # todo: Handle malformed messages appropriately
+            raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
         # Wait for preview info to be completed
         timeout_count = 20
@@ -401,4 +404,37 @@ async def load_sheet_images(
             file_id=file_id,
             b64_chunk=chunk,
             is_last_chunk=is_last_chunk
+        )
+
+
+async def load_genre_browser(
+        page: Page,
+        transport: EncryptedTransport,
+        server_message: ServerMessage,
+        user_cache: ClientSideUserCache
+):
+    """
+    this function is used in order to load the genre list
+
+    tied to song/genres
+
+    expected payload:
+    {
+        "genres": list[str]
+    }
+
+    expected output:
+    None
+    """
+
+    payload = server_message.payload
+
+    try:
+        genres: list[str] = payload["genres"]
+    except KeyError:
+        raise  # todo: Handle malformed messages appropriately
+
+    if hasattr(page, "view") and isinstance(page.view, HomePage):
+        await page.view.add_genres_browse(
+            genres=genres
         )
