@@ -246,10 +246,6 @@ class UploadPage:
 
         self._initialize_controls()
 
-    # todo: see if this function is still needed
-    def _initialize_sidebar_top(self):
-        pass
-
     async def _upload_all_files(self, *args):
         session_token: str = self.user_cache.session_token if self.user_cache else None
         # print(f"session token: {session_token}")
@@ -607,7 +603,6 @@ class UploadPage:
         total_selected_size = sum((file.size for file in selected_files))
 
         if self.selected_images_size + total_selected_size > self.MAX_IMAGES_SIZE:
-            # todo: show an error in the GUI (in the used/max GUI, not popup)
             self._show_file_too_big_error(self.MAX_IMAGES_SIZE)
 
             return
@@ -1001,7 +996,6 @@ class UploadPage:
 
                         ft.Divider(),
 
-                        # todo: clean up the code
                         ft.Row([
                             ft.Container(
                                 height=55,
@@ -1107,7 +1101,6 @@ class UploadPage:
 
         self.append_error(error_popup)
 
-    # todo: also make this restriction server side, meaning that the server checks that the sizes are also valid
     def append_error(self, error_control: ft.Control):
         current_last_control_data = self.page_view.controls[-1].data
 

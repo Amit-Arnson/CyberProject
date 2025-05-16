@@ -428,9 +428,6 @@ class SongView(ft.AlertDialog):
     def _close_sheet_music_popup(self):
         self.is_viewing_sheets = False
 
-    # currently buffering does not work as once you update the page, the audio restarts to the start.
-    # todo: see if i should create a temp file and use src instead (not sure if it will work or not)
-    # todo: see if i should create a proxy http server to send the bytes and use src instead of b64. this will 100% work but will require a lot of work
     async def stream_audio_chunks(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
         if not song_id == self.song_id:
             return

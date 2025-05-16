@@ -64,19 +64,13 @@ class ClientProtocol(asyncio.Protocol):
         try:
             server_message = ServerMessage.from_bytes(data)
         except MalformedMessage:
-            # todo: add error handling for malformed message form a server (unlikely to happen though, maybe only fabricated messages)
-            # todo: think of a way for the client to communicate the error to the server (check server-side todo list for explanation)
-            return
-
-        # print(server_message)
+            raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
         status_code = server_message.status.get("code")
         requested_endpoint = server_message.endpoint
 
         # currently we don't really care about the method. ill decide whether we even need a method from the server to
         # the client later on.
-
-        # given_method = server_message.method
 
         if requested_endpoint in self.endpoints and status_code in self.acceptable_status_codes:
             client_action_function = self.endpoints[requested_endpoint]
@@ -95,7 +89,6 @@ class ClientProtocol(asyncio.Protocol):
         else:
             # this is activated when an endpoint is not found
             # for other error handling, go to on_complete
-            # todo: add on_complete error handling.
 
             if status_code in self.acceptable_status_codes:
                 return
@@ -116,8 +109,14 @@ class ClientProtocol(asyncio.Protocol):
         """
         if action.exception():
             traceback.print_exc()
+
+            self.page.server_error(
+                ft.Text(
+                    f"{str(action.exception())}"
+                )
+            )
+
             raise action.exception()
-            print(f"Task failed with exception: {action.exception()}")
         else:
             print(f"Task completed successfully with result: {action.result()}")
 

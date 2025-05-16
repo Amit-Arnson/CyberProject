@@ -2,8 +2,6 @@ import socket
 from dataclasses import dataclass
 from encryptions import EncryptedTransport
 
-from hashlib import sha256
-
 
 @dataclass
 class Address:
@@ -28,7 +26,7 @@ class Address:
 
     def __hash__(self) -> int:
         """returns the hash of tuple[ip, port]"""
-        # return sha256(f"{self.ip} {self.port}").digest()
+
         return hash((self.ip, self.port))
 
 

@@ -72,7 +72,6 @@ class System:
 
         return unique_id
 
-    # todo: i might want to add the user_upload_id to the _create_file_id and therefore for now it is a different function than _create_cluster_id
     async def _create_file_id(self) -> str:
         """:returns: a unique file ID that doesnt exist in the database yet"""
 
@@ -170,7 +169,6 @@ class System:
             raise e
 
         if is_last_chunk:
-            # todo: check if ffmpeg actually works for all cases and not just audio (i might have been misled)
             final_file_format: str = chunk.file_extension
             final_file_id = f"{chunk.file_id}.{final_file_format}"
 
@@ -185,32 +183,30 @@ class System:
             if not file_is_valid:
                 raise InvalidCodec("Invalid file given and was rejected")
 
+            compressed_extension = None
+            compress_dict = {
+                "file_extension": chunk.file_extension,
+                "input_file": f"{chunk.file_id}",
+                "directory": chunk.save_directory
+            }
+
             if chunk.file_type == "audio" and chunk_content_type == FileTypes.AUDIO.value:
                 # we change the total size to the new size of the compressed file
                 total_size, compressed_extension = await compress_to_aac(
-                    file_extension=chunk.file_extension,
-                    input_file=f"{chunk.file_id}",
-                    directory=chunk.save_directory,
+                    **compress_dict
                 )
 
-                final_file_id = f"{chunk.file_id}.{compressed_extension}"
-                final_file_format = compressed_extension
             elif chunk.file_type == "image" and chunk_content_type == FileTypes.SHEET.value:
                 total_size, compressed_extension = await compress_to_webp(
-                    file_extension=chunk.file_extension,
-                    input_file=f"{chunk.file_id}",
-                    directory=chunk.save_directory,
+                    **compress_dict
                 )
 
-                final_file_id = f"{chunk.file_id}.{compressed_extension}"
-                final_file_format = compressed_extension
             elif chunk.file_type == "image" and chunk_content_type == FileTypes.COVER.value:
                 total_size, compressed_extension = await compress_to_low_res_webp(
-                    file_extension=chunk.file_extension,
-                    input_file=f"{chunk.file_id}",
-                    directory=chunk.save_directory,
+                    **compress_dict
                 )
 
+            if compressed_extension:
                 final_file_id = f"{chunk.file_id}.{compressed_extension}"
                 final_file_format = compressed_extension
 
@@ -309,8 +305,7 @@ class FileChunk:
             ("single", (0, 4), b'\x46\x4F\x52\x4D'): ('audio', 'aiff'),  # AIFF
             ("single", (0, 7), b'\x30\x26\xB2\x75\x8E\x66\xCF'): ('audio', 'wma'),  # WMA
             ("single", (0, 2), b'\xFF\xF1'): ('audio', 'aac'),  # ADTS AAC (raw AAC stream)
-            ("single", (0, 4), b'\x00\x00\x00\x18'): ('audio', 'aac'),
-            # MP4/M4A container with AAC audio (ftyp box start)
+            ("single", (0, 4), b'\x00\x00\x00\x18'): ('audio', 'aac'), # MP4/M4A container with AAC audio (ftyp box start)
 
         }
 
@@ -365,8 +360,8 @@ class FileChunk:
                 async with self._lock:
                     await self._write(path)
             else:
-                # todo: check if this if-statement is still necessary, since i fix the out-of-order chunks beforehand
-                # todo: make it be able to "insert" correctly
+                # all out of order chunk fixes happen before this step, so if it is still out of order there is a bigger
+                # issue at play
                 raise Exception(f"out of order chunks: {self.file_id}")
         except Exception as e:
             logging.error(e, exc_info=True)

@@ -6,14 +6,12 @@ from Caches.user_cache import ClientSideUserCache
 from pseudo_http_protocol import ClientMessage
 
 
-# todo: add the logo somewhere? idk
 class LoginPage:
     def __init__(self, page: ft.Page):
         self.page = page
         self.page.padding = 0
         self.page.theme_mode = ft.ThemeMode.LIGHT
 
-        # todo: see if you can/need to make the sizes more dynamic
         # these sizes are the optimal ratio for the average PC screen
         self.page_width = 1280
         self.page_height = 720
@@ -27,11 +25,6 @@ class LoginPage:
         self.transport: EncryptedTransport | None = None
         if hasattr(page, "transport"):
             self.transport: EncryptedTransport = page.transport
-
-        # the user cache is not needed in login (since we don't have a session token assigned yet)
-        # self.user_cache: ClientSideUserCache | None = None
-        # if hasattr(page, "user_cache"):
-        #     self.user_cache: ClientSideUserCache = page.user_cache
 
         self._initialize_controls()
 
@@ -320,7 +313,23 @@ class LoginPage:
         # passwords are stripped of whitespaces.
         password = self.password_textbox.value.strip()
 
-        # todo: implement a minimum length check (client side)
+        # reset any currently showing error so that if they are solved, they wont show anymore
+        self.username_textbox.error_text = None
+        self.password_textbox.error_text = None
+
+        # we check the length of the password and username before sending it to the server in order to not send useless
+        # requests
+        if len(password) < 6:
+            self.password_textbox.error_text = "password too short"
+            self.password_textbox.update()
+
+            return
+
+        if len(username) < 3:
+            self.username_textbox.error_text = "username too short"
+            self.username_textbox.update()
+
+            return
 
         if self.transport:
             self.transport.write(

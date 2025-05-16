@@ -6,7 +6,6 @@ from Caches.user_cache import ClientSideUserCache
 from pseudo_http_protocol import ClientMessage
 
 
-# todo: add the logo somewhere? idk
 class SignupPage:
     def __init__(self, page: ft.Page):
         self.page = page
@@ -408,7 +407,6 @@ class SignupPage:
 
         print("here")
 
-        # todo: implement a minimum length check (client side)
         username = self.username_textbox.value
         display_name = self.display_name_textbox.value
 
@@ -421,6 +419,30 @@ class SignupPage:
         self.username_textbox.error_text = None
         self.password_textbox.error_text = None
         self.display_name_textbox.error_text = None
+
+        if len(username) < 3:
+            self.username_textbox.error_text = "username too short"
+            self.username_textbox.update()
+
+            return
+
+        if len(display_name) < 3:
+            self.display_name_textbox.error_text = "display name too short"
+            self.display_name_textbox.update()
+
+            return
+
+        if len(password) < 6:
+            self.password_textbox.error_text = "password too short"
+            self.password_textbox.update()
+
+            return
+
+        if len(confirm_password) < 6:
+            self.confirm_password_textbox.error_text = "password too short"
+            self.confirm_password_textbox.update()
+
+            return
 
         self.page.update()
 

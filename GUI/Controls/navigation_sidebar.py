@@ -69,12 +69,6 @@ class NavigationSidebar(ft.Container):
         # todo: implement tempo finder
         print("went to tempo finder")
 
-    def _switch_to_ai_chat(self, e: ft.ControlEvent):
-        """switches the page to the "AI chat" page"""
-
-        # todo: implement AI chat
-        print("went to Ai chat")
-
     def _initialize_sidebar_items(self):
         item_height = self.page_height / 10
 
@@ -89,21 +83,6 @@ class NavigationSidebar(ft.Container):
                     ft.Icon(ft.Icons.MUSIC_NOTE, **self.item_icon_values),
                     ft.Text("TEMPO FINDER", **self.item_text_values)
                 ],
-            ),
-            padding=10,
-        )
-
-        self.goto_ai_chat = ft.Container(
-            on_click=self._switch_to_ai_chat,
-            on_hover=self._sidebar_item_hover,
-            height=item_height,
-            expand=True,
-            expand_loose=True,
-            content=ft.Row(
-                [
-                    ft.Icon(ft.Icons.CHAT, **self.item_icon_values),
-                    ft.Text("AI CHAT", **self.item_text_values)
-                ]
             ),
             padding=10,
         )
@@ -186,7 +165,6 @@ class NavigationSidebar(ft.Container):
                 [
                     self.goto_home_page,
                     self.goto_upload_song,
-                    self.goto_ai_chat,
                     self.goto_tempo_finder
                 ]
             ),

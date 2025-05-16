@@ -28,5 +28,4 @@ class PageError:
         if hasattr(self.page, "view"):
             self.page.view.append_error(error_alert)
         else:
-            # todo: think of a better way to handle it
             raise Exception("page has no attribute \"view\"")
