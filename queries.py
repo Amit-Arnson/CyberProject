@@ -498,7 +498,7 @@ class MusicSearch:
 
         results = await connection.fetchall(
             f"SELECT song_id FROM genres WHERE genre_name IN ({placeholders}) {exclude_query} LIMIT ?;",
-            *genres, limit
+            *genres, *exclude, limit
         )
 
         return [row[0] for row in results]
@@ -565,6 +565,21 @@ class MusicSearch:
 
         # Return the list of random song IDs
         return [row[0] for row in random_songs]
+
+    @staticmethod
+    async def get_genre_names(connection: ProxiedConnection, exclude: list[str]) -> list[str]:
+        exclude_placeholders = ", ".join(["?"] * len(exclude))
+        exclude_query = f"WHERE genre_name NOT IN ({exclude_placeholders})" if exclude else ""
+
+        genres = await connection.fetchall(
+            f"""
+             SELECT genre_name
+             FROM genres {exclude_query} 
+             LIMIT 100
+             """, *exclude
+        )
+
+        return list(set([genre[0] for genre in genres]))
 
 
 class RecommendationAlgorithm:
