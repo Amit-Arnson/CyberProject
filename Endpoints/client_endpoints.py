@@ -6,7 +6,8 @@ from client_actions import (
     song_upload_finish,
     DownloadSong,
     buffer_audio,
-    load_sheet_images
+    load_sheet_images,
+    load_genre_browser,
 )
 
 
@@ -21,7 +22,8 @@ class EndPoints:
             "song/download/preview": download_song_state.download_preview_details,
             "song/download/preview/file": download_song_state.download_preview_chunks,
             "song/download/audio": buffer_audio,
-            "song/download/sheet": load_sheet_images
+            "song/download/sheet": load_sheet_images,
+            "song/genres": load_genre_browser
         }
         # endpoint -> function
 
