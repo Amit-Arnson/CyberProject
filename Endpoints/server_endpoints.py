@@ -9,7 +9,9 @@ from server_actions import (
     resend_song_preview,
     send_song_audio,
     send_song_sheets,
-    send_recommended_song_previews
+    send_recommended_song_previews,
+    send_genre_list,
+    send_songs_by_genre
 )
 
 from dataclasses import dataclass
@@ -118,6 +120,16 @@ class EndPoints:
             "song/download/sheets": (
                 EndPointRequires(method="get", authentication=True),
                 send_song_sheets
+            ),
+
+            "song/genres": (
+                EndPointRequires(method="get", authentication=True),
+                send_genre_list
+            ),
+
+            "song/genres/download/preview": (
+                EndPointRequires(method="get", authentication=True),
+                send_songs_by_genre
             )
 
         }
