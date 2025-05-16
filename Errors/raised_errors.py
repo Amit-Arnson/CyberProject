@@ -71,6 +71,12 @@ class InvalidValue(BaseError):
         super().__init__(argument, code=400, extra=extra)
 
 
+class InvalidMessage(BaseError):
+    """A general error that is thrown when a client sends over a message's bytes that do not properly form a ClientMessage"""
+    def __init__(self, argument: str, extra: dict = None):
+        super().__init__(argument, code=400, extra=extra)
+
+
 class NotFound(BaseError):
     """
     An error that is shown when a specific combination of endpoint+method is not found
