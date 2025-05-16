@@ -651,8 +651,6 @@ class UploadSong:
         elif len(song_name) < 1:
             raise TooShort("artist name too short, must be longer than 1 character", extra={"type": "song"})
 
-        # todo: decide whether i want to make only a set amount of tags available (as in, no custom genre tags)
-
         if request_id in self.song_information:
             raise InvalidPayload("the given request ID is already being answered")
 
@@ -1071,12 +1069,6 @@ class UploadSong:
                 chunk_content_type=file_type
             )
         except Exception as e:
-
-            # removes any current data about the chunks
-            #await self._delete_chunk_info(request_id, file_id)
-
-            # todo: add a system that deletes the previously saved chunks
-
             print(f"error: {e}")
             logging.error(e, exc_info=True)
 
@@ -1089,9 +1081,6 @@ class UploadSong:
                 await self._delete_request_info(request_id)
 
                 raise Exception(f"received file size was less or more than expected (by {abs(current_size - expected_file_size)} bytes)")
-                # todo: add a system to delete the files on error so we don't have necessary files
-                # i will also probably invalidate the entire request if any part of it errors, so that users will have
-                # to upload the whole request again instead of having missing information in the upload
 
             print("last chunk was sent. deleting info now")
             await self._delete_chunk_info(request_id, file_id)
@@ -1195,10 +1184,18 @@ class UploadSong:
 
                 await self._delete_chunk_info(request_id, file_id)
 
-                self.base_file_parameters.pop((request_id, file_id))
+                # removing temp data from the dicts that need both file ID and request ID
+                self.base_file_parameters.pop((request_id, file_id), None)
+                self.out_of_order_chunks.pop((request_id, file_id), None)
+
+            # removing temp data from the dicts that need only request ID
+            self.base_file_set.pop(request_id, None)
+            self.song_upload_size_info.pop(request_id, None)
+            self.file_save_paths.pop(request_id, None)
         except Exception as e:
             import traceback
             traceback.print_exc()
+
             raise e
 
 
@@ -1414,7 +1411,180 @@ async def send_recommended_song_previews(
             exclude=exclude
         )
 
-    print(f"matching song ids: {matching_song_ids}")
+    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
+
+
+async def send_genre_list(
+        db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache):
+    """
+    this function is used to send a list of all of the available genres
+
+    this function is tied to song/genres (GET)
+
+    expected payload:
+    {
+        "exclude": list[genre name],
+    }
+
+    expected output (for starting message):
+    {
+        "genres": list[str]
+    }
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    payload = client_message.payload
+
+    try:
+        exclude: list[str] = payload["exclude"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(
+            f"Invalid payload passed. expected key \"limit\", \"exclude\", instead got {payload_keys}"
+        )
+
+    if len(exclude) > 100:
+        raise TooLong("the exclude list can only have up to 100 exclusions per request")
+
+    async with db_pool.acquire() as connection:
+        genre_list = await MusicSearch.get_genre_names(
+            connection=connection,
+            exclude=exclude
+        )
+
+    client.write(
+        ServerMessage(
+            status={
+                "code": 200,
+                "message": "success"
+            },
+            method="respond",
+            endpoint="song/genres",
+            payload={
+                "genres": genre_list
+            }
+        ).encode()
+    )
+
+
+async def send_songs_by_genre(
+        db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache):
+    """
+    this function is used to send the client the "preview" of the songs that are based on a specific genre,
+    that contains the cover art, and the standard song data (song name, artist name, etc...)
+
+    this function is tied to song/genres/download/preview (GET)
+
+    expected payload:
+    {
+        "limit": int
+        "exclude": list[int]
+        "genre": str
+    }
+
+    -- note: the output will be sent as chunks and multiple "messages". so the output here will be shown as a single
+    message for a single song preview.
+    --note: this function will only FETCH the song information from the database, the chunk sending will happen in a
+    Utils function (outside of server_actions)
+
+    expected output (for starting message):
+    {
+        "file_id": str
+        "song_id": int,
+        "artist_name": str,
+        "album_name": str,
+        "song_name": str,
+        "genres": list[str]
+    }
+
+    expected output (for each chunk):
+    {
+        -- note: the chunk's bytes are b64 encoded before sending due to flet limitations
+        "chunk": str,
+        "file_id": str,
+        "chunk_number": int,
+        "is_last_chunk": bool,
+        "song_id": int
+    }
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    payload = client_message.payload
+
+    try:
+        limit: int = payload["limit"]
+        exclude: list[int] = payload["exclude"]
+        genre: str = payload["genre"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(
+            f"Invalid payload passed. expected key \"genre\", \"limit\", \"exclude\", instead got {payload_keys}"
+        )
+
+    if limit > 50 or limit <= 0:
+        raise InvalidValue("the limit must be a number between 1 and 50")
+    if len(exclude) > 100:
+        raise TooLong("the exclude list can only have up to 100 exclusions per request")
+
+    async with db_pool.acquire() as connection:
+        matching_song_ids = await MusicSearch.search_song_by_genres(
+            connection=connection,
+            genres=[genre],
+            limit=limit,
+            exclude=exclude
+        )
 
     await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
 
