@@ -438,3 +438,46 @@ async def load_genre_browser(
         await page.view.add_genres_browse(
             genres=genres
         )
+
+
+async def load_song_comments(
+        page: Page,
+        transport: EncryptedTransport,
+        server_message: ServerMessage,
+        user_cache: ClientSideUserCache
+):
+    """
+    this function is used in order to load song's comments
+
+    tied to song/comments
+
+    expected payload:
+    {
+        "comments": list[
+            {
+                "comment_id": int,
+                "text": str,
+                "uploaded_at": int,
+                "uploaded_by": str
+            }
+        ],
+        "ai_summary": str
+    }
+
+    expected output:
+    None
+    """
+
+    payload = server_message.payload
+
+    try:
+        comments: list[dict] = payload["comments"]
+        ai_summary: str = payload["ai_summary"]
+    except KeyError:
+        raise  # todo: Handle malformed messages appropriately
+
+    if hasattr(page, "view") and isinstance(page.view, HomePage):
+        await page.view.add_song_comments(
+            comments=comments,
+            ai_summary=ai_summary
+        )

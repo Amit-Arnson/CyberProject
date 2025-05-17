@@ -415,6 +415,13 @@ class HomePage:
                 is_last_chunk=is_last_chunk
             )
 
+    async def add_song_comments(self, comments: list[dict], ai_summary: str):
+        if self.song_view_popup:
+            await self.song_view_popup.add_comments(
+                comments=comments,
+                ai_summary=ai_summary
+            )
+
     @staticmethod
     def _string_to_hex_color(string: str) -> str:
         hash_bytes = hashlib.sha256(string.encode()).digest()
