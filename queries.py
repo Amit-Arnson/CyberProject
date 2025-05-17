@@ -6,6 +6,8 @@ from sqlite3 import Row
 
 from Utils.chunk import FileTypes
 
+from GroqAI.generate_comment_summary import summarize
+
 
 class User:
     @staticmethod
@@ -644,3 +646,110 @@ class RecommendationAlgorithm:
         song_ids = await connection.fetchall(query, *recommended_genres, *exclude, limit)
 
         return [song_id[0] for song_id in song_ids]
+
+
+class Comments:
+    @staticmethod
+    async def upload_comment(connection: ProxiedConnection, text: str, uploaded_by: str, song_id: int):
+        current_time = int(time.time())
+
+        await connection.execute(
+            """INSERT INTO song_comments (comment_text, song_id, uploaded_by, uploaded_at) VALUES (?, ?, ?, ?)""",
+            text, song_id, uploaded_by, current_time
+        )
+
+    @staticmethod
+    async def fetch_song_comments(connection: ProxiedConnection, song_id: int, exclude: list[int], limit: int = 100):
+        exclude_placeholders = ", ".join(["?"] * len(exclude))
+        exclude_query = f"AND song_comments.comment_id NOT IN ({exclude_placeholders})" if exclude else ""
+
+        query = f"""
+            SELECT song_comments.*, users.username
+            FROM song_comments
+            JOIN users ON song_comments.uploaded_by = users.user_id
+            WHERE song_comments.song_id = ?
+            {exclude_query}
+            ORDER BY song_comments.uploaded_at ASC
+            LIMIT ?
+        """
+
+        comments = await connection.fetchall(query, song_id, *exclude, limit)
+
+        comments_dict = [
+            {
+                "comment_id": comment[0],
+                "text": comment[1],
+                "uploaded_at": comment[4],
+                "uploaded_by": comment[-1]
+            } for comment in comments
+        ]
+
+        return comments_dict
+
+    @staticmethod
+    async def fetch_ai_summary(connection: ProxiedConnection, song_id: int) -> str:
+        current_time = int(time.time())
+
+        try:
+            summary = await connection.fetchone(
+                """
+                SELECT summary, last_updated FROM ai_comment_summary WHERE song_id = ?
+                """,
+                song_id
+            )
+
+            one_hour = 60 * 60
+            if not summary or (summary and summary["last_updated"] + one_hour < current_time):
+                comments = await connection.fetchall(
+                    """
+                    SELECT comment_text, comment_id, uploaded_at, uploaded_by
+                    FROM song_comments
+                    WHERE song_id = ?
+                    ORDER BY uploaded_at ASC
+                    LIMIT 50
+                    """,
+                    song_id
+                )
+
+                total_token_approximation = 0
+                allowed_token_approximation = 1000
+
+                comments_for_summary: list[str] = []
+
+                for comment in comments:
+                    comment_text: str = comment[0]
+                    total_token_approximation += len(comment_text.split())
+
+                    if total_token_approximation >= allowed_token_approximation:
+                        break
+
+                    comments_for_summary.append(comment_text)
+
+                if not comments_for_summary:
+                    return "Not enough comments for AI summary"
+
+                song_name = await connection.fetchone(
+                    """SELECT song_name FROM song_info WHERE song_id = ?""",
+                    song_id
+                )
+
+                song_name = song_name[0]
+
+                comment_summary = await summarize(comments_for_summary, song_name=song_name)
+
+                await connection.execute(
+                    """
+                    INSERT INTO ai_comment_summary (song_id, summary, last_updated)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(song_id) DO UPDATE SET
+                        summary = excluded.summary,
+                        last_updated = excluded.last_updated
+                    """,
+                    song_id, comment_summary, current_time
+                )
+
+                return comment_summary
+            else:
+                return summary[0]
+        except Exception as e:
+            print(e)
