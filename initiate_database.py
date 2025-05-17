@@ -27,6 +27,9 @@ class CreateTables:
             self._create_media_files_table(cursor)
             self._create_genres_table(cursor)
             self._create_favorite_genres_tale(cursor)
+            self._create_comments_table(cursor)
+            self._create_ai_summarization_comments_table(cursor)
+            self._create_favorite_songs_table(cursor)
 
             # Commit changes
             connection.commit()
@@ -159,6 +162,54 @@ class CreateTables:
             """
         )
 
+    @staticmethod
+    def _create_comments_table(cursor):
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS song_comments (
+                comment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                comment_text TEXT NOT NULL,
+                song_id INTEGER NOT NULL,
+                uploaded_by TEXT NOT NULL,
+                uploaded_at INTEGER NOT NULL,
+                FOREIGN KEY (song_id) REFERENCES song_info (song_id),
+                FOREIGN KEY (uploaded_by) REFERENCES users (user_id)
+            );
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_song_comments_song_id ON song_comments(song_id);
+            """
+        )
+
+    @staticmethod
+    def _create_ai_summarization_comments_table(cursor):
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ai_comment_summary (
+                song_id INTEGER PRIMARY KEY,
+                summary TEXT NOT NULL,
+                last_updated INTEGER NOT NULL,
+                FOREIGN KEY (song_id) REFERENCES song_info (song_id)
+            );
+            """
+        )
+
+    @staticmethod
+    def _create_favorite_songs_table(cursor):
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS favorite_songs (
+                song_id INTEGER NOT NULL,
+                user_id TEXT NOT NULL,
+                PRIMARY KEY (song_id, user_id),
+                FOREIGN KEY (song_id) REFERENCES song_info (song_id),
+                FOREIGN KEY (user_id) REFERENCES users (user_id)
+            );
+            """
+        )
 
 if __name__ == "__main__":
     # Define the database path
