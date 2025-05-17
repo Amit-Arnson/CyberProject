@@ -2,6 +2,7 @@ python-dotenv
 sympy
 aiofiles
 asqlite
+aiohttp
 
 flet
 flet_audio
