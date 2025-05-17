@@ -1,4 +1,6 @@
-import pprint
+import hashlib
+import time
+import datetime
 import typing
 
 import asyncio
@@ -290,6 +292,260 @@ class SheetView(ft.Container):
         self.update()
 
 
+class CommentView(ft.Container):
+    def __init__(self, transport: EncryptedTransport, user_cache: ClientSideUserCache, song_id: int, **kwargs):
+        super().__init__(**kwargs)
+
+        self.transport = transport
+        self.user_cache = user_cache
+        self.song_id = song_id
+
+        self.comments: list[dict[str, int | str]] = []
+        """
+        list[
+            {
+                "comment_id": int,
+                "text": str,
+                "uploaded_at": int,
+                "uploaded_by": str
+            }
+        ]
+        """
+
+        self.comments_exclude_ids: list[int] = []
+
+        self.temporary_comments: list[ft.Container] = []
+        """these are for comments that we add during the open view, and need to be removed when closing and reopening"""
+
+        self.expand = True
+
+        self.comment_textbox: ft.TextField = ft.TextField(
+            on_submit=self._upload_comment,
+            max_length=2000,
+        )
+
+        self.comment_list: ft.ListView = ft.ListView(
+            spacing=5,
+            padding=5,
+            expand=True,
+        )
+
+        self.username_colors_cache: dict[str, str] = {}
+
+        self.loaded_ai_comment: bool = False
+
+        self.content = ft.Container(
+            content=ft.Column(
+                [
+                    self.comment_textbox,
+                    self.comment_list
+                ]
+            ),
+            padding=ft.Padding(
+                top=15,
+                bottom=5,
+                right=5,
+                left=5
+            )
+        )
+
+    @staticmethod
+    def _convert_timestamp(timestamp):
+        dt_object = datetime.datetime.fromtimestamp(timestamp)
+        time_string = f"{dt_object.hour}:{dt_object.minute if len(str(dt_object.minute)) > 1 else '0' + str(dt_object.minute)}"
+        date_string = f"{dt_object.day}/{dt_object.month}/{dt_object.year}"
+
+        today = datetime.date.today()
+
+        if today == dt_object.date():
+            dt_string = f"Today at {time_string}"
+        else:
+            dt_string = f"{date_string} {time_string}"
+
+        return dt_string
+
+    def _string_to_hex_color(self, string: str) -> str:
+        if string in self.username_colors_cache:
+            return self.username_colors_cache[string]
+
+        hash_bytes = hashlib.sha256(string.encode()).digest()
+        r, g, b = hash_bytes[0], hash_bytes[1], hash_bytes[2]
+
+        # force the color to be on the lighter side by blending toward white (255)
+        # we need to do this because making a system that switches the profile image letter's color from white to black
+        # is much harder than just ensuring that the background color is light.
+        def lighten(value, min_brightness=180):
+            return int(value * 0.5 + 255 * 0.5) if value < min_brightness else value
+
+        r, g, b = lighten(r), lighten(g), lighten(b)
+        color = f'#{r:02x}{g:02x}{b:02x}'
+
+        self.username_colors_cache[string] = color
+        return color
+
+    def _upload_comment(self, event: ft.ControlEvent):
+        comment_text = self.comment_textbox.value
+
+        self.transport.write(
+            ClientMessage(
+                authentication=self.user_cache.session_token,
+                method="POST",
+                endpoint="song/comments/upload",
+                payload={
+                    "text": comment_text,
+                    "song_id": self.song_id
+                }
+            ).encode()
+        )
+
+        self.comment_textbox.value = None
+
+        comment_content_view = ft.Container(
+            content=ft.Row(
+                [
+                    ft.Container(
+                        content=ft.Text(self.page.username[0]),
+                        bgcolor=self._string_to_hex_color(self.page.username),
+                        border_radius=360,
+                        alignment=ft.Alignment(0, 0),
+                        width=40,
+                        height=40
+                    ),
+                    ft.Column(
+                        [
+                            ft.Row(
+                                [
+                                    ft.Text(self.page.username),
+                                    ft.Text(self._convert_timestamp(int(time.time())), color=ft.Colors.GREY_500,
+                                            size=10)
+                                ]
+                            ),
+                            ft.Text(comment_text)
+                        ],
+                        expand=True,
+                        expand_loose=True,
+                    )
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.START
+            ),
+            width=200,
+            bgcolor=ft.Colors.GREY_200,
+            border_radius=10,
+            padding=10,
+        )
+        self.temporary_comments.append(comment_content_view)
+
+        if self.comment_list.controls[-1].data == 999:
+            self.comment_list.controls.pop(-1)
+
+        self.comment_list.controls.append(comment_content_view)
+
+        self.update()
+
+    def close(self):
+        for comment in self.temporary_comments:
+            try:
+                self.comment_list.controls.remove(comment)
+            except ValueError:
+                pass
+
+    def add_comments(self, comments: list[dict], ai_summary: str):
+        if not self.loaded_ai_comment:
+            ai_summary_view = ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Row(
+                            [
+                                ft.Icon(ft.Icons.AUTO_AWESOME_ROUNDED, color=ft.Colors.GREY_800),
+                                ft.Text("AI summary", size=15, color=ft.Colors.GREY_800, weight=ft.FontWeight.W_500)
+                            ]
+                        ),
+                        ft.Text(ai_summary)
+                    ]
+                ),
+                border_radius=10,
+                bgcolor=ft.Colors.BLUE_400,
+                padding=10
+            )
+
+            self.comment_list.controls.append(ai_summary_view)
+
+            self.loaded_ai_comment = True
+
+        if len(comments) == 0 and len(self.comments) == 0:
+            no_comments_found = ft.Container(
+                ft.Text("No Comments Found"),
+                expand_loose=True,
+                height=100,
+                alignment=ft.Alignment(0, 0),
+                data=999
+            )
+
+            self.comment_list.controls.append(no_comments_found)
+
+        for comment in comments:
+            self.comments.append(comment)
+
+            comment_id: int = comment["comment_id"]
+            self.comments_exclude_ids.append(comment_id)
+
+            content: str = comment["text"]
+            uploaded_by: str = comment["uploaded_by"]
+            uploaded_at: int = comment["uploaded_at"]
+
+            print(self._string_to_hex_color(uploaded_by))
+
+            comment_content_view = ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Container(
+                            content=ft.Text(uploaded_by[0]),
+                            bgcolor=self._string_to_hex_color(uploaded_by),
+                            border_radius=360,
+                            alignment=ft.Alignment(0, 0),
+                            width=40,
+                            height=40
+                        ),
+                        ft.Column(
+                            [
+                                ft.Row(
+                                    [
+                                        ft.Text(uploaded_by),
+                                        ft.Text(self._convert_timestamp(uploaded_at), color=ft.Colors.GREY_500, size=10)
+                                    ]
+                                ),
+                                ft.Text(content)
+                            ],
+                            expand=True,
+                            expand_loose=True,
+                        )
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.START
+                ),
+                width=200,
+                bgcolor=ft.Colors.GREY_200,
+                border_radius=10,
+                padding=10,
+            )
+
+            self.comment_list.controls.append(comment_content_view)
+
+        self.comment_list.update()
+
+    def request_comments(self):
+        self.transport.write(
+            ClientMessage(
+                authentication=self.user_cache.session_token,
+                method="GET",
+                endpoint="song/comments",
+                payload={
+                    "exclude": self.comments_exclude_ids,
+                    "song_id": self.song_id
+                }
+            ).encode()
+        )
+
+
 class SongView(ft.AlertDialog):
     def __init__(
             self,
@@ -345,7 +601,10 @@ class SongView(ft.AlertDialog):
                             [
                                 ft.Icon(ft.Icons.STAR_ROUNDED, color=ft.Colors.BLACK),
                                 ft.Icon(ft.Icons.DOWNLOAD, color=ft.Colors.BLACK),
-                                ft.Icon(ft.Icons.COMMENT_ROUNDED, color=ft.Colors.BLACK),
+                                ft.Container(
+                                    content=ft.Icon(ft.Icons.COMMENT_ROUNDED, color=ft.Colors.BLACK),
+                                    on_click=self._open_comment_view_popup
+                                ),
                                 ft.Container(
                                     content=ft.Icon(ft.Icons.SIM_CARD_DOWNLOAD_ROUNDED, color=ft.Colors.BLACK),
                                     on_click=self._open_sheet_music_popup
@@ -402,6 +661,12 @@ class SongView(ft.AlertDialog):
         self.sheet_music_view_control = SheetView()
         self.has_loaded_sheets = False
 
+        self.comment_view = CommentView(
+            transport=self.transport,
+            user_cache=self.user_cache,
+            song_id=self.song_id
+        )
+
         self.content = self.view
         self.on_dismiss = self._on_dismiss
 
@@ -425,8 +690,32 @@ class SongView(ft.AlertDialog):
 
         self._request_song_sheet_chunks()
 
+    def _open_comment_view_popup(self, event):
+        if self.is_viewing_comments:
+            return
+
+        self.is_viewing_comments = True
+
+        dialog = SubWindow(
+            width=300,
+            height=300,
+            on_close=self._close_comment_popup
+        )
+
+        dialog.set_content(self.comment_view)
+
+        self.view.controls.append(dialog)
+
+        self.update()
+
+        self.comment_view.request_comments()
+
     def _close_sheet_music_popup(self):
         self.is_viewing_sheets = False
+
+    def _close_comment_popup(self):
+        self.is_viewing_comments = False
+        self.comment_view.close()
 
     async def stream_audio_chunks(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
         if not song_id == self.song_id:
@@ -442,6 +731,9 @@ class SongView(ft.AlertDialog):
 
     async def stream_sheet_chunks(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
         self.sheet_music_view_control.add_chunk(file_id, song_id, b64_chunk, is_last_chunk)
+
+    async def add_comments(self, comments: list[dict], ai_summary: str):
+        self.comment_view.add_comments(comments, ai_summary=ai_summary)
 
     def _on_dismiss(self, *args):
         self.audio_player.pause()
