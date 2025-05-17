@@ -31,7 +31,8 @@ from queries import (
     MediaFiles,
     Music,
     MusicSearch,
-    RecommendationAlgorithm
+    RecommendationAlgorithm,
+    Comments
 )
 
 from Compress.audio import get_audio_length
@@ -1794,3 +1795,163 @@ async def send_song_sheets(
         )
 
     await send_song_sheet_chunks(transport=client, song_id=song_id, db_pool=db_pool)
+
+
+async def send_song_comments(
+        db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache
+):
+    """
+    this function is used to send the song's comments
+
+    this function is tied to song/comments (GET)
+
+    expected payload:
+    {
+        "song_id": int,
+        "exclude": list[int],
+    }
+
+    expected output:
+    {
+        "comments": list[
+            {
+                "comment_id": int,
+                "text": str,
+                "uploaded_at": int,
+                "uploaded_by": str
+            }
+        ]
+    }
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    payload = client_message.payload
+
+    try:
+        song_id: int = payload["song_id"]
+        exclude: list[int] = payload["exclude"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(f"Invalid payload passed. expected key \"song_id\", \"exclude\" instead got {payload_keys}")
+
+    if len(exclude) > 1000:
+        raise TooLong("the comment's exclude must only contain 1000 values")
+
+    async with db_pool.acquire() as connection:
+        comments = await Comments.fetch_song_comments(
+            connection=connection,
+            song_id=song_id,
+            exclude=exclude
+        )
+
+        ai_summary = await Comments.fetch_ai_summary(
+            connection=connection,
+            song_id=song_id
+        )
+
+    client.write(
+        ServerMessage(
+            status={
+                "code": 200,
+                "message": "success"
+            },
+            method="respond",
+            endpoint="song/comments",
+            payload={
+                "comments": comments,
+                "ai_summary": ai_summary
+            }
+        ).encode()
+    )
+
+
+async def upload_song_comment(
+        db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache
+):
+    """
+    this function is used to upload a comment onto a song
+
+    this function is tied to song/comments/upload (POST)
+
+    expected payload:
+    {
+        "song_id": int,
+        "text": str,
+    }
+
+    expected output:
+    None
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    payload = client_message.payload
+
+    try:
+        song_id: int = payload["song_id"]
+        text: str = payload["text"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(f"Invalid payload passed. expected key \"song_id\", \"text\" instead got {payload_keys}")
+
+    if len(text) > 2000:
+        raise TooLong("the comment's text cannot be longer than 2000 characters")
+
+    async with db_pool.acquire() as connection:
+        await Comments.upload_comment(
+            connection=connection,
+            song_id=song_id,
+            uploaded_by=client_user_cache.user_id,
+            text=text
+        )

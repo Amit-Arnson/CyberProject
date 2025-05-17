@@ -11,7 +11,9 @@ from server_actions import (
     send_song_sheets,
     send_recommended_song_previews,
     send_genre_list,
-    send_songs_by_genre
+    send_songs_by_genre,
+    send_song_comments,
+    upload_song_comment
 )
 
 from dataclasses import dataclass
@@ -130,6 +132,16 @@ class EndPoints:
             "song/genres/download/preview": (
                 EndPointRequires(method="get", authentication=True),
                 send_songs_by_genre
+            ),
+
+            "song/comments": (
+                EndPointRequires(method="get", authentication=True),
+                send_song_comments
+            ),
+
+            "song/comments/upload": (
+                EndPointRequires(method="post", authentication=True),
+                upload_song_comment
             )
 
         }
