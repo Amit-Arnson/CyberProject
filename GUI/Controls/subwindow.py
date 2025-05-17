@@ -5,10 +5,10 @@ import flet as ft
 
 class SubWindow(ft.GestureDetector):
     def __init__(self,
-                 on_close: typing.Callable,
                  radius: int = 10,
                  width: int = 100,
                  height: int = 100,
+                 on_close: typing.Callable = None,
                  **kwargs):
         super().__init__(**kwargs)
 
@@ -83,7 +83,8 @@ class SubWindow(ft.GestureDetector):
 
         self.parent.update()
 
-        self.on_close()
+        if self.on_close:
+            self.on_close()
 
     def __on_drag_update(self, e: ft.DragUpdateEvent):
         self.top = max(0, self.top + int(e.delta_y))
