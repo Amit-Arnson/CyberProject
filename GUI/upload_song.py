@@ -931,8 +931,6 @@ class UploadPage:
     # -----------------------------------------------------------------------------------------------------------------
 
     def _initialize_controls(self):
-        self._initialize_sidebar_top()
-
         self._initialize_file_selectors()
         self._initialize_song_info_textbox()
         self._initialize_genre_tag_textbox()
