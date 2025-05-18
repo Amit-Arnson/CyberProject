@@ -426,7 +426,16 @@ class HomePage:
     def _string_to_hex_color(string: str) -> str:
         hash_bytes = hashlib.sha256(string.encode()).digest()
         r, g, b = hash_bytes[0], hash_bytes[1], hash_bytes[2]
-        return f'#{r:02x}{g:02x}{b:02x}'  # HEX color string
+
+        # force the color to be on the lighter side by blending toward white (255)
+        # we need to do this because making a system that switches the letter's color from white to black
+        # is much harder than just ensuring that the background color is light.
+        def lighten(value, min_brightness=180):
+            return int(value * 0.5 + 255 * 0.5) if value < min_brightness else value
+
+        r, g, b = lighten(r), lighten(g), lighten(b)
+        return f'#{r:02x}{g:02x}{b:02x}'
+
 
     async def add_genres_browse(self, genres: list[str]):
         for genre in genres:
