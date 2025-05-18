@@ -506,6 +506,23 @@ class MusicSearch:
         return [row[0] for row in results]
 
     @staticmethod
+    async def search_song_by_inclusion(connection: ProxiedConnection, include: list[int], exclude: list[int], limit: int = 10) -> list[int]:
+        if not include:
+            return []
+
+        exclude_placeholders = ", ".join(["?"] * len(exclude))
+        exclude_query = f"AND song_id NOT IN ({exclude_placeholders})" if exclude else ""
+
+        include_placeholders = ", ".join(["?"] * len(include))
+
+        results = await connection.fetchall(
+            f"SELECT song_id FROM song_info WHERE song_id  IN ({include_placeholders}) {exclude_query} LIMIT ?;",
+            *include, *exclude, limit
+        )
+
+        return [row[0] for row in results]
+
+    @staticmethod
     async def search_song_by_artist(connection: ProxiedConnection, artists: list[str], exclude: list[int], limit: int = 10) -> list[int]:
         if not artists:
             return []
@@ -645,7 +662,7 @@ class RecommendationAlgorithm:
 
         song_ids = await connection.fetchall(query, *recommended_genres, *exclude, limit)
 
-        return [song_id[0] for song_id in song_ids]
+        return list(set([song_id[0] for song_id in song_ids]))
 
 
 class Comments:
