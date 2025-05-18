@@ -322,6 +322,8 @@ class CommentView(ft.Container):
         self.comment_textbox: ft.TextField = ft.TextField(
             on_submit=self._upload_comment,
             max_length=2000,
+            multiline=True,
+            shift_enter=True,
         )
 
         self.comment_list: ft.ListView = ft.ListView(
@@ -492,8 +494,6 @@ class CommentView(ft.Container):
             content: str = comment["text"]
             uploaded_by: str = comment["uploaded_by"]
             uploaded_at: int = comment["uploaded_at"]
-
-            print(self._string_to_hex_color(uploaded_by))
 
             comment_content_view = ft.Container(
                 content=ft.Row(
