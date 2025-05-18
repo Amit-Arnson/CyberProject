@@ -9,6 +9,9 @@ from GUI.Controls.song_view import SongView
 from pseudo_http_protocol import ClientMessage
 
 import hashlib
+import colorsys
+
+import logging
 
 
 class HomePage:
@@ -392,7 +395,12 @@ class HomePage:
 
             image.src_base64 += b64_chunk
 
-        song_item.update()
+        try:
+            song_item.update()
+        except Exception as e:
+            logging.error(e)
+
+            self.loading_song_items.pop(file_id, None)
 
         if is_last_chunk:
             del self.loading_song_items[file_id]
@@ -424,16 +432,19 @@ class HomePage:
 
     @staticmethod
     def _string_to_hex_color(string: str) -> str:
+        # Hash the string
         hash_bytes = hashlib.sha256(string.encode()).digest()
-        r, g, b = hash_bytes[0], hash_bytes[1], hash_bytes[2]
 
-        # force the color to be on the lighter side by blending toward white (255)
-        # we need to do this because making a system that switches the letter's color from white to black
-        # is much harder than just ensuring that the background color is light.
-        def lighten(value, min_brightness=180):
-            return int(value * 0.5 + 255 * 0.5) if value < min_brightness else value
+        # Use the first 3 bytes to create a hue
+        hue = hash_bytes[0] / 255.0  # value between 0 and 1
+        saturation = 0.8  # keep colors vivid but not neon
+        lightness = 0.65  # fairly light but not washed out
 
-        r, g, b = lighten(r), lighten(g), lighten(b)
+        # Convert HSL to RGB
+        r, g, b = colorsys.hls_to_rgb(hue, lightness, saturation)
+
+        # Convert to 0-255 range and hex
+        r, g, b = int(r * 255), int(g * 255), int(b * 255)
         return f'#{r:02x}{g:02x}{b:02x}'
 
 
