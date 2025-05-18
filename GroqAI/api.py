@@ -69,3 +69,10 @@ class Model:
             original=response,
             content=content,
         )
+
+
+def hybrid_token_estimate(text: str) -> int:
+    words = text.split()
+    num_words = len(words)
+    num_chars = len(text)
+    return int(0.75 * num_words + 0.25 * (num_chars / 4))

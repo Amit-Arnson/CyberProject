@@ -29,8 +29,6 @@ async def summarize(comments: list[str], song_name: str):
 
         response = await model.prompt(messages=message, max_completion_tokens=60)
 
-        print(response.original)
-
         return response.content
     except Exception as e:
         print(e)

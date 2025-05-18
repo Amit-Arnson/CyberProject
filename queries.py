@@ -7,6 +7,7 @@ from sqlite3 import Row
 from Utils.chunk import FileTypes
 
 from GroqAI.generate_comment_summary import summarize
+from GroqAI.api import hybrid_token_estimate
 
 
 class User:
@@ -715,7 +716,7 @@ class Comments:
                 song_id
             )
 
-            one_hour = 60 * 60
+            one_hour = 3600
             if not summary or (summary and summary["last_updated"] + one_hour < current_time):
                 comments = await connection.fetchall(
                     """
@@ -735,7 +736,22 @@ class Comments:
 
                 for comment in comments:
                     comment_text: str = comment[0]
-                    total_token_approximation += len(comment_text.split())
+
+                    # we dont care for whitespace comments
+                    if not comment_text:
+                        continue
+
+                    # in order to prevent spam comments (like, gibberish), we add an approximation feature to detect
+                    # common spam structures (few words with a lot of total length)
+                    if len(comment_text.split()) <= 3 and len(comment_text) > 25:
+                        continue
+
+                    # on average, sentences will have an average of 5 letters per word, so we add a bit of leeway. but this
+                    # with combination of the first statement should be a good way to remove most spam comments
+                    if len(comment_text) / len(comment_text.split()) > 9:
+                        continue
+
+                    total_token_approximation += hybrid_token_estimate(comment_text)
 
                     if total_token_approximation >= allowed_token_approximation:
                         break
