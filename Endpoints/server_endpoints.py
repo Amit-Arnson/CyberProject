@@ -10,6 +10,7 @@ from server_actions import (
     send_song_audio,
     send_song_sheets,
     send_recommended_song_previews,
+    send_recent_song_previews,
     send_genre_list,
     send_songs_by_genre,
     send_song_comments,
@@ -107,6 +108,11 @@ class EndPoints:
             "song/recommended/download/preview": (
                 EndPointRequires(method="get", authentication=True),
                 send_recommended_song_previews
+            ),
+
+            "song/recent/download/preview": (
+                EndPointRequires(method="get", authentication=True),
+                send_recent_song_previews
             ),
 
             "song/download/preview/resend": (

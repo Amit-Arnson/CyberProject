@@ -402,6 +402,18 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
         raise InvalidPayload(
             f"Invalid payload passed. expected key \"username\", \"password\", instead got {payload_keys}")
 
+    # checks if it's too long
+    if len(username) > 20:
+        raise TooLong("Username provided is too long: max 20 characters", extra={"type": "username"})
+    elif len(password) > 30:
+        raise TooLong("Password is too long: max 30 characters", extra={"type": "password"})
+
+    # checks if it's too short
+    if len(username) < 3:
+        raise TooShort("Username provided is too short: min 3 characters", extra={"type": "username"})
+    elif len(password) < 6:
+        raise TooLong("Password is too short: min 6 characters", extra={"type": "password"})
+
     async with db_pool.acquire() as connection:
         user = await queries.User.fetch_user(
             connection=connection,
@@ -874,7 +886,7 @@ class UploadSong:
         this function is used in order to upload file bytes in chunks. it later uses the information gathered in order
         to build the full file and save it
 
-        this function is tied to song/upload (POST)
+        this function is tied to song/upload/file (POST)
 
         expected payload:
         {
@@ -888,11 +900,7 @@ class UploadSong:
         }
 
         expected output (after the last chunk):
-        {
-            "shazam_artist_name": str,
-            "shazam_album_name": str,
-            "shazam_song_name": str
-        }
+        None
 
         expected cache pre-function:
         > address
@@ -1583,6 +1591,101 @@ async def send_songs_by_genre(
         matching_song_ids = await MusicSearch.search_song_by_genres(
             connection=connection,
             genres=[genre],
+            limit=limit,
+            exclude=exclude
+        )
+
+    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
+
+
+async def send_recent_song_previews(
+        db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache):
+    """
+    this function is used to send the client the preview of songs recently clicked on by the client
+
+    this function is tied to song/recent/download/preview (GET)
+
+    expected payload:
+    {
+        "limit": int
+        "exclude": list[int]
+        "include": list[int]
+    }
+
+    -- note: the output will be sent as chunks and multiple "messages". so the output here will be shown as a single
+    message for a single song preview.
+    --note: this function will only FETCH the song information from the database, the chunk sending will happen in a
+    Utils function (outside of server_actions)
+
+    expected output (for starting message):
+    {
+        "file_id": str
+        "song_id": int,
+        "artist_name": str,
+        "album_name": str,
+        "song_name": str,
+        "genres": list[str]
+    }
+
+    expected output (for each chunk):
+    {
+        -- note: the chunk's bytes are b64 encoded before sending due to flet limitations
+        "chunk": str,
+        "file_id": str,
+        "chunk_number": int,
+        "is_last_chunk": bool,
+        "song_id": int
+    }
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    payload = client_message.payload
+
+    try:
+        limit: int = payload["limit"]
+        exclude: list[int] = payload["exclude"]
+        include: list[int] = payload["include"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(
+            f"Invalid payload passed. expected key \"include\", \"limit\", \"exclude\", instead got {payload_keys}"
+        )
+
+    if len(exclude) > 100:
+        raise TooLong("the exclude list can only have up to 100 exclusions per request")
+    if len(include) > 100:
+        raise TooLong("the include list can only have up to 100 inclusions per request")
+
+    async with db_pool.acquire() as connection:
+        matching_song_ids = await MusicSearch.search_song_by_inclusion(
+            connection=connection,
+            include=include,
             limit=limit,
             exclude=exclude
         )
