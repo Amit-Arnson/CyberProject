@@ -186,7 +186,7 @@ class DownloadSong:
         """
         this function gathers all the preview's details (e.g., artist name, song length, etc...) and sends them to the GUI
 
-        tied to song/download/preview/file
+        tied to song/download/preview
 
         expected payload:
         {
