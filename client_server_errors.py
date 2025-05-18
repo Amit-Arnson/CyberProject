@@ -26,6 +26,7 @@ async def pre_message_error(page: Page, _: EncryptedTransport, server_message: S
         )
     )
 
+
 async def login_error(page: Page, _: EncryptedTransport, server_message: ServerMessage, __: ClientSideUserCache):
     """
     this function is used to visually display that an error occurred when trying to log in.
@@ -34,7 +35,7 @@ async def login_error(page: Page, _: EncryptedTransport, server_message: ServerM
 
     expected payload:
     {
-        ???
+        "type": str
     }
 
     expected output:
@@ -85,7 +86,7 @@ async def signup_error(page: Page, _: EncryptedTransport, server_message: Server
 
     expected payload:
     {
-        ???
+        "type": str
     }
 
     expected output:
@@ -135,7 +136,7 @@ async def song_upload_error(page: Page, _: EncryptedTransport, server_message: S
 
     expected payload:
     {
-        ???
+        "type": str
     }
 
     expected output:
