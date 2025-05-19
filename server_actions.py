@@ -35,7 +35,7 @@ from queries import (
     Comments
 )
 
-from Compress.audio import get_audio_length
+from MediaHandling.audio import get_audio_length
 from Utils.send_to_client_chunk import (
     send_song_preview_chunks,
     resend_file_chunks,

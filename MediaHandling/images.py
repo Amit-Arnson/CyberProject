@@ -1,5 +1,5 @@
-from Compress.files import compress_and_replace
-from Compress.ffmpeg import FFmpegImage, Codec
+from MediaHandling.files import compress_and_replace
+from MediaHandling.ffmpeg import FFmpegImage, Codec
 
 
 async def compress_to_webp(
@@ -9,7 +9,7 @@ async def compress_to_webp(
 ) -> tuple[int, str]:
     """
     Compresses the input image file to a .webp output file, using libwebp as the -c:a flag, using FFmpeg asynchronously, and also replaces the old
-    uncompressed file with the new compressed file *using Compress.files.compress_and_replace*
+    uncompressed file with the new compressed file *using MediaHandling.files.compress_and_replace*
 
     :returns: the new size of the compressed file (in bytes) and the output file's extension ("webp")
     """
@@ -49,7 +49,7 @@ async def compress_to_low_res_webp(
 ) -> tuple[int, str]:
     """
     Compresses the input image file to a .webp output file, using libwebp as the -c:a flag, using FFmpeg asynchronously, and also replaces the old
-    uncompressed file with the new compressed file *using Compress.files.compress_and_replace*
+    uncompressed file with the new compressed file *using MediaHandling.files.compress_and_replace*
 
     this compression's flags reduce the size of the file drastically, but also reduces quality.
 

@@ -12,9 +12,9 @@ from FileSystem.file_extension import Extension
 
 from queries import FileSystem
 
-from Compress.ffmpeg import is_valid_file
-from Compress.audio import compress_to_aac
-from Compress.images import compress_to_webp, compress_to_low_res_webp
+from MediaHandling.ffmpeg import is_valid_file
+from MediaHandling.audio import compress_to_aac
+from MediaHandling.images import compress_to_webp, compress_to_low_res_webp
 
 from Errors.raised_errors import InvalidCodec
 

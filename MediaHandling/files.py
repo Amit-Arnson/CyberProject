@@ -1,4 +1,4 @@
-from Compress.ffmpeg import FFmpegImage, FFmpegAudio, compress
+from MediaHandling.ffmpeg import FFmpegImage, FFmpegAudio, compress
 
 import aiofiles.os as aos
 import os
@@ -13,7 +13,7 @@ async def compress_and_replace(
         ffmpeg_flags: FFmpegAudio | FFmpegImage | dict[str, str]
 ) -> int:
     """
-    Compress the input file, save it to a temporary file, and replace the original file with the compressed version.
+    MediaHandling the input file, save it to a temporary file, and replace the original file with the compressed version.
     note: the file/compressed file extension is not necessarily the same as the codec (such as aac_mf, which is the codec
      and the extension is still .aac) and thus you are required to still enter the file extension and the compressed file
      extension
@@ -31,7 +31,7 @@ async def compress_and_replace(
     temp_file = os.path.join(directory, f"temp_{input_file}.{compressed_extension}")
 
     try:
-        # Compress the file
+        # MediaHandling the file
         await compress(
             input_file=input_path,
             output_file=temp_file,
