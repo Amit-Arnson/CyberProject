@@ -1,5 +1,5 @@
-from Compress.files import compress_and_replace
-from Compress.ffmpeg import FFmpegAudio, Codec
+from MediaHandling.files import compress_and_replace
+from MediaHandling.ffmpeg import FFmpegAudio, Codec
 
 import asyncio
 
@@ -11,7 +11,7 @@ async def compress_to_aac(
 ) -> tuple[int, str]:
     """
     Compresses the input audio file to a .aac output file, using aac_mf as the -c:a flag, using FFmpeg asynchronously, and also replaces the old
-    uncompressed file with the new compressed file *using Compress.files.compress_and_replace*
+    uncompressed file with the new compressed file *using MediaHandling.files.compress_and_replace*
 
     :returns: the new size of the compressed file (in bytes) and the output file's extension ("aac")
     """
