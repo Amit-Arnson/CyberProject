@@ -406,8 +406,8 @@ class CommentView(ft.Container):
             content=ft.Row(
                 [
                     ft.Container(
-                        content=ft.Text(self.page.username[0]),
-                        bgcolor=self._string_to_hex_color(self.page.username),
+                        content=ft.Text(self.user_cache.display_name[0]),
+                        bgcolor=self._string_to_hex_color(self.user_cache.username),
                         border_radius=360,
                         alignment=ft.Alignment(0, 0),
                         width=40,
@@ -417,7 +417,7 @@ class CommentView(ft.Container):
                         [
                             ft.Row(
                                 [
-                                    ft.Text(self.page.username),
+                                    ft.Text(self.user_cache.display_name),
                                     ft.Text(self._convert_timestamp(int(time.time())), color=ft.Colors.GREY_500,
                                             size=10)
                                 ]
@@ -493,13 +493,14 @@ class CommentView(ft.Container):
 
             content: str = comment["text"]
             uploaded_by: str = comment["uploaded_by"]
+            uploaded_by_display_name: str = comment["uploaded_by_display"]
             uploaded_at: int = comment["uploaded_at"]
 
             comment_content_view = ft.Container(
                 content=ft.Row(
                     [
                         ft.Container(
-                            content=ft.Text(uploaded_by[0]),
+                            content=ft.Text(uploaded_by_display_name[0]),
                             bgcolor=self._string_to_hex_color(uploaded_by),
                             border_radius=360,
                             alignment=ft.Alignment(0, 0),
@@ -510,7 +511,7 @@ class CommentView(ft.Container):
                             [
                                 ft.Row(
                                     [
-                                        ft.Text(uploaded_by),
+                                        ft.Text(uploaded_by_display_name),
                                         ft.Text(self._convert_timestamp(uploaded_at), color=ft.Colors.GREY_500, size=10)
                                     ]
                                 ),
