@@ -9,6 +9,8 @@ from client_actions import (
     load_sheet_images,
     load_genre_browser,
     load_song_comments,
+    upload_song_search_info,
+    upload_user_statistics
 )
 
 
@@ -25,7 +27,9 @@ class EndPoints:
             "song/download/audio": buffer_audio,
             "song/download/sheet": load_sheet_images,
             "song/genres": load_genre_browser,
-            "song/comments": load_song_comments
+            "song/comments": load_song_comments,
+            "song/search": upload_song_search_info,
+            "user/statistics": upload_user_statistics
         }
         # endpoint -> function
 
