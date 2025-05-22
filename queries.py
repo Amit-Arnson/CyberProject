@@ -63,8 +63,6 @@ class FileSystem:
         # default for current_size is 0, so we don't need to set it.
         await connection.execute("INSERT INTO clusters (cluster_id) VALUES (?)", cluster_id)
 
-    # files
-
     @staticmethod
     async def create_base_file(
             connection: ProxiedConnection,
@@ -78,7 +76,6 @@ class FileSystem:
 
         current_time = int(time.time())
 
-        # todo: check what i can do about the "no transaction in transaction" rule
         await connection.execute(
             """
             INSERT INTO files
@@ -382,7 +379,8 @@ class Music:
             default_cover_image_path: str = None,
     ) -> list[tuple[str, dict[str, str | int]]]:
         async with connection.transaction():
-            song_paths = await MediaFiles.bulk_fetch_preview_paths(connection=connection, song_ids=song_ids, default_cover_image_path=default_cover_image_path)
+            song_paths = await MediaFiles.bulk_fetch_preview_paths(connection=connection, song_ids=song_ids,
+                                                                   default_cover_image_path=default_cover_image_path)
             song_data_dicts = await Music.bulk_fetch_song_data(connection=connection, song_ids=song_ids)
 
         return zip(song_paths, song_data_dicts)
@@ -398,12 +396,21 @@ class Music:
             [(song_id, genre_name) for genre_name in genres]
         )
 
+    @staticmethod
+    async def fetch_user_song_upload_count(connection: ProxiedConnection, user_id: str) -> int:
+        upload_count = await connection.fetchone(
+            """SELECT COUNT(*) FROM song_info WHERE user_id = ?""",
+            user_id
+        )
+
+        return upload_count[0]
+
 
 class MusicSearch:
     @staticmethod
     async def search_song(connection: ProxiedConnection, search_query: str, exclude: list[int], limit: int = 10):
         """returns a list of song IDs based off of a search query if given, else returns a random list of song IDs"""
-        if search_query:
+        if search_query.strip():
             return await MusicSearch.search_song_by_name(
                 connection=connection,
                 search_query=search_query,
@@ -418,7 +425,7 @@ class MusicSearch:
                                   search_query: str,
                                   exclude: list[int],
                                   limit: int = 10,
-                                  fuzzy_precession: int = 5) -> list[int]:
+                                  fuzzy_precession: int = 10) -> list[int]:
         """
         Searches for songs by name using FTS5 and spellfix, and returns the top 'limit' results ordered by relevance.
 
@@ -430,9 +437,9 @@ class MusicSearch:
         (default 5)
         :return: List of song IDs ordered by relevance.
         """
-        # Prepare the search terms
-        search_query_fts5 = f'"{search_query}*"'  # For prefix matching in FTS5
-        search_query_like = f'"{search_query}%"'  # For prefix matching in spellfix1
+        # prepare the search terms (prefix matching in FTS and spellfix)
+        search_query_fts5 = f'{search_query}*'
+        search_query_like = f'{search_query}%'
 
         exclude_placeholders = ", ".join(["?"] * len(exclude)) if exclude else "NULL"  # Prevent empty placeholders
         exclude_clause = f"AND song_info.song_id NOT IN ({exclude_placeholders})" if exclude else ""
@@ -458,7 +465,7 @@ class MusicSearch:
             """, fts5_params
         )
 
-        spellfix_params = (search_query, search_query_like, search_query, fuzzy_precession, *exclude, limit)\
+        spellfix_params = (search_query, search_query_like, search_query, fuzzy_precession, *exclude, limit) \
             if exclude else (search_query, search_query_like, search_query, fuzzy_precession, limit)
 
         # Execute the spellfix query with ordering
@@ -490,7 +497,30 @@ class MusicSearch:
         return matching_song_ids
 
     @staticmethod
-    async def search_song_by_genres(connection: ProxiedConnection, genres: list[str], exclude: list[int], limit: int = 10) -> list[int]:
+    async def search_song_info(connection: ProxiedConnection, search_query: str, limit: int = 10) -> list[dict[str, str]]:
+        song_ids = await MusicSearch.search_song(connection=connection, search_query=search_query, exclude=[],
+                                                 limit=limit)
+
+        include_placeholders = ", ".join(["?"] * len(song_ids))
+
+        song_info_list = await connection.fetchall(
+            f"""SELECT song_name, artist_name, album_name, song_id FROM song_info WHERE song_id IN ({include_placeholders})""",
+            *song_ids
+        )
+
+        return [
+            {
+                "name": song_info[0],
+                "artist": song_info[1],
+                "album": song_info[2],
+                "song_id": song_info[3]
+            }
+            for song_info in song_info_list
+        ]
+
+    @staticmethod
+    async def search_song_by_genres(connection: ProxiedConnection, genres: list[str], exclude: list[int],
+                                    limit: int = 10) -> list[int]:
         if not genres:
             return []
 
@@ -507,7 +537,8 @@ class MusicSearch:
         return [row[0] for row in results]
 
     @staticmethod
-    async def search_song_by_inclusion(connection: ProxiedConnection, include: list[int], exclude: list[int], limit: int = 10) -> list[int]:
+    async def search_song_by_inclusion(connection: ProxiedConnection, include: list[int], exclude: list[int],
+                                       limit: int = 10) -> list[int]:
         if not include:
             return []
 
@@ -524,7 +555,8 @@ class MusicSearch:
         return [row[0] for row in results]
 
     @staticmethod
-    async def search_song_by_artist(connection: ProxiedConnection, artists: list[str], exclude: list[int], limit: int = 10) -> list[int]:
+    async def search_song_by_artist(connection: ProxiedConnection, artists: list[str], exclude: list[int],
+                                    limit: int = 10) -> list[int]:
         if not artists:
             return []
 
@@ -541,7 +573,8 @@ class MusicSearch:
         return [row[0] for row in results]
 
     @staticmethod
-    async def search_song_by_length(connection: ProxiedConnection, exclude: list[int], maximum: int | None = None, minimum: int = 0, limit: int = 10) -> list[int]:
+    async def search_song_by_length(connection: ProxiedConnection, exclude: list[int], maximum: int | None = None,
+                                    minimum: int = 0, limit: int = 10) -> list[int]:
         search_parameters = [minimum]
 
         upper_limit_query = ""
@@ -604,7 +637,8 @@ class MusicSearch:
 
 class RecommendationAlgorithm:
     @staticmethod
-    async def increase_genre_score_by_song_id(connection: ProxiedConnection, user_id: str, song_id: int, score_increase: int):
+    async def increase_genre_score_by_song_id(connection: ProxiedConnection, user_id: str, song_id: int,
+                                              score_increase: int):
         genres: list[Row] = await connection.fetchall(
             """SELECT genre_name FROM genres WHERE song_id = ?""",
             song_id,
@@ -644,7 +678,8 @@ class RecommendationAlgorithm:
         return top_10_list
 
     @staticmethod
-    async def fetch_recommended_songs(connection: ProxiedConnection, user_id: str, exclude: list[int], limit: int = 10) -> list[int]:
+    async def fetch_recommended_songs(connection: ProxiedConnection, user_id: str, exclude: list[int],
+                                      limit: int = 10) -> list[int]:
         recommended_genres = await RecommendationAlgorithm.fetch_top_genres(connection, user_id)
 
         if not recommended_genres:
@@ -682,7 +717,7 @@ class Comments:
         exclude_query = f"AND song_comments.comment_id NOT IN ({exclude_placeholders})" if exclude else ""
 
         query = f"""
-            SELECT song_comments.*, users.username
+            SELECT song_comments.*, users.username, users.display_name
             FROM song_comments
             JOIN users ON song_comments.uploaded_by = users.user_id
             WHERE song_comments.song_id = ?
@@ -698,7 +733,8 @@ class Comments:
                 "comment_id": comment[0],
                 "text": comment[1],
                 "uploaded_at": comment[4],
-                "uploaded_by": comment[-1]
+                "uploaded_by": comment[-2],
+                "uploaded_by_display": comment[-1],
             } for comment in comments
         ]
 
@@ -724,7 +760,6 @@ class Comments:
                     FROM song_comments
                     WHERE song_id = ?
                     ORDER BY uploaded_at ASC
-                    LIMIT 50
                     """,
                     song_id
                 )
@@ -786,3 +821,12 @@ class Comments:
                 return summary[0]
         except Exception as e:
             print(e)
+
+    @staticmethod
+    async def fetch_user_comment_count(connection: ProxiedConnection, user_id: str) -> int:
+        comment_amount = await connection.fetchone(
+            """SELECT COUNT(*) FROM song_comments WHERE uploaded_by = ?""",
+            user_id
+        )
+
+        return comment_amount[0]
