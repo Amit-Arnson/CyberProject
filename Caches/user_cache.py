@@ -102,7 +102,11 @@ class ClientSideUserCache:
     """
     session_token: the current session token for the user login
     user_id: the ID of the logged-in user
+    username: the username of the logged-in user
+    display_name: the display name of the logged-in user
     """
 
     session_token: str | None = None
     user_id: str | None = None
+    username: str | None = None
+    display_name: str | None = None
