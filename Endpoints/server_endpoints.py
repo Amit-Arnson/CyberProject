@@ -14,7 +14,14 @@ from server_actions import (
     send_genre_list,
     send_songs_by_genre,
     send_song_comments,
-    upload_song_comment
+    upload_song_comment,
+    search_for_songs_by_name,
+    get_user_statistics,
+    delete_song_request,
+    delete_user_request,
+    delete_comment_request,
+    edit_user_display_name,
+    logout_user
 )
 
 from dataclasses import dataclass
@@ -148,8 +155,42 @@ class EndPoints:
             "song/comments/upload": (
                 EndPointRequires(method="post", authentication=True),
                 upload_song_comment
-            )
+            ),
 
+            "song/search": (
+                EndPointRequires(method="get", authentication=True),
+                search_for_songs_by_name
+            ),
+
+            "song/comment/delete": (
+                EndPointRequires(method="delete", authentication=True),
+                delete_comment_request
+            ),
+
+            "song/delete": (
+                EndPointRequires(method="delete", authentication=True),
+                delete_song_request
+            ),
+
+            "user/statistics": (
+                EndPointRequires(method="get", authentication=True),
+                get_user_statistics
+            ),
+
+            "user/edit/display": (
+                EndPointRequires(method="post", authentication=True),
+                edit_user_display_name
+            ),
+
+            "user/logout": (
+                EndPointRequires(method="post", authentication=True),
+                logout_user
+            ),
+
+            "user/delete": (
+                EndPointRequires(method="delete", authentication=True),
+                delete_user_request
+            ),
         }
         # endpoint -> (requirements, function)
 
