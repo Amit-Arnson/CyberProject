@@ -467,8 +467,6 @@ class SignupPage:
                     }
                 ).encode()
             )
-
-            self.page.username = username
         else:
             error_text = ft.Text(
                 value="There seems to have been an error when trying to submit signup information (code 1001)",
