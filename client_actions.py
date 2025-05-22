@@ -12,6 +12,8 @@ import flet as ft
 from flet import Page
 
 from GUI.home_page import HomePage
+from GUI.tempo_finder import AudioInformation
+from GUI.settings import Settings
 
 from RSASigning.public import verify_async, async_rsa_encrypt
 
@@ -109,7 +111,9 @@ async def user_login(
     expected payload:
     {
         "session_token": str,
-        "user_id": str
+        "user_id": str,
+        "username": str,
+        "display_name": str
     }
 
     expected output:
@@ -121,11 +125,15 @@ async def user_login(
     try:
         session_token = payload["session_token"]
         user_id = payload["user_id"]
+        username = payload["username"]
+        display_name = payload["display_name"]
     except KeyError:
         raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
 
     user_cache.session_token = session_token
     user_cache.user_id = user_id
+    user_cache.username = username
+    user_cache.display_name = display_name
 
     # todo: check why the class isnt updated globally despite classes being mutable
     page.user_cache = user_cache
@@ -361,6 +369,13 @@ async def buffer_audio(
             b64_chunk=chunk,
             is_last_chunk=is_last_chunk
         )
+    elif hasattr(page, "view") and isinstance(page.view, AudioInformation):
+        await page.view.add_song_bytes(
+            song_id=song_id,
+            file_id=file_id,
+            b64_chunk=chunk,
+            is_last_chunk=is_last_chunk
+        )
 
 
 async def load_sheet_images(
@@ -458,7 +473,8 @@ async def load_song_comments(
                 "comment_id": int,
                 "text": str,
                 "uploaded_at": int,
-                "uploaded_by": str
+                "uploaded_by": str,
+                "uploaded_by_display": str
             }
         ],
         "ai_summary": str
@@ -480,4 +496,75 @@ async def load_song_comments(
         await page.view.add_song_comments(
             comments=comments,
             ai_summary=ai_summary
+        )
+
+
+async def upload_song_search_info(
+        page: Page,
+        transport: EncryptedTransport,
+        server_message: ServerMessage,
+        user_cache: ClientSideUserCache
+):
+    """
+    this function is used in order to add search results to the searchbar
+
+    tied to song/search
+
+    expected payload:
+    {
+        "songs": list[
+            {"name": str, "artist": str, "album": str, "song_id": int}
+        ]
+    }
+
+    expected output:
+    None
+    """
+
+    payload = server_message.payload
+
+    try:
+        songs: list[dict[str, str]] = payload["songs"]
+    except KeyError:
+        raise  # todo: Handle malformed messages appropriately
+
+    if hasattr(page, "view") and isinstance(page.view, AudioInformation):
+        page.view.add_search_results(
+            songs=songs
+        )
+
+
+async def upload_user_statistics(
+        page: Page,
+        transport: EncryptedTransport,
+        server_message: ServerMessage,
+        user_cache: ClientSideUserCache
+):
+    """
+    this function is used in order to add the user statistics to the settings page
+
+    tied to user/statistics
+
+    expected payload:
+    {
+        "total_song_uploads": int,
+        "total_comments": int
+    }
+
+    expected output:
+    None
+    """
+
+    payload = server_message.payload
+
+    try:
+        total_song_uploads: int = payload["total_song_uploads"]
+        total_comments: int = payload["total_comments"]
+    except KeyError:
+        raise  # todo: Handle malformed messages appropriately
+
+    if hasattr(page, "view") and isinstance(page.view, Settings):
+        page.view.upload_statistics(
+            total_song_uploads=total_song_uploads,
+            total_comments=total_comments
         )
