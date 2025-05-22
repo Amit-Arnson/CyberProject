@@ -241,6 +241,8 @@ async def user_signup_and_login(db_pool: asqlite.Pool, client_package: ClientPac
             payload={
                 "session_token": user_session_token,
                 "user_id": user_id,
+                "username": username,
+                "display_name": display_name
             }
         ).encode()
     )
@@ -367,6 +369,8 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
     {
         "session_token": str,
         "user_id": str,
+        "username": str,
+        "display_name": str
     }
 
     expected cache pre-function:
@@ -452,6 +456,8 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
             payload={
                 "session_token": user_session_token,
                 "user_id": user_id,
+                "username": user["username"],
+                "display_name": user["display_name"]
             }
         ).encode()
     )
@@ -1924,7 +1930,8 @@ async def send_song_comments(
                 "comment_id": int,
                 "text": str,
                 "uploaded_at": int,
-                "uploaded_by": str
+                "uploaded_by": str,
+                "uploaded_by_display": str
             }
         ]
     }
@@ -2058,3 +2065,194 @@ async def upload_song_comment(
             uploaded_by=client_user_cache.user_id,
             text=text
         )
+
+
+async def search_for_songs_by_name(db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache
+):
+    """
+    this function is used to search for songs that are similar to the input song name
+
+    this function is tied to song/search (GET)
+
+    expected payload:
+    {
+        "name": str
+    }
+
+    expected output:
+    {
+        "songs": list[
+            {"name": str, "artist": str, "album": str, "song_id": int}
+        ]
+    }
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    payload = client_message.payload
+
+    try:
+        name = payload["name"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(f"Invalid payload passed. expected key \"name\" instead got {payload_keys}")
+
+    try:
+        async with db_pool.acquire() as connection:
+            song_info = await MusicSearch.search_song_info(
+                connection=connection,
+                search_query=name
+            )
+
+        client.write(
+            ServerMessage(
+                status={
+                    "code": 200,
+                    "message": "success"
+                },
+                method="respond",
+                endpoint="song/search",
+                payload={
+                    "songs": song_info
+                }
+            ).encode()
+        )
+    except Exception as e:
+        traceback.print_exc()
+        raise e
+
+
+async def get_user_statistics(db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache
+):
+    """
+    this function is used to get the user's statistics on upload amounts (upload song / comment)
+
+    this function is tied to user/statistics (GET)
+
+    expected payload:
+    None
+
+    expected output:
+    {
+        "total_song_uploads": int,
+        "total_comments": int,
+    }
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    user_id = client_user_cache.user_id
+
+    async with db_pool.acquire() as connection:
+        comment_count = await Comments.fetch_user_comment_count(connection=connection, user_id=user_id)
+        upload_count = await Music.fetch_user_song_upload_count(connection=connection, user_id=user_id)
+
+    client.write(
+        ServerMessage(
+            status={
+                "code": 200,
+                "message": "success"
+            },
+            method="respond",
+            endpoint="user/statistics",
+            payload={
+                "total_song_uploads": upload_count,
+                "total_comments": comment_count
+            }
+        ).encode()
+    )
+
+
+async def delete_song_request(db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache
+):
+    pass
+    # todo: write docs and function
+
+
+async def delete_comment_request(db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache
+):
+    pass
+    # todo: write docs and function
+
+
+async def delete_user_request(db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache
+):
+    pass
+    # todo: write docs and function
+
+
+async def logout_user(db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache
+):
+    pass
+    # todo: write docs and function
+
+
+async def edit_user_display_name(db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache
+):
+    pass
+    # todo: write docs and function
