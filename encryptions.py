@@ -29,10 +29,7 @@ def unpad(plaintext):
 def aes_cbc_encrypt(plaintext, key, iv):
     """Encrypts plaintext using AES CBC mode."""
 
-    # Create AES cipher in CBC mode
     cipher = AES.new(key, AES.MODE_CBC, iv)
-
-    # Encrypt the padded plaintext
     ciphertext = cipher.encrypt(pad(plaintext))
 
     # Return the IV and ciphertext (both are needed for decryption)
@@ -44,11 +41,10 @@ def aes_cbc_decrypt(ciphertext, key):
     # Decode the Base64 encoded ciphertext
     ciphertext = base64.b64decode(ciphertext)
 
-    iv = ciphertext[:16]
     # Extract the IV (first 16 bytes) and the encrypted message
+    iv = ciphertext[:16]
     actual_ciphertext = ciphertext[16:]
 
-    # Create AES cipher in CBC mode with the extracted IV
     cipher = AES.new(key, AES.MODE_CBC, iv)
 
     # Decrypt and unpad the plaintext

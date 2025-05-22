@@ -109,7 +109,6 @@ async def is_valid_file(file_path: str) -> bool:
         raise Exception(f"Couldn't find the FFprobe executable in {ffprobe_exe}")
 
     try:
-        # Build the ffprobe command
         command = [
             ffprobe_exe,
             "-show_format",  # Check file format
@@ -130,7 +129,6 @@ async def is_valid_file(file_path: str) -> bool:
         if process.returncode != 0:
             return False
 
-        # If everything is okay
         return True
 
     except FileNotFoundError:
@@ -154,7 +152,6 @@ async def compress(input_file: str, output_file: str, flag_values: dict[str, str
         raise Exception(f"Couldn't find the FFmpeg executable in {ffmpeg_exe}")
 
     try:
-        # Command to convert the audio file using FFmpeg
         command = [
             ffmpeg_exe,
             "-loglevel", "quiet",  # Suppress FFmpeg logs
