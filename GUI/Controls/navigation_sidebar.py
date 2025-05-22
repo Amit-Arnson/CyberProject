@@ -55,8 +55,8 @@ class NavigationSidebar(ft.Container):
 
     def _create_avatar(self):
         username = "username"
-        if hasattr(self.page, "username"):
-            username = self.page.username
+        if hasattr(self.page, "user_cache"):
+            username = self.page.user_cache.username
 
         user_avatar = ft.Container(
             ft.Container(
@@ -117,10 +117,14 @@ class NavigationSidebar(ft.Container):
         HomePage(self.page).show()
 
     def _switch_to_tempo_finder(self, e: ft.ControlEvent):
-        """switches the page to the "tempo finder" page"""
+        from GUI.tempo_finder import AudioInformation
 
-        # todo: implement tempo finder
-        print("went to tempo finder")
+        AudioInformation(self.page).show()
+
+    def _switch_to_settings(self, e: ft.ControlEvent):
+        from GUI.settings import Settings
+
+        Settings(self.page).show()
 
     def _initialize_sidebar_items(self):
         item_height = self.page_height / 10
@@ -174,7 +178,7 @@ class NavigationSidebar(ft.Container):
         item_height = self.page_height / 10
 
         self.settings = ft.Container(
-            on_click=lambda _: print("went to settings"),
+            on_click=self._switch_to_settings,
             on_hover=self._sidebar_item_hover,
             height=item_height,
             expand=True,
