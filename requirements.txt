@@ -3,6 +3,8 @@ sympy
 aiofiles
 asqlite
 aiohttp
+librosa
+numpy
 
 flet
 flet_audio
