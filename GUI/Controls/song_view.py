@@ -1,7 +1,12 @@
+import base64
 import hashlib
 import time
 import datetime
 import typing
+
+import aiofiles
+from pathlib import Path
+import os
 
 import asyncio
 import flet as ft
@@ -600,8 +605,14 @@ class SongView(ft.AlertDialog):
                         ft.Row([*self._create_genre_list()], wrap=True),
                         ft.Row(
                             [
-                                ft.Icon(ft.Icons.STAR_ROUNDED, color=ft.Colors.BLACK),
-                                ft.Icon(ft.Icons.DOWNLOAD, color=ft.Colors.BLACK),
+                                ft.Container(
+                                    ft.Icon(ft.Icons.STAR_ROUNDED, color=ft.Colors.BLACK),
+                                    on_click=self._toggle_favorite
+                                ),
+                                ft.Container(
+                                    ft.Icon(ft.Icons.DOWNLOAD, color=ft.Colors.BLACK),
+                                    on_click=self._locally_download_audio
+                                ),
                                 ft.Container(
                                     content=ft.Icon(ft.Icons.COMMENT_ROUNDED, color=ft.Colors.BLACK),
                                     on_click=self._open_comment_view_popup
@@ -654,6 +665,26 @@ class SongView(ft.AlertDialog):
             width=1000,
             height=700,
             clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+        )
+
+        self.is_waiting_for_local_download = False
+        self.downloading_audio_cover = ft.AlertDialog(
+            content=ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Text("downloading audio", color=ft.Colors.WHITE),
+                        ft.ProgressRing()
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                ),
+                expand=True,
+                expand_loose=True,
+                alignment=ft.Alignment(0, 0),
+            ),
+            modal=True,
+            open=True,
+            bgcolor=ft.Colors.with_opacity(0, ft.Colors.BLACK)
         )
 
         self.is_viewing_comments = False
@@ -722,13 +753,22 @@ class SongView(ft.AlertDialog):
         if not song_id == self.song_id:
             return
 
+        self.audio_player.pause()
+
         # if the src == "0" it means the song wasn't loaded yet
         if self.audio_player.src_base64 == "0":
             self.audio_player.src_base64 = b64_chunk
         else:
             self.audio_player.src_base64 += b64_chunk
 
-        self.audio_player.update()
+        if not self.is_waiting_for_local_download:
+            self.audio_player.update()
+
+        if is_last_chunk and self.is_waiting_for_local_download:
+            self.view.controls.remove(self.downloading_audio_cover)
+            self.view.update()
+
+            await self._download_audio()
 
     async def stream_sheet_chunks(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
         self.sheet_music_view_control.add_chunk(file_id, song_id, b64_chunk, is_last_chunk)
@@ -767,6 +807,46 @@ class SongView(ft.AlertDialog):
             height=self.cover_art_height,
         )
 
+    async def _download_audio(self):
+        audio_file_bytes: bytes = base64.b64decode(self.audio_player.src_base64)
+
+        # Construct filename
+        file_name = f"{self.song_name} - {self.artist_name}.aac"
+
+        # Get user's Downloads folder (cross-platform)
+        downloads_folder = str(Path.home() / "Downloads")
+
+        # Combine full path
+        file_path = os.path.join(downloads_folder, file_name)
+
+        # Save to Downloads
+        async with aiofiles.open(file_path, "wb") as file:
+            await file.write(audio_file_bytes)
+
+        await asyncio.create_subprocess_exec("explorer", "/select,", str(file_path))
+
+        self.is_waiting_for_local_download = False
+
+        self.view.controls.append(
+            ft.AlertDialog(
+                content=ft.Container(ft.Text("Successfully downloaded file!")),
+                open=True
+            )
+        )
+
+        self.update()
+
+    async def _locally_download_audio(self, *args):
+        self.is_waiting_for_local_download = True
+
+        if self.audio_player.src_base64 == "0":
+            self.view.controls.append(self.downloading_audio_cover)
+            self.update()
+
+            self._request_song_chunks()
+        else:
+            await self._download_audio()
+
     def _request_song_chunks(self):
         # if the src == "0" it means the song wasn't loaded yet
         if self.audio_player.src_base64 != "0":
@@ -777,6 +857,18 @@ class SongView(ft.AlertDialog):
                 authentication=self.user_cache.session_token,
                 method="GET",
                 endpoint="song/download/audio",
+                payload={
+                    "song_id": self.song_id
+                }
+            ).encode()
+        )
+
+    def _toggle_favorite(self, *args):
+        self.transport.write(
+            ClientMessage(
+                authentication=self.user_cache.session_token,
+                method="POST",
+                endpoint="song/favorite/toggle",
                 payload={
                     "song_id": self.song_id
                 }
