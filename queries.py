@@ -1,5 +1,9 @@
 # this file is used as a way to organize all the needed SQL queries
+import os
 import time
+import traceback
+
+import aiofiles.os as aos
 
 from asqlite import ProxiedConnection
 from sqlite3 import Row
@@ -32,6 +36,43 @@ class User:
             return True
 
         return False
+
+    @staticmethod
+    async def delete_user(connection: ProxiedConnection, user_id: str):
+        deleted_user = f"deleted_user_{int(time.time())}_{os.urandom(8).hex()}"
+
+        # making sure the new username doesnt already exist
+        while True:
+            does_username_already_exist = await User.user_exists(connection=connection, username=deleted_user)
+            if not does_username_already_exist:
+                break
+            else:
+                deleted_user = f"deleted_user_{int(time.time())}_{os.urandom(8).hex()}"
+
+        # Delete user's favorite genres
+        await connection.execute(
+            "DELETE FROM favorite_genres WHERE user_id = ?",
+            user_id
+        )
+
+        # Delete user's favorite songs
+        await connection.execute(
+            "DELETE FROM favorite_songs WHERE user_id = ?",
+            user_id
+        )
+
+        # Delete the user record
+        await connection.execute(
+            "UPDATE users SET username = ?, display_name = ?, password = ?, salt = ? WHERE user_id = ?",
+            deleted_user, "deleted_user", "0", b"0", user_id
+        )
+
+    @staticmethod
+    async def change_display_name(connection: ProxiedConnection, user_id: str, display_name: str):
+        await connection.execute(
+            "UPDATE users SET display_name = ? WHERE user_id = ?",
+            display_name, user_id
+        )
 
 
 class FileSystem:
@@ -102,6 +143,15 @@ class FileSystem:
             return True
 
         return False
+
+    @staticmethod
+    async def reduce_cluster_size(connection: ProxiedConnection, cluster_id: str, amount: int):
+        await connection.execute(
+            """
+            UPDATE clusters SET current_size = current_size - ? WHERE cluster_id = ?
+            """,
+            amount, cluster_id
+        )
 
 
 class MediaFiles:
@@ -343,6 +393,7 @@ class Music:
         query = f"""
            SELECT 
                song_info.song_id,
+               song_info.user_id,
                artist_name,
                album_name,
                song_name,
@@ -360,11 +411,12 @@ class Music:
         result_dict = {
             row[0]: {
                 "song_id": row[0],
-                "artist_name": row[1],
-                "album_name": row[2],
-                "song_name": row[3],
-                "song_length": row[4],
-                "genres": row[5].split(",") if row[5] else []  # Split the comma-separated string into a list
+                "user_id": row[1],
+                "artist_name": row[2],
+                "album_name": row[3],
+                "song_name": row[4],
+                "song_length": row[5],
+                "genres": row[6].split(",") if row[6] else []  # Split the comma-separated string into a list
             }
             for row in results
         }
@@ -404,6 +456,59 @@ class Music:
         )
 
         return upload_count[0]
+
+    @staticmethod
+    async def does_user_own_song(connection: ProxiedConnection, user_id: str, song_id: int) -> bool:
+        comment = await connection.fetchone(
+            """SELECT * FROM song_info WHERE song_id = ? AND user_id = ?""",
+            song_id, user_id
+        )
+
+        if comment:
+            return True
+
+        return False
+
+    @staticmethod
+    async def delete_song(connection: ProxiedConnection, song_id: int):
+        try:
+            song_files = await connection.fetchall(
+                """SELECT file_path FROM media_files WHERE song_id = ?""",
+                song_id
+            )
+
+            clusters_removed: dict[str, int] = {}
+            for file in song_files:
+                file_path: str = file[0]
+                print(file_path)
+                save_dir, cluster, file_id = file_path.split("\\")
+
+                if cluster in clusters_removed:
+                    clusters_removed[cluster] += 1
+                else:
+                    clusters_removed[cluster] = 1
+
+                await aos.remove(file_path)
+
+                await connection.execute(
+                    """DELETE FROM files WHERE file_id = ?""",
+                    file_id
+                )
+
+            for cluster_id, amount_removed in clusters_removed.items():
+                await FileSystem.reduce_cluster_size(
+                    connection=connection,
+                    cluster_id=cluster_id,
+                    amount=amount_removed
+                )
+
+            await connection.execute(
+                """DELETE FROM song_info WHERE song_id = ?""",
+                song_id
+            )
+        except Exception as e:
+            traceback.print_exc()
+            raise e
 
 
 class MusicSearch:
@@ -537,6 +642,20 @@ class MusicSearch:
         return [row[0] for row in results]
 
     @staticmethod
+    async def search_song_by_user_uploaded(connection: ProxiedConnection, user_id: str, exclude: list[int],
+                                    limit: int = 10) -> list[int]:
+
+        exclude_placeholders = ", ".join(["?"] * len(exclude))
+        exclude_query = f"AND song_id NOT IN ({exclude_placeholders})" if exclude else ""
+
+        results = await connection.fetchall(
+            f"SELECT song_id FROM song_info WHERE user_id = ? {exclude_query} LIMIT ?;",
+            user_id, *exclude, limit
+        )
+
+        return [row[0] for row in results]
+
+    @staticmethod
     async def search_song_by_inclusion(connection: ProxiedConnection, include: list[int], exclude: list[int],
                                        limit: int = 10) -> list[int]:
         if not include:
@@ -633,6 +752,42 @@ class MusicSearch:
         )
 
         return list(set([genre[0] for genre in genres]))
+
+
+class FavoriteSongs:
+    @staticmethod
+    async def change_favorite(connection: ProxiedConnection, user_id: str, song_id: int):
+        exists = await connection.fetchone(
+            "SELECT * FROM favorite_songs WHERE user_id = ? AND song_id = ?",
+            user_id, song_id
+        )
+
+        if exists:
+            await connection.execute(
+                "DELETE FROM favorite_songs WHERE user_id = ? AND song_id = ?",
+                user_id, song_id
+            )
+        else:
+            await connection.execute(
+                "INSERT INTO favorite_songs (user_id, song_id) VALUES (?, ?)",
+                user_id, song_id
+            )
+
+    @staticmethod
+    async def fetch_favorite_songs(connection: ProxiedConnection, user_id: str, exclude: list[int], limit: int = 10) -> list[int]:
+
+        exclude_placeholders = ", ".join(["?"] * len(exclude))
+        exclude_query = f"AND song_id NOT IN ({exclude_placeholders})" if exclude else ""
+
+        query = f"""
+            SELECT song_id FROM favorite_songs WHERE user_id = ?
+            {exclude_query}
+            LIMIT ?;
+        """
+
+        song_ids = await connection.fetchall(query, user_id, *exclude, limit)
+
+        return [song_id[0] for song_id in song_ids]
 
 
 class RecommendationAlgorithm:
@@ -830,3 +985,22 @@ class Comments:
         )
 
         return comment_amount[0]
+
+    @staticmethod
+    async def does_user_own_comment(connection: ProxiedConnection, user_id: str, comment_id: int) -> bool:
+        comment = await connection.fetchone(
+            """SELECT * FROM song_comments WHERE comment_id = ? AND user_id = ?""",
+            comment_id, user_id
+        )
+
+        if comment:
+            return True
+
+        return False
+
+    @staticmethod
+    async def delete_comment(connection: ProxiedConnection, comment_id: int):
+        await connection.execute(
+            """DELETE FROM song_comments WHERE comment_id = ?""",
+            comment_id
+        )
