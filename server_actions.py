@@ -32,7 +32,8 @@ from queries import (
     Music,
     MusicSearch,
     RecommendationAlgorithm,
-    Comments
+    Comments,
+    FavoriteSongs
 )
 
 from MediaHandling.audio import get_audio_length
@@ -109,8 +110,6 @@ async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, cl
         g=client_user_cache.dhe_base,
         p=client_user_cache.dhe_mod
     )
-
-    # todo: figure out how to stop fake base/mod in DHE (since they can be spoofed client side)
 
     # calculates the mutual key (note: this key is a secret key and should not be shared)
     mutual_key_number: int = server_dhe.calculate_mutual(client_public_value)
@@ -389,81 +388,84 @@ async def user_login(db_pool: asqlite.Pool, client_package: ClientPackage, clien
     client = client_package.client
     address = client_package.address
 
-    # checks if the client has completed the key exchange
-    if not client.key or not client.iv:
-        raise NoEncryption("missing encryption values: please re-authenticate")
-
-    # gets the UserCacheItem for this specific client (and references it)
-    client_user_cache: UserCacheItem = user_cache[address]
-
-    payload = client_message.payload
-
     try:
-        username = payload["username"]
-        password = payload["password"]
-    except KeyError:
-        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
-        raise InvalidPayload(
-            f"Invalid payload passed. expected key \"username\", \"password\", instead got {payload_keys}")
 
-    # checks if it's too long
-    if len(username) > 20:
-        raise TooLong("Username provided is too long: max 20 characters", extra={"type": "username"})
-    elif len(password) > 30:
-        raise TooLong("Password is too long: max 30 characters", extra={"type": "password"})
+        # checks if the client has completed the key exchange
+        if not client.key or not client.iv:
+            raise NoEncryption("missing encryption values: please re-authenticate")
 
-    # checks if it's too short
-    if len(username) < 3:
-        raise TooShort("Username provided is too short: min 3 characters", extra={"type": "username"})
-    elif len(password) < 6:
-        raise TooLong("Password is too short: min 6 characters", extra={"type": "password"})
+        # gets the UserCacheItem for this specific client (and references it)
+        client_user_cache: UserCacheItem = user_cache[address]
 
-    async with db_pool.acquire() as connection:
-        user = await queries.User.fetch_user(
-            connection=connection,
-            username=username,
+        payload = client_message.payload
+
+        try:
+            username = payload["username"]
+            password = payload["password"]
+        except KeyError:
+            payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+            raise InvalidPayload(
+                f"Invalid payload passed. expected key \"username\", \"password\", instead got {payload_keys}")
+
+        # checks if it's too long
+        if len(username) > 20:
+            raise TooLong("Username provided is too long: max 20 characters", extra={"type": "username"})
+        elif len(password) > 30:
+            raise TooLong("Password is too long: max 30 characters", extra={"type": "password"})
+
+        # checks if it's too short
+        if len(username) < 3:
+            raise TooShort("Username provided is too short: min 3 characters", extra={"type": "username"})
+        elif len(password) < 6:
+            raise TooLong("Password is too short: min 6 characters", extra={"type": "password"})
+
+        async with db_pool.acquire() as connection:
+            user = await queries.User.fetch_user(
+                connection=connection,
+                username=username,
+            )
+
+        if not user:
+            raise InvalidCredentials("user doesnt exist")
+
+        hashed_password: str = user["password"]
+        salt: bytes = user["salt"]
+
+        if not authenticate_password(password=password, hashed_password=hashed_password, salt=salt):
+            raise InvalidCredentials("Invalid login credentials passed")
+
+        user_id: str = user["user_id"]
+
+        user_session_token = generate_session_token(user_id)
+
+        # adding the user ID and session token to the client cache
+        client_user_cache.user_id = user_id
+        client_user_cache.session_token = user_session_token
+
+        # we need to add the UserCacheItem again so that it will also cache the session token (see .add() docs)
+        await user_cache.add(client_user_cache)
+
+        # sends the client the session token and the user ID
+        client.write(
+            ServerMessage(
+                status={
+                    "code": 200,
+                    "message": "success"
+                },
+                method="respond",
+                endpoint="user/login",
+                payload={
+                    "session_token": user_session_token,
+                    "user_id": user_id,
+                    "username": user["username"],
+                    "display_name": user["display_name"]
+                }
+            ).encode()
         )
+    except Exception as e:
+        traceback.print_exc()
+        raise e
 
-    if not user:
-        raise InvalidCredentials("user doesnt exist")
-
-    hashed_password: str = user["password"]
-    salt: bytes = user["salt"]
-
-    if not authenticate_password(password=password, hashed_password=hashed_password, salt=salt):
-        raise InvalidCredentials("Invalid login credentials passed")
-
-    user_id: str = user["user_id"]
-
-    user_session_token = generate_session_token(user_id)
-
-    # adding the user ID and session token to the client cache
-    client_user_cache.user_id = user_id
-    client_user_cache.session_token = user_session_token
-
-    # we need to add the UserCacheItem again so that it will also cache the session token (see .add() docs)
-    await user_cache.add(client_user_cache)
-
-    # sends the client the session token and the user ID
-    client.write(
-        ServerMessage(
-            status={
-                "code": 200,
-                "message": "success"
-            },
-            method="respond",
-            endpoint="user/login",
-            payload={
-                "session_token": user_session_token,
-                "user_id": user_id,
-                "username": user["username"],
-                "display_name": user["display_name"]
-            }
-        ).encode()
-    )
-
-
-# todo: check that all of the temp data is deleted after the request succeeds OR fails
 class UploadSong:
     def __init__(self):
         # these are constant values that define how large the file/files can be.
@@ -1219,7 +1221,6 @@ async def send_song_previews(
         client_package: ClientPackage,
         client_message: ClientMessage,
         user_cache: UserCache):
-    # todo: implement rating and tempo filtering, by also implementing the features
     """
     this function is used to send the client the "preview" of the songs, that contains the cover art, and the standard
     song data (song name, artist name, etc...)
@@ -1299,7 +1300,6 @@ async def send_song_previews(
 
     payload = client_message.payload
 
-    # todo: implement filters on the client, then make them work on the server
     try:
         search_query = payload["query"]
         limit: int = payload["limit"]
@@ -1319,7 +1319,6 @@ async def send_song_previews(
     if len(exclude) > 100:
         raise TooLong("the exclude list can only have up to 100 exclusions per request")
 
-    # todo: add the isinstance check for all of the other functions in this file
     if not isinstance(search_query, str):
         raise InvalidDataType(f"expected data type for \"query\" is str, got {type(search_query)} instead", extra={"type": "search"})
 
@@ -2213,40 +2212,227 @@ async def get_user_statistics(db_pool: asqlite.Pool,
     )
 
 
-async def delete_song_request(db_pool: asqlite.Pool,
+async def delete_song_request(
+        db_pool: asqlite.Pool,
         client_package: ClientPackage,
         client_message: ClientMessage,
         user_cache: UserCache
 ):
-    pass
-    # todo: write docs and function
+    """
+    this function is used to delete a song and all of it's related files
+
+    this function is tied to song/delete (DELETE)
+
+    expected payload:
+    {
+        "song_id": int
+    }
+
+    expected output:
+    None
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    user_id = client_user_cache.user_id
+
+    payload = client_message.payload
+
+    try:
+        song_id: int = payload["song_id"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(f"Invalid payload passed. expected key \"song_id\" instead got {payload_keys}")
+
+    async with db_pool.acquire() as connection:
+        is_song_own = await Music.does_user_own_song(
+            connection=connection,
+            user_id=user_id,
+            song_id=song_id
+        )
+
+        if is_song_own:
+            await Music.delete_song(
+                connection=connection,
+                song_id=song_id
+            )
 
 
-async def delete_comment_request(db_pool: asqlite.Pool,
+async def delete_comment_request(
+        db_pool: asqlite.Pool,
         client_package: ClientPackage,
         client_message: ClientMessage,
         user_cache: UserCache
 ):
-    pass
-    # todo: write docs and function
+    """
+    this function is used to delete a song's comment
+
+    this function is tied to song/comment/delete (DELETE)
+
+    expected payload:
+    {
+        "comment_id": int
+    }
+
+    expected output:
+    None
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    user_id = client_user_cache.user_id
+
+    payload = client_message.payload
+
+    try:
+        comment_id: int = payload["comment_id"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(f"Invalid payload passed. expected key \"song_id\" instead got {payload_keys}")
+
+    async with db_pool.acquire() as connection:
+        is_song_own = await Comments.does_user_own_comment(
+            connection=connection,
+            user_id=user_id,
+            comment_id=comment_id
+        )
+
+        if is_song_own:
+            await Comments.delete_comment(
+                connection=connection,
+                comment_id=comment_id
+            )
 
 
-async def delete_user_request(db_pool: asqlite.Pool,
+async def delete_user_request(
+        db_pool: asqlite.Pool,
         client_package: ClientPackage,
         client_message: ClientMessage,
         user_cache: UserCache
 ):
-    pass
-    # todo: write docs and function
+    """
+    this logs a user out then deletes it
+
+    this function is tied to user/delete (DELETE)
+
+    expected payload:
+    None
+
+    expected output:
+    None
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    None
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    user_id = client_user_cache.user_id
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    try:
+        user_cache.logout(address)
+
+        async with db_pool.acquire() as connection:
+            await queries.User.delete_user(connection=connection, user_id=user_id)
+    except Exception as e:
+        traceback.print_exc()
+        raise e
 
 
-async def logout_user(db_pool: asqlite.Pool,
+async def logout_user(
+        db_pool: asqlite.Pool,
         client_package: ClientPackage,
         client_message: ClientMessage,
         user_cache: UserCache
 ):
-    pass
-    # todo: write docs and function
+    """
+    this logs a user out
+
+    this function is tied to user/logout (POST)
+
+    expected payload:
+    None
+
+    expected output:
+    None
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    None
+    """
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    user_cache.logout(address)
 
 
 async def edit_user_display_name(db_pool: asqlite.Pool,
@@ -2254,5 +2440,307 @@ async def edit_user_display_name(db_pool: asqlite.Pool,
         client_message: ClientMessage,
         user_cache: UserCache
 ):
-    pass
-    # todo: write docs and function
+    """
+    this function change's a user's display name
+
+    this function is tied to user/edit/display (POST)
+
+    expected payload:
+    {
+        "display_name": str
+    }
+
+    expected output:
+    None
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    None
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    user_id = client_user_cache.user_id
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    payload = client_message.payload
+
+    try:
+        display_name = payload["display_name"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(f"Invalid payload passed. expected key \"display_name\" instead got {payload_keys}")
+
+    if len(display_name) > 20:
+        raise TooLong("Display name provided is too long: max 20 characters")
+
+    async with db_pool.acquire() as connection:
+        await queries.User.change_display_name(connection=connection, user_id=user_id, display_name=display_name)
+
+
+async def send_songs_by_favorite(
+        db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache):
+    """
+    this function is used to send the client the "preview" of the songs that are based on what they favorited
+
+    this function is tied to song/favorites/download/preview (GET)
+
+    expected payload:
+    {
+        "limit": int
+        "exclude": list[int]
+    }
+
+    -- note: the output will be sent as chunks and multiple "messages". so the output here will be shown as a single
+    message for a single song preview.
+    --note: this function will only FETCH the song information from the database, the chunk sending will happen in a
+    Utils function (outside of server_actions)
+
+    expected output (for starting message):
+    {
+        "file_id": str
+        "song_id": int,
+        "artist_name": str,
+        "album_name": str,
+        "song_name": str,
+        "genres": list[str]
+    }
+
+    expected output (for each chunk):
+    {
+        -- note: the chunk's bytes are b64 encoded before sending due to flet limitations
+        "chunk": str,
+        "file_id": str,
+        "chunk_number": int,
+        "is_last_chunk": bool,
+        "song_id": int
+    }
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    user_id = client_user_cache.user_id
+
+    payload = client_message.payload
+
+    try:
+        limit: int = payload["limit"]
+        exclude: list[int] = payload["exclude"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(
+            f"Invalid payload passed. expected key \"limit\", \"exclude\", instead got {payload_keys}"
+        )
+
+    if limit > 50 or limit <= 0:
+        raise InvalidValue("the limit must be a number between 1 and 50")
+    if len(exclude) > 100:
+        raise TooLong("the exclude list can only have up to 100 exclusions per request")
+
+    async with db_pool.acquire() as connection:
+        matching_song_ids = await FavoriteSongs.fetch_favorite_songs(
+            connection=connection,
+            user_id=user_id,
+            limit=limit,
+            exclude=exclude
+        )
+
+    print(matching_song_ids)
+
+    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
+
+
+async def change_favorite(
+        db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache):
+    """
+    this function is used to send toggle the favorite of a song
+
+    this function is tied to song/favorite/toggle (GET)
+
+    expected payload:
+    {
+        "song_id": int
+    }
+
+    expected output (for each chunk):
+    None
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    user_id = client_user_cache.user_id
+
+    payload = client_message.payload
+
+    try:
+        song_id: int = payload["song_id"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(
+            f"Invalid payload passed. expected key \"song_id\", instead got {payload_keys}"
+        )
+
+    async with db_pool.acquire() as connection:
+        await FavoriteSongs.change_favorite(
+            connection=connection,
+            user_id=user_id,
+            song_id=song_id
+        )
+
+
+async def send_songs_by_upload(
+        db_pool: asqlite.Pool,
+        client_package: ClientPackage,
+        client_message: ClientMessage,
+        user_cache: UserCache):
+    """
+    this function is used to send the client the "preview" of the songs that are based on what they uploaded
+
+    this function is tied to song/upload/download/preview (GET)
+
+    expected payload:
+    {
+        "limit": int
+        "exclude": list[int]
+    }
+
+    -- note: the output will be sent as chunks and multiple "messages". so the output here will be shown as a single
+    message for a single song preview.
+    --note: this function will only FETCH the song information from the database, the chunk sending will happen in a
+    Utils function (outside of server_actions)
+
+    expected output (for starting message):
+    {
+        "file_id": str
+        "song_id": int,
+        "artist_name": str,
+        "album_name": str,
+        "song_name": str,
+        "genres": list[str]
+    }
+
+    expected output (for each chunk):
+    {
+        -- note: the chunk's bytes are b64 encoded before sending due to flet limitations
+        "chunk": str,
+        "file_id": str,
+        "chunk_number": int,
+        "is_last_chunk": bool,
+        "song_id": int
+    }
+
+    expected  cache pre - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+
+    expected cache post - function:
+    > address
+    > iv
+    > aes_key
+    > user_id
+    > session_token
+    """
+
+    client = client_package.client
+    address = client_package.address
+
+    # checks if the client has completed the key exchange
+    if not client.key or not client.iv:
+        raise NoEncryption("missing encryption values: please re-authenticate")
+
+    # gets the UserCacheItem for this specific client (and references it)
+    client_user_cache: UserCacheItem = user_cache[address]
+
+    user_id = client_user_cache.user_id
+
+    payload = client_message.payload
+
+    try:
+        limit: int = payload["limit"]
+        exclude: list[int] = payload["exclude"]
+    except KeyError:
+        payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
+        raise InvalidPayload(
+            f"Invalid payload passed. expected key \"limit\", \"exclude\", instead got {payload_keys}"
+        )
+
+    if limit > 50 or limit <= 0:
+        raise InvalidValue("the limit must be a number between 1 and 50")
+    if len(exclude) > 100:
+        raise TooLong("the exclude list can only have up to 100 exclusions per request")
+
+    async with db_pool.acquire() as connection:
+        matching_song_ids = await MusicSearch.search_song_by_user_uploaded(
+            connection=connection,
+            user_id=user_id,
+            limit=limit,
+            exclude=exclude
+        )
+
+    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
