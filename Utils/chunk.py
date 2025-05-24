@@ -48,7 +48,6 @@ async def send_chunk(
         covert_art_path: str,
         image_path_list: list[str] = None,
 ):
-    # todo: describe params
     """
     :params...:
 
