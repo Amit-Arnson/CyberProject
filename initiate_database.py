@@ -119,7 +119,7 @@ class CreateTables:
         cursor.execute(
             """
             CREATE VIRTUAL TABLE IF NOT EXISTS song_info_fts
-            USING fts5(song_name, content='song_info', content_rowid='song_id');
+            USING fts5(song_name, content='song_info', content_rowid='song_id', prefix='2 3 4');
             """
         )
 
@@ -139,7 +139,7 @@ class CreateTables:
                 song_id INTEGER NOT NULL,
                 genre_name TEXT NOT NULL,
                 PRIMARY KEY (song_id, genre_name),
-                FOREIGN KEY (song_id) REFERENCES song_info (song_id)
+                FOREIGN KEY (song_id) REFERENCES song_info (song_id) ON DELETE CASCADE
             );
             """
         )
@@ -155,8 +155,8 @@ class CreateTables:
                 file_type TEXT NOT NULL, -- e.g., 'audio', 'sheet', 'cover'
                 file_path TEXT NOT NULL, -- the full file path (save_dir/cluster/file)
                 PRIMARY KEY (song_id, file_id),
-                FOREIGN KEY (song_id) REFERENCES song_info (song_id),
-                FOREIGN KEY (file_id) REFERENCES files (file_id)
+                FOREIGN KEY (song_id) REFERENCES song_info (song_id) ON DELETE CASCADE,
+                FOREIGN KEY (file_id) REFERENCES files (file_id) ON DELETE CASCADE
             );
             """
         )
@@ -184,7 +184,7 @@ class CreateTables:
                 song_id INTEGER NOT NULL,
                 uploaded_by TEXT NOT NULL,
                 uploaded_at INTEGER NOT NULL,
-                FOREIGN KEY (song_id) REFERENCES song_info (song_id),
+                FOREIGN KEY (song_id) REFERENCES song_info (song_id) ON DELETE CASCADE,
                 FOREIGN KEY (uploaded_by) REFERENCES users (user_id)
             );
             """
@@ -204,7 +204,7 @@ class CreateTables:
                 song_id INTEGER PRIMARY KEY,
                 summary TEXT NOT NULL,
                 last_updated INTEGER NOT NULL,
-                FOREIGN KEY (song_id) REFERENCES song_info (song_id)
+                FOREIGN KEY (song_id) REFERENCES song_info (song_id) ON DELETE CASCADE
             );
             """
         )
@@ -217,11 +217,12 @@ class CreateTables:
                 song_id INTEGER NOT NULL,
                 user_id TEXT NOT NULL,
                 PRIMARY KEY (song_id, user_id),
-                FOREIGN KEY (song_id) REFERENCES song_info (song_id),
+                FOREIGN KEY (song_id) REFERENCES song_info (song_id) ON DELETE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES users (user_id)
             );
             """
         )
+
 
 if __name__ == "__main__":
     # Define the database path
