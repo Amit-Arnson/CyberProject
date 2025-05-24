@@ -101,7 +101,6 @@ def generate_dhe_response(mod: int, base: int) -> DHE:
     return DHE(e=client_secret_exponent, p=mod, g=base)
 
 
-# todo: check about the exponent https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_key_exchange
 def main():
     # SERVER
     prime_mod = generate_prime(200)
