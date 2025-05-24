@@ -58,14 +58,14 @@ async def complete_authentication(
 
         signature = payload["signature"]
     except KeyError:
-        raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
+        raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
     server_ip, server_port = transport.get_extra_info('peername')
 
     is_message_from_server = await verify_async(server_ip.encode(), signature)
 
     if not is_message_from_server:
-        raise # todo: figure out which error to raise when MITM attack
+        raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
     client_dhe: DHE = generate_dhe_response(mod=dhe_mod, base=dhe_base)
 
@@ -128,14 +128,13 @@ async def user_login(
         username = payload["username"]
         display_name = payload["display_name"]
     except KeyError:
-        raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
+        raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
     user_cache.session_token = session_token
     user_cache.user_id = user_id
     user_cache.username = username
     user_cache.display_name = display_name
 
-    # todo: check why the class isnt updated globally despite classes being mutable
     page.user_cache = user_cache
 
     # this is a temporary MainPage for testing purposes only
@@ -168,7 +167,7 @@ async def song_upload_finish(
     try:
         success: bool = payload["success"]
     except KeyError:
-        raise  # todo: figure out what to do with malformed server messages (likely being faked messages)
+        raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
     if success and hasattr(page, "view"):
         page_view: GUI.upload_song.UploadPage = page.view
@@ -215,6 +214,7 @@ class DownloadSong:
 
         try:
             song_id: int = payload["song_id"]
+            user_id: str = payload["user_id"]
             file_id: str = payload["file_id"]
             artist_name: str = payload["artist_name"]
             album_name: str = payload["album_name"]
@@ -227,6 +227,7 @@ class DownloadSong:
         if hasattr(page, "view") and isinstance(page.view, HomePage):
             page.view.add_song_info(
                 song_id=song_id,
+                user_id=user_id,
                 file_id=file_id,
                 artist_name=artist_name,
                 album_name=album_name,
@@ -360,7 +361,7 @@ async def buffer_audio(
         song_id = payload["song_id"]
         is_last_chunk: bool = payload["is_last_chunk"]
     except KeyError:
-        raise  # todo: Handle malformed messages appropriately
+        raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
     if hasattr(page, "view") and isinstance(page.view, HomePage) and page.view.is_viewing_song:
         await page.view.stream_audio_chunks(
@@ -411,7 +412,7 @@ async def load_sheet_images(
         song_id = payload["song_id"]
         is_last_chunk: bool = payload["is_last_chunk"]
     except KeyError:
-        raise  # todo: Handle malformed messages appropriately
+        raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
     if hasattr(page, "view") and isinstance(page.view, HomePage) and page.view.is_viewing_song:
         await page.view.stream_sheet_chunks(
@@ -447,7 +448,7 @@ async def load_genre_browser(
     try:
         genres: list[str] = payload["genres"]
     except KeyError:
-        raise  # todo: Handle malformed messages appropriately
+        raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
     if hasattr(page, "view") and isinstance(page.view, HomePage):
         await page.view.add_genres_browse(
@@ -490,7 +491,7 @@ async def load_song_comments(
         comments: list[dict] = payload["comments"]
         ai_summary: str = payload["ai_summary"]
     except KeyError:
-        raise  # todo: Handle malformed messages appropriately
+        raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
     if hasattr(page, "view") and isinstance(page.view, HomePage):
         await page.view.add_song_comments(
@@ -526,7 +527,7 @@ async def upload_song_search_info(
     try:
         songs: list[dict[str, str]] = payload["songs"]
     except KeyError:
-        raise  # todo: Handle malformed messages appropriately
+        raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
     if hasattr(page, "view") and isinstance(page.view, AudioInformation):
         page.view.add_search_results(
@@ -561,10 +562,48 @@ async def upload_user_statistics(
         total_song_uploads: int = payload["total_song_uploads"]
         total_comments: int = payload["total_comments"]
     except KeyError:
-        raise  # todo: Handle malformed messages appropriately
+        raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
     if hasattr(page, "view") and isinstance(page.view, Settings):
         page.view.upload_statistics(
             total_song_uploads=total_song_uploads,
             total_comments=total_comments
         )
+
+
+def user_logout(page: Page):
+    """
+    this function logs the user out in both client and server
+
+    tied to user/logout
+
+    expected payload:
+    None
+
+    expected output:
+    None
+    """
+
+    from GUI.login import LoginPage
+
+    transport = page.transport
+    user_cache = page.user_cache
+
+    transport.write(
+        ClientMessage(
+            authentication=user_cache.session_token,
+            method="post",
+            endpoint="user/logout",
+            payload={"_no_payload": True}
+        ).encode()
+    )
+
+    user_cache.user_id = None
+    user_cache.display_name = None
+    user_cache.session_token = None
+    user_cache.username = None
+
+    page.user_cache = user_cache
+
+    LoginPage(page).show()
+
