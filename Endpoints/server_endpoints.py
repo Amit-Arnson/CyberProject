@@ -21,13 +21,15 @@ from server_actions import (
     delete_user_request,
     delete_comment_request,
     edit_user_display_name,
-    logout_user
+    logout_user,
+    send_songs_by_upload,
+    send_songs_by_favorite,
+    change_favorite,
 )
 
 from dataclasses import dataclass
 
 
-# todo: rewrite. dont over complicate this class.
 class EndPointRequires:
     """a class to easily represent the method and authentication requirements of endpoints, as well as compare them"""
 
@@ -145,6 +147,21 @@ class EndPoints:
             "song/genres/download/preview": (
                 EndPointRequires(method="get", authentication=True),
                 send_songs_by_genre
+            ),
+
+            "song/favorite/download/preview": (
+                EndPointRequires(method="get", authentication=True),
+                send_songs_by_favorite
+            ),
+
+            "song/upload/download/preview": (
+                EndPointRequires(method="get", authentication=True),
+                send_songs_by_upload
+            ),
+
+            "song/favorite/toggle": (
+                EndPointRequires(method="post", authentication=True),
+                change_favorite
             ),
 
             "song/comments": (
