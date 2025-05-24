@@ -4,7 +4,6 @@ import aiofiles.os as aos
 import os
 
 
-# todo: think of a more fitting name for the file (like, replace files.py with a better name)
 async def compress_and_replace(
         file_extension: str,
         compressed_extension: str,
