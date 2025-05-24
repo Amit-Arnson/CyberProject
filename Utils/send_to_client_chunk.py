@@ -50,7 +50,9 @@ async def send_song_preview_chunks(
                 "song_name": song_dict["song_name"],
 
                 # list[str]
-                "genres": song_dict["genres"]
+                "genres": song_dict["genres"],
+
+                "user_id": song_dict["user_id"]
             }
 
             transport.write(
