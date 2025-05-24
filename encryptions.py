@@ -91,8 +91,6 @@ class HMAC:
         return self.hash(key_2 + self.hash(key_1 + data))
 
 
-# todo: fix my cbc code and not use pycryptodome, currently it seems that my code is simply too slow
-# issue: when sending over large data or data in general very fast, it breaks the padding and unpadding for some reason
 class EncryptedTransport(asyncio.Transport):
     def __init__(
             self,
