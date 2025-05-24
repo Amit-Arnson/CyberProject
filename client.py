@@ -144,7 +144,6 @@ async def main(page: ft.Page):
     finally:
         transport.close()
 
-# todo: figure out if i need the following flet extensions: flet-audio-recorder
 if __name__ == "__main__":
     # flet natively supports async environment, for this reason we do not need to use asyncio.run() and only use flet.app().
     ft.app(main, assets_dir="GUI/Assets")
