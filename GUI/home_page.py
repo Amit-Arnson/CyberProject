@@ -97,6 +97,7 @@ class HomePage:
     def _create_loading_item(
             self,
             song_id: int,
+            user_id: str,
             file_id: str,
             artist_name: str,
             album_name: str,
@@ -175,6 +176,11 @@ class HomePage:
                     "on_hover_gradient": on_hover_stack_gradient,
                     "gradient": stack_gradient,
 
+                    # the user ID of the user who uploaded the song
+                    "user_id": user_id,
+
+                    "song_id": song_id,
+
                     # used in the check when streaming cover art image bytes
                     "has_loaded_initial_cover_bytes": False,
                 }
@@ -182,6 +188,7 @@ class HomePage:
             data={
                 "cover_art": song_cover_art_loading,
                 "song_id": song_id,
+                "user_id": user_id,
                 "file_id": file_id,
                 "artist_name": artist_name,
                 "album_name": album_name,
@@ -191,6 +198,8 @@ class HomePage:
             },
             on_click=self._open_song_view
         )
+
+        song_item_load.content.data["self"] = song_item_load
 
         return song_item_load
 
@@ -245,25 +254,118 @@ class HomePage:
 
         self.loaded_song_ids.append(song_id)
 
-    @staticmethod
-    def _song_item_hover(event: ft.ControlEvent):
-        song_item_stack: ft.Stack = event.control.data
+    def _trash_icon_hover(self, event: ft.ControlEvent):
+        song_item_stack: ft.Stack = event.control.data[-1]
 
         is_hovering = event.data == "true"
 
         if is_hovering:
             gradient = song_item_stack.data["on_hover_gradient"]
+            song_item_stack.controls.append(event.control)
+            event.control.content.color = ft.Colors.RED_600
         else:
             gradient = song_item_stack.data["off_hover_gradient"]
+            event.control.content.color = ft.Colors.RED_700
+
+            song_item_stack.controls.remove(event.control)
 
         gradient_container: ft.Container = song_item_stack.controls[2]
         gradient_container.gradient = gradient
 
-        gradient_container.update()
+        song_item_stack.update()
+
+    def _request_song_delete(self, event: ft.ControlEvent):
+        self.confirm_deletion.open = False
+
+        self.song_item_gridview.controls.remove(event.control.data["song_item"])
+
+        self.page.update()
+
+        self.transport.write(
+            ClientMessage(
+                authentication=self.user_cache.session_token,
+                method="delete",
+                endpoint="song/delete",
+                payload={
+                    "song_id": event.control.data["song_id"]
+                }
+            ).encode()
+        )
+
+    def _song_item_hover(self, event: ft.ControlEvent):
+        song_item_stack: ft.Stack = event.control.data
+
+        is_hovering = event.data == "true"
+
+        is_self_song_own = song_item_stack.data.get("user_id") == self.user_cache.user_id
+        song_id = song_item_stack.data["song_id"]
+        song_item = song_item_stack.data["self"]
+
+        self.confirm_deletion = ft.AlertDialog(
+            content=ft.Container(
+                width=250,
+                height=100,
+                content=ft.Column(
+                    [
+                        ft.Text("Are you sure you want to delete this song? this action can not be reversed"),
+                        ft.Row(
+                            [
+                                ft.Container(
+                                    ft.Text("Delete"),
+                                    bgcolor=ft.Colors.RED,
+                                    width=100,
+                                    height=50,
+                                    border_radius=10,
+                                    alignment=ft.Alignment(0, 0),
+                                    data={"song_id": song_id, "song_item": song_item},
+                                    on_click=self._request_song_delete
+                                ),
+                                ft.Container(
+                                    ft.Text("Cancel"),
+                                    bgcolor=ft.Colors.GREY,
+                                    width=100,
+                                    height=50,
+                                    on_click=lambda _: self.page.close(self.confirm_deletion),
+                                    border_radius=10,
+                                    alignment=ft.Alignment(0, 0)
+                                )
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                        )
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                )
+            )
+        )
+
+        garbage_icon = ft.Container(
+            ft.Icon(ft.Icons.DELETE, color=ft.Colors.RED_700),
+            right=1,
+            data=("delete_icon", song_item_stack),
+            on_hover=self._trash_icon_hover,
+            on_click=lambda _: self.page.open(self.confirm_deletion)
+        )
+
+        if is_hovering:
+            gradient = song_item_stack.data["on_hover_gradient"]
+
+            if is_self_song_own:
+                song_item_stack.controls.append(garbage_icon)
+        else:
+            gradient = song_item_stack.data["off_hover_gradient"]
+
+            if song_item_stack.controls[-1].data and song_item_stack.controls[-1].data[0] == "delete_icon":
+                song_item_stack.controls.pop()
+
+        gradient_container: ft.Container = song_item_stack.controls[2]
+        gradient_container.gradient = gradient
+
+        song_item_stack.update()
 
     def add_song_info(
             self,
             song_id: int,
+            user_id: str,
             file_id: str,
             artist_name: str,
             album_name: str,
@@ -273,6 +375,7 @@ class HomePage:
     ):
         loading_song_item: ft.Container = self._create_loading_item(
             song_id=song_id,
+            user_id=user_id,
             file_id=file_id,
             artist_name=artist_name,
             album_name=album_name,
@@ -326,18 +429,6 @@ class HomePage:
         top_row = ft.Row(
             [
                 song_info_column,
-                ft.Container(
-                    ft.Icon(
-                        ft.Icons.STAR_ROUNDED,
-                        color=ft.Colors.WHITE,
-                        size=30
-                    ),
-                    padding=5,
-
-                    # todo: implement this
-                    # this should only be visible when hovering. i need to check how i want to implement the on_hover
-                    visible=False
-                )
             ],
             vertical_alignment=ft.CrossAxisAlignment.START,
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN
@@ -446,7 +537,6 @@ class HomePage:
         # Convert to 0-255 range and hex
         r, g, b = int(r * 255), int(g * 255), int(b * 255)
         return f'#{r:02x}{g:02x}{b:02x}'
-
 
     async def add_genres_browse(self, genres: list[str]):
         for genre in genres:
@@ -710,7 +800,7 @@ class HomePage:
             ),
             data={
                 "color": ft.Colors.BLUE,
-                "endpoint": "song/favorites/download/preview"
+                "endpoint": "song/favorite/download/preview"
             }
         )
 
@@ -784,7 +874,7 @@ class HomePage:
             ),
             data={
                 "color": ft.Colors.BLUE,
-                "endpoint": "song/uploads/download/preview",
+                "endpoint": "song/upload/download/preview",
                 "payload": {
                     "exclude": self.loaded_song_ids,
                     "limit": 10
