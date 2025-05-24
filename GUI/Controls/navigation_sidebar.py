@@ -126,6 +126,11 @@ class NavigationSidebar(ft.Container):
 
         Settings(self.page).show()
 
+    def _logout(self, e: ft.ControlEvent):
+        from client_actions import user_logout
+
+        user_logout(self.page)
+
     def _initialize_sidebar_items(self):
         item_height = self.page_height / 10
 
@@ -193,7 +198,7 @@ class NavigationSidebar(ft.Container):
         )
 
         self.logout = ft.Container(
-            on_click=lambda _: print("went to logout"),
+            on_click=self._logout,
             on_hover=self._sidebar_item_hover,
             height=item_height,
             expand=True,
