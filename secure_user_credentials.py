@@ -81,7 +81,6 @@ def generate_session_token(user_id: str) -> str:
     # random bytes to add at the end of the token just so that there is 0% chance for collisions
     end_bytes = os.urandom(8).hex()
 
-    # todo: see if you need to use hmac to sign the token in order to stop tempering and spoofing
     session_token = f"{b64_encoded_time}#{random_token}{end_bytes}"
 
     return session_token
