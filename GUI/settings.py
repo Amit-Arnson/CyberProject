@@ -139,6 +139,7 @@ class Settings:
             on_blur=self._reset_display_edit,
             on_submit=self._submit_display_edit,
             border=ft.InputBorder.NONE,
+            max_length=20
         )
 
         self.edit_display_name_button = ft.Container(
@@ -228,6 +229,12 @@ class Settings:
         )
 
     def _request_delete_account(self, *args):
+        from GUI.login import LoginPage
+
+        self.page.close(self.confirm_delete_account)
+        self.confirm_delete_account.open = False
+        self.page.update()
+
         self.transport.write(
             ClientMessage(
                 authentication=self.user_cache.session_token,
@@ -236,6 +243,15 @@ class Settings:
                 payload={"empty": True}
             ).encode()
         )
+
+        self.user_cache.user_id = None
+        self.user_cache.display_name = None
+        self.user_cache.session_token = None
+        self.user_cache.username = None
+
+        self.page.user_cache = self.user_cache
+
+        LoginPage(self.page).show()
 
     def _reqeust_edit_display_name(self):
         self.transport.write(
@@ -246,6 +262,8 @@ class Settings:
                 payload={"display_name": self.edit_display_name_field.value}
             ).encode()
         )
+
+        self.user_cache.display_name = self.edit_display_name_field.value
 
     def _initialize_controls(self):
         self._initialize_username()
