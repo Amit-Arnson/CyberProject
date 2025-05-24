@@ -92,3 +92,8 @@ class Forbidden(BaseError):
     """
     def __init__(self, argument: str, extra: dict = None):
         super().__init__(argument, code=403, extra=extra)
+
+
+class RateLimitReached(BaseError):
+    def __init__(self, argument: str, extra: dict = None):
+        super().__init__(argument, code=429, extra=extra)
