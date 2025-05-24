@@ -1,13 +1,18 @@
+import traceback
+
 import asqlite
 
+import ratelimit
 from Caches.user_cache import UserCache, UserCacheItem
 from Caches.client_cache import Address, ClientPackage
+
+from ratelimit import RateLimits
 
 from pseudo_http_protocol import ClientMessage, ServerMessage, MalformedMessage
 from Endpoints.server_endpoints import EndPoints, EndPoint
 
 from Errors.raised_errors import (
-    NotFound, Forbidden, InvalidMessage
+    NotFound, Forbidden, InvalidMessage, RateLimitReached
 )
 
 import asyncio
@@ -33,6 +38,8 @@ cached_authorization = UserCache()
 server_endpoints = EndPoints()
 
 SIGNATURE = sign_sync(IP.encode())
+
+RATE_LIMITS = RateLimits()
 
 
 # note that read/write using asyncio's protocol adds its own buffer, so we don't need to manually add one.
@@ -130,7 +137,24 @@ class ServerProtocol(asyncio.Protocol):
                 endpoint=requested_endpoint
             )
 
-        if EndPoint(endpoint=requested_endpoint, method=given_method, authentication=client_session_token) in self.endpoints:
+        user_data = self.user_cache[self.client_package.address]
+
+        if not user_data:
+            self._send_error(
+                NotFound(f"user not found"),
+                endpoint=requested_endpoint
+            )
+
+        if requested_endpoint in ratelimit.rate_limit_threshold:
+            user_id = user_data.user_id
+            if RATE_LIMITS.has_reached_threshold(user_id, requested_endpoint):
+                self._send_error(
+                    RateLimitReached(f"you have reached the rate limit threshold for {requested_endpoint}"),
+                    endpoint=requested_endpoint
+                )
+
+        if EndPoint(endpoint=requested_endpoint, method=given_method,
+                    authentication=client_session_token) in self.endpoints:
             server_action_function = self.endpoints[requested_endpoint]
 
             # server function actions are specifically tied to endpoints that a client asks for. Functions that are not
