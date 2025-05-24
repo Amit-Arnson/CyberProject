@@ -989,7 +989,7 @@ class Comments:
     @staticmethod
     async def does_user_own_comment(connection: ProxiedConnection, user_id: str, comment_id: int) -> bool:
         comment = await connection.fetchone(
-            """SELECT * FROM song_comments WHERE comment_id = ? AND user_id = ?""",
+            """SELECT * FROM song_comments WHERE comment_id = ? AND uploaded_by = ?""",
             comment_id, user_id
         )
 
