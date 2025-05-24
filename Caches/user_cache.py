@@ -95,6 +95,20 @@ class UserCache:
         if isinstance(item, Address):
             return self._cache_via_address.get(item)
 
+    def __delitem__(self,  item: str | Address):
+        user_data = self.__getitem__(item)
+
+        address = user_data.address
+        session_token = user_data.session_token
+
+        self._cache_dict.pop(session_token, None)
+        self._cache_via_address.pop(address, None)
+
+    def logout(self,  item: str | Address):
+        user_data = self.__getitem__(item)
+
+        user_data.user_id = None
+        user_data.session_token = None
 
 # this is an object for the client-side, just to neatly keep track of crucial stuff
 @dataclass
