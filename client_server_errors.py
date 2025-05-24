@@ -57,8 +57,6 @@ async def login_error(page: Page, _: EncryptedTransport, server_message: ServerM
 
         error_type = extra.get("type")
 
-        # todo: check if i want to make it so that instead of directly changing the "self" values, ill have a helper function inbetween to make things more controlled
-
         if error_type == "password":
             login_page.password_textbox.error_text = status_message
         else:
@@ -108,7 +106,6 @@ async def signup_error(page: Page, _: EncryptedTransport, server_message: Server
 
         error_type = extra.get("type")
 
-        # todo: check if i want to make it so that instead of directly changing the "self" values, ill have a helper function inbetween to make things more controlled
         if error_type == "password":
             signup_page.password_textbox.error_text = status_message
         elif error_type == "display_name":
