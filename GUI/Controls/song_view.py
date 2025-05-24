@@ -422,10 +422,15 @@ class CommentView(ft.Container):
                         [
                             ft.Row(
                                 [
-                                    ft.Text(self.user_cache.display_name),
-                                    ft.Text(self._convert_timestamp(int(time.time())), color=ft.Colors.GREY_500,
-                                            size=10)
-                                ]
+                                    ft.Row(
+                                        [
+                                            ft.Text(self.user_cache.display_name),
+                                            ft.Text(self._convert_timestamp(int(time.time())), color=ft.Colors.GREY_500,
+                                                    size=10)
+                                        ]
+                                    )
+                                ],
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
                             ),
                             ft.Text(comment_text)
                         ],
@@ -501,6 +506,9 @@ class CommentView(ft.Container):
             uploaded_by_display_name: str = comment["uploaded_by_display"]
             uploaded_at: int = comment["uploaded_at"]
 
+            # this is basically the same as comparing user IDs
+            is_own_comment = uploaded_by == self.user_cache.username
+
             comment_content_view = ft.Container(
                 content=ft.Row(
                     [
@@ -516,9 +524,14 @@ class CommentView(ft.Container):
                             [
                                 ft.Row(
                                     [
-                                        ft.Text(uploaded_by_display_name),
-                                        ft.Text(self._convert_timestamp(uploaded_at), color=ft.Colors.GREY_500, size=10)
-                                    ]
+                                        ft.Row(
+                                            [
+                                                ft.Text(uploaded_by_display_name),
+                                                ft.Text(self._convert_timestamp(uploaded_at), color=ft.Colors.GREY_500,size=10)
+                                            ]
+                                        )
+                                    ],
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN
                                 ),
                                 ft.Text(content)
                             ],
@@ -532,9 +545,38 @@ class CommentView(ft.Container):
                 bgcolor=ft.Colors.GREY_200,
                 border_radius=10,
                 padding=10,
+                data=comment_id
             )
 
+            if is_own_comment:
+                comment_content_view.content.controls[1].controls[0].controls.append(
+                    ft.Container(
+                        ft.Icon(ft.Icons.DELETE, color=ft.Colors.RED_700),
+                        on_click=self._delete_comment,
+                        data=comment_content_view
+                    )
+                )
+
             self.comment_list.controls.append(comment_content_view)
+
+        self.comment_list.update()
+
+    def _delete_comment(self, event: ft.ControlEvent):
+        comment = event.control.data
+        comment_id: int = comment.data
+
+        self.comment_list.controls.remove(comment)
+
+        self.transport.write(
+            ClientMessage(
+                authentication=self.user_cache.session_token,
+                method="delete",
+                endpoint="song/comment/delete",
+                payload={
+                    "comment_id": comment_id
+                }
+            ).encode()
+        )
 
         self.comment_list.update()
 

@@ -2334,19 +2334,22 @@ async def delete_comment_request(
         payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
         raise InvalidPayload(f"Invalid payload passed. expected key \"song_id\" instead got {payload_keys}")
 
-    async with db_pool.acquire() as connection:
-        is_song_own = await Comments.does_user_own_comment(
-            connection=connection,
-            user_id=user_id,
-            comment_id=comment_id
-        )
-
-        if is_song_own:
-            await Comments.delete_comment(
+    try:
+        async with db_pool.acquire() as connection:
+            is_song_own = await Comments.does_user_own_comment(
                 connection=connection,
+                user_id=user_id,
                 comment_id=comment_id
             )
 
+            if is_song_own:
+                await Comments.delete_comment(
+                    connection=connection,
+                    comment_id=comment_id
+                )
+    except Exception as e:
+        traceback.print_exc()
+        raise e
 
 async def delete_user_request(
         db_pool: asqlite.Pool,
