@@ -62,18 +62,6 @@ class CreateTables:
         )
 
     @staticmethod
-    def _create_user_privileges_table(cursor):
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS user_privileges (
-                user_id TEXT PRIMARY KEY,
-                privilege_level INT NOT NULL DEFAULT 0,
-                privilege_given_by TEXT
-            );
-            """
-        )
-
-    @staticmethod
     def _create_file_cluster_table(cursor):
         cursor.execute(
             """
