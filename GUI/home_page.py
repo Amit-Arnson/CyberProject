@@ -360,7 +360,7 @@ class HomePage:
         else:
             gradient = song_item_stack.data["off_hover_gradient"]
 
-            if song_item_stack.controls[-1].data and song_item_stack.controls[-1].data[0] == "delete_icon":
+            if is_self_song_own and song_item_stack.controls[-1].data and song_item_stack.controls[-1].data[0] == "delete_icon":
                 song_item_stack.controls.pop()
 
         gradient_container: ft.Container = song_item_stack.controls[2]
