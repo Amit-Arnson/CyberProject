@@ -1,4 +1,5 @@
 import base64
+import secrets
 
 import asyncio
 from typing import Optional
@@ -120,6 +121,9 @@ class EncryptedTransport(asyncio.Transport):
         if iv and len(iv) != 16:
             raise ValueError(f"expected 16 byte IV, got {len(iv)} bytes instead")
 
+    def _generate_new_iv(self):
+        self.iv = secrets.token_bytes(16)
+
     def _does_hmac_exist(self) -> bool:
         if not self.hmac_key:
             return False
@@ -161,6 +165,12 @@ class EncryptedTransport(asyncio.Transport):
 
         if self.key and self.iv:
             encrypted_data = aes_cbc_encrypt(data, key=self.key, iv=self.iv)
+
+            # AES-CBC needs a new IV for every message. this makes the old system of transferring the IV with DHE useless,
+            # however changing it now would require many hours of debugging for something that doesnt matter all that much.
+            # this is why i now generate new IVs after every message.
+            self._generate_new_iv()
+
             encrypted_data = self._implement_hmac(encrypted_data)
 
             # Calculate and include the length prefix (16 bytes), this is practically a buffer protocol
@@ -171,7 +181,8 @@ class EncryptedTransport(asyncio.Transport):
         # Write the data to the transport
         self._transport.write(data)
 
-    def _is_valid_length_prefix(self, prefix: bytes) -> bool:
+    @staticmethod
+    def _is_valid_length_prefix(prefix: bytes) -> bool:
         """Validates whether the prefix contains a valid numeric length."""
         try:
             int(prefix.decode())
