@@ -1298,6 +1298,8 @@ async def send_song_previews(
     # gets the UserCacheItem for this specific client (and references it)
     client_user_cache: UserCacheItem = user_cache[address]
 
+    user_id = client_user_cache.user_id
+
     payload = client_message.payload
 
     try:
@@ -1330,7 +1332,12 @@ async def send_song_previews(
             exclude=exclude
         )
 
-    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
+    await send_song_preview_chunks(
+        transport=client,
+        song_ids=matching_song_ids,
+        db_pool=db_pool,
+        user_id=user_id
+    )
 
 
 async def send_recommended_song_previews(
@@ -1401,6 +1408,8 @@ async def send_recommended_song_previews(
     # gets the UserCacheItem for this specific client (and references it)
     client_user_cache: UserCacheItem = user_cache[address]
 
+    user_id = client_user_cache.user_id
+
     payload = client_message.payload
 
     try:
@@ -1425,7 +1434,12 @@ async def send_recommended_song_previews(
             exclude=exclude
         )
 
-    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
+    await send_song_preview_chunks(
+        transport=client,
+        song_ids=matching_song_ids,
+        db_pool=db_pool,
+        user_id=user_id
+    )
 
 
 async def send_genre_list(
@@ -1575,6 +1589,8 @@ async def send_songs_by_genre(
     # gets the UserCacheItem for this specific client (and references it)
     client_user_cache: UserCacheItem = user_cache[address]
 
+    user_id = client_user_cache.user_id
+
     payload = client_message.payload
 
     try:
@@ -1600,7 +1616,12 @@ async def send_songs_by_genre(
             exclude=exclude
         )
 
-    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
+    await send_song_preview_chunks(
+        transport=client,
+        song_ids=matching_song_ids,
+        db_pool=db_pool,
+        user_id=user_id
+    )
 
 
 async def send_recent_song_previews(
@@ -1670,6 +1691,8 @@ async def send_recent_song_previews(
     # gets the UserCacheItem for this specific client (and references it)
     client_user_cache: UserCacheItem = user_cache[address]
 
+    user_id = client_user_cache.user_id
+
     payload = client_message.payload
 
     try:
@@ -1695,7 +1718,12 @@ async def send_recent_song_previews(
             exclude=exclude
         )
 
-    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
+    await send_song_preview_chunks(
+        transport=client,
+        song_ids=matching_song_ids,
+        db_pool=db_pool,
+        user_id=user_id
+    )
 
 
 async def resend_song_preview(
@@ -2588,7 +2616,12 @@ async def send_songs_by_favorite(
 
     print(matching_song_ids)
 
-    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
+    await send_song_preview_chunks(
+        transport=client,
+        song_ids=matching_song_ids,
+        db_pool=db_pool,
+        user_id=user_id
+    )
 
 
 async def change_favorite(
@@ -2746,4 +2779,9 @@ async def send_songs_by_upload(
             exclude=exclude
         )
 
-    await send_song_preview_chunks(transport=client, song_ids=matching_song_ids, db_pool=db_pool)
+    await send_song_preview_chunks(
+        transport=client,
+        song_ids=matching_song_ids,
+        db_pool=db_pool,
+        user_id=user_id
+    )

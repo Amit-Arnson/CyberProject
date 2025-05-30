@@ -23,7 +23,8 @@ from queries import (
 async def send_song_preview_chunks(
         transport: EncryptedTransport,
         db_pool: asqlite.Pool,
-        song_ids: list[int]
+        song_ids: list[int],
+        user_id: str,
 ):
     default_cover_image_path = await aos.path.abspath(r"./Assets/no_cover_art.webp")
 
@@ -31,7 +32,20 @@ async def send_song_preview_chunks(
         # a list of (path, data_dict) tuples based on song ID
         song_path_and_data: list[
             tuple[str, dict[str, str | int | list[str]]]
-        ] = await Music.bulk_fetch_song_preview_data(connection=connection, song_ids=song_ids, default_cover_image_path=default_cover_image_path)
+        ] = await Music.bulk_fetch_song_preview_data(
+            connection=connection,
+            song_ids=song_ids,
+            default_cover_image_path=default_cover_image_path
+        )
+
+        print("here")
+
+        favorite_song_ids: set[int] = await Music.bulk_fetch_favorite_song_ids(
+            connection=connection,
+            user_id=user_id
+        )
+
+        print(favorite_song_ids)
 
     try:
         for song_path, song_dict in song_path_and_data:
@@ -52,7 +66,9 @@ async def send_song_preview_chunks(
                 # list[str]
                 "genres": song_dict["genres"],
 
-                "user_id": song_dict["user_id"]
+                "user_id": song_dict["user_id"],
+
+                "is_favorite_song": song_id in favorite_song_ids
             }
 
             transport.write(
