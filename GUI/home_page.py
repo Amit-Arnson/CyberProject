@@ -98,6 +98,7 @@ class HomePage:
             self,
             song_id: int,
             user_id: str,
+            username: str,
             file_id: str,
             artist_name: str,
             album_name: str,
@@ -180,8 +181,6 @@ class HomePage:
                     # the user ID of the user who uploaded the song
                     "user_id": user_id,
 
-                    "is_favorite_song": is_favorite_song,
-
                     "song_id": song_id,
 
                     # used in the check when streaming cover art image bytes
@@ -192,13 +191,14 @@ class HomePage:
                 "cover_art": song_cover_art_loading,
                 "song_id": song_id,
                 "user_id": user_id,
+                "username": username,
                 "file_id": file_id,
                 "artist_name": artist_name,
                 "album_name": album_name,
                 "song_name": song_name,
                 "song_length": song_length,
                 "genres": genres,
-                "is_favorite_song": is_favorite_song
+                "is_favorite_song": is_favorite_song,
             },
             on_click=self._open_song_view
         )
@@ -237,6 +237,7 @@ class HomePage:
             song_length=song_data["song_length"],
             genres=song_data["genres"],
             is_favorite_song=song_data["is_favorite_song"],
+            uploaded_by=song_data["username"],
             song_data=song_data,
             open=True,
         )
@@ -372,6 +373,7 @@ class HomePage:
             self,
             song_id: int,
             user_id: str,
+            username: str,
             file_id: str,
             artist_name: str,
             album_name: str,
@@ -383,6 +385,7 @@ class HomePage:
         loading_song_item: ft.Container = self._create_loading_item(
             song_id=song_id,
             user_id=user_id,
+            username=username,
             file_id=file_id,
             artist_name=artist_name,
             album_name=album_name,

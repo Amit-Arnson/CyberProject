@@ -207,7 +207,7 @@ class SheetView(ft.Container):
         self.expand = True
 
         self.sheet_row: ft.GridView = ft.GridView(
-            max_extent=500,
+            max_extent=350,
             child_aspect_ratio=0.7,
         )
 
@@ -338,6 +338,21 @@ class CommentView(ft.Container):
             max_length=2000,
             multiline=True,
             shift_enter=True,
+            hint_text="Write a comment",
+            border=ft.InputBorder.NONE
+        )
+
+        self.comment_text_container: ft.Container = ft.Container(
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.COMMENT_ROUNDED, ft.Colors.BLACK),
+                    self.comment_textbox
+                ],
+                spacing=10
+            ),
+            border_radius=15,
+            border=ft.border.all(1, ft.Colors.BLACK),
+            padding=10,
         )
 
         self.comment_list: ft.ListView = ft.ListView(
@@ -353,7 +368,7 @@ class CommentView(ft.Container):
         self.content = ft.Container(
             content=ft.Column(
                 [
-                    self.comment_textbox,
+                    self.comment_text_container,
                     self.comment_list
                 ]
             ),
@@ -536,7 +551,8 @@ class CommentView(ft.Container):
                                         ft.Row(
                                             [
                                                 ft.Text(uploaded_by_display_name),
-                                                ft.Text(self._convert_timestamp(uploaded_at), color=ft.Colors.GREY_500,size=10)
+                                                ft.Text(self._convert_timestamp(uploaded_at), color=ft.Colors.GREY_500,
+                                                        size=10)
                                             ]
                                         )
                                     ],
@@ -616,6 +632,7 @@ class SongView(ft.AlertDialog):
             song_length: int,  # milliseconds
             genres: list[str],
             is_favorite_song: bool,
+            uploaded_by: str,
             song_data: dict,
             **kwargs
     ):
@@ -661,6 +678,12 @@ class SongView(ft.AlertDialog):
                             [
                                 ft.Text(song_name, size=35, weight=ft.FontWeight.W_500),
                                 ft.Text(artist_name, size=30, weight=ft.FontWeight.W_200),
+                                ft.Text(
+                                    spans=[
+                                        ft.TextSpan("Uploaded By ", ft.TextStyle(color=ft.Colors.GREY_800, size=15)),
+                                        ft.TextSpan(uploaded_by, ft.TextStyle(color=ft.Colors.GREY_600, size=15))
+                                    ],
+                                )
                             ],
                             spacing=0,
                         ),
@@ -768,7 +791,7 @@ class SongView(ft.AlertDialog):
         self.is_viewing_sheets = True
 
         dialog = SubWindow(
-            width=500,
+            width=350,
             height=300,
             on_close=self._close_sheet_music_popup
         )

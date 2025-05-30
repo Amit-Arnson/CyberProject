@@ -214,7 +214,11 @@ class DownloadSong:
 
         try:
             song_id: int = payload["song_id"]
+
+            # the user ID and username of the person who uploaded the song
             user_id: str = payload["user_id"]
+            username: str = payload["username"]
+
             file_id: str = payload["file_id"]
             artist_name: str = payload["artist_name"]
             album_name: str = payload["album_name"]
@@ -229,6 +233,7 @@ class DownloadSong:
             page.view.add_song_info(
                 song_id=song_id,
                 user_id=user_id,
+                username=username,
                 file_id=file_id,
                 artist_name=artist_name,
                 album_name=album_name,
