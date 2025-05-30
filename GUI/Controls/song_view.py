@@ -286,7 +286,8 @@ class SheetView(ft.Container):
                     fit=ft.ImageFit.FILL,
                     width=150,
                     height=200,
-                    border_radius=10
+                    border_radius=10,
+                    gapless_playback=True,
                 ),
                 on_click=self._upsize_image,
                 border_radius=10,
@@ -663,9 +664,19 @@ class SongView(ft.AlertDialog):
 
         self.genres = genres
 
-        favorite_song_icon_color = ft.Colors.YELLOW_500 if self.is_favorite_song else ft.Colors.BLACK
+        favorite_song_icon_color = ft.Colors.YELLOW_800 if self.is_favorite_song else ft.Colors.BLACK
+        favorite_song_icon_background_color = ft.Colors.with_opacity(0.5,
+                                                                     ft.Colors.BLACK) if self.is_favorite_song else ft.Colors.BLACK
         self.favorite_song_icon = ft.Container(
-            ft.Icon(ft.Icons.STAR_ROUNDED, color=favorite_song_icon_color),
+            ft.Stack(
+                [
+                    ft.Icon(ft.Icons.STAR_ROUNDED, color=favorite_song_icon_background_color, size=25),
+                    ft.Container(
+                        ft.Icon(ft.Icons.STAR_ROUNDED, color=favorite_song_icon_color, size=18),
+                        padding=3.5,
+                    )
+                ]
+            ),
             on_click=self._toggle_favorite
         )
 
@@ -951,8 +962,18 @@ class SongView(ft.AlertDialog):
 
         self.song_data["is_favorite_song"] = self.is_favorite_song
 
-        favorite_song_icon_color = ft.Colors.YELLOW_500 if self.is_favorite_song else ft.Colors.BLACK
-        self.favorite_song_icon.content = ft.Icon(ft.Icons.STAR_ROUNDED, color=favorite_song_icon_color)
+        favorite_song_icon_color = ft.Colors.YELLOW_800 if self.is_favorite_song else ft.Colors.BLACK
+        favorite_song_icon_background_color = ft.Colors.with_opacity(0.5, ft.Colors.BLACK) if self.is_favorite_song else ft.Colors.BLACK
+
+        self.favorite_song_icon.content = ft.Stack(
+            [
+                ft.Icon(ft.Icons.STAR_ROUNDED, color=favorite_song_icon_background_color, size=25),
+                ft.Container(
+                    ft.Icon(ft.Icons.STAR_ROUNDED, color=favorite_song_icon_color, size=18),
+                    padding=3.5,
+                )
+            ]
+        )
 
         self.transport.write(
             ClientMessage(
