@@ -66,7 +66,11 @@ async def send_song_preview_chunks(
                 # list[str]
                 "genres": song_dict["genres"],
 
+                # the user ID who uploaded the song
                 "user_id": song_dict["user_id"],
+
+                # the username who uploaded the song
+                "username": song_dict["username"],
 
                 "is_favorite_song": song_id in favorite_song_ids
             }

@@ -394,6 +394,7 @@ class Music:
            SELECT 
                song_info.song_id,
                song_info.user_id,
+               users.username,
                artist_name,
                album_name,
                song_name,
@@ -401,9 +402,10 @@ class Music:
                GROUP_CONCAT(genres.genre_name, ',') AS genre_list
            FROM song_info
            LEFT JOIN genres ON song_info.song_id = genres.song_id
+           LEFT JOIN users ON song_info.user_id = users.user_id
            WHERE song_info.song_id IN ({placeholders})
            GROUP BY song_info.song_id
-           """
+        """
 
         results = await connection.fetchall(query, tuple(song_ids))
 
@@ -412,11 +414,12 @@ class Music:
             row[0]: {
                 "song_id": row[0],
                 "user_id": row[1],
-                "artist_name": row[2],
-                "album_name": row[3],
-                "song_name": row[4],
-                "song_length": row[5],
-                "genres": row[6].split(",") if row[6] else []  # Split the comma-separated string into a list
+                "username": row[2],
+                "artist_name": row[3],
+                "album_name": row[4],
+                "song_name": row[5],
+                "song_length": row[6],
+                "genres": row[7].split(",") if row[7] else []  # Split the comma-separated string into a list
             }
             for row in results
         }
