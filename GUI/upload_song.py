@@ -914,7 +914,8 @@ class UploadPage:
             hint_text="add genre",
             hint_text_padding=1,
             allow_repeats=False,
-            max_tags=5
+            max_tags=5,
+            max_tag_length=15
         )
 
     def _clear_text_boxes(self, update: bool = True):

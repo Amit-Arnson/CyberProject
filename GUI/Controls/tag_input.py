@@ -12,6 +12,7 @@ class TagInput(ft.Container):
                  auto_scroll: bool = False,
                  wrap: bool = True,
                  max_tags: int = None,
+                 max_tag_length: int = None,
                  allow_repeats: bool = True,
                  strip_tags: bool = True,
                  **kwargs
@@ -50,6 +51,8 @@ class TagInput(ft.Container):
             width=250,
             expand_loose=True,
             hint_text=f"{' ' * hint_text_padding}{hint_text}",
+
+            max_length=max_tag_length,
 
             error_style=ft.TextStyle(height=-1, color=ft.Colors.RED_800),
             on_focus=self._remove_textfield_error,
