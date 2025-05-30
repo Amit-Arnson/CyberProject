@@ -206,10 +206,13 @@ class SheetView(ft.Container):
 
         self.expand = True
 
-        self.sheet_row: ft.Row = ft.Row(
-            wrap=True,
-            tight=True,
+        self.sheet_row: ft.GridView = ft.GridView(
+            max_extent=500,
+            child_aspect_ratio=0.7,
         )
+
+        # this is used to display the alert dialog popup for the sized up view
+        self.upsize_container = ft.Row()
 
         no_sheets_found = ft.Container(
             ft.Text("No Sheets Found"),
@@ -224,7 +227,7 @@ class SheetView(ft.Container):
         )
 
     def _upsize_image(self, event):
-        self.sheet_row.controls.append(
+        self.upsize_container.controls.append(
             ft.AlertDialog(
                 open=True,
                 content=ft.InteractiveViewer(
@@ -254,7 +257,13 @@ class SheetView(ft.Container):
     def add_chunk(self, file_id: str, song_id: int, b64_chunk: str, is_last_chunk: bool = False):
         if not self.has_started_loading:
             self.content = ft.Container(
-                self.sheet_row,
+                ft.Column(
+                    [
+                        self.upsize_container,
+                        self.sheet_row,
+                    ],
+                    scroll=ft.ScrollMode.HIDDEN
+                ),
                 alignment=ft.Alignment(-1, -1),
                 padding=ft.Padding(
                     top=15,
@@ -606,6 +615,8 @@ class SongView(ft.AlertDialog):
             song_name: str,
             song_length: int,  # milliseconds
             genres: list[str],
+            is_favorite_song: bool,
+            song_data: dict,
             **kwargs
     ):
         super().__init__(**kwargs)
@@ -630,7 +641,16 @@ class SongView(ft.AlertDialog):
         self.song_name = song_name
         self.artist_name = artist_name
 
+        self.is_favorite_song = is_favorite_song
+        self.song_data = song_data
+
         self.genres = genres
+
+        favorite_song_icon_color = ft.Colors.YELLOW_500 if self.is_favorite_song else ft.Colors.BLACK
+        self.favorite_song_icon = ft.Container(
+            ft.Icon(ft.Icons.STAR_ROUNDED, color=favorite_song_icon_color),
+            on_click=self._toggle_favorite
+        )
 
         self.graphical_information: ft.Row = ft.Row(
             [
@@ -647,10 +667,7 @@ class SongView(ft.AlertDialog):
                         ft.Row([*self._create_genre_list()], wrap=True),
                         ft.Row(
                             [
-                                ft.Container(
-                                    ft.Icon(ft.Icons.STAR_ROUNDED, color=ft.Colors.BLACK),
-                                    on_click=self._toggle_favorite
-                                ),
+                                self.favorite_song_icon,
                                 ft.Container(
                                     ft.Icon(ft.Icons.DOWNLOAD, color=ft.Colors.BLACK),
                                     on_click=self._locally_download_audio
@@ -906,6 +923,14 @@ class SongView(ft.AlertDialog):
         )
 
     def _toggle_favorite(self, *args):
+        # toggle between True and False
+        self.is_favorite_song = not self.is_favorite_song
+
+        self.song_data["is_favorite_song"] = self.is_favorite_song
+
+        favorite_song_icon_color = ft.Colors.YELLOW_500 if self.is_favorite_song else ft.Colors.BLACK
+        self.favorite_song_icon.content = ft.Icon(ft.Icons.STAR_ROUNDED, color=favorite_song_icon_color)
+
         self.transport.write(
             ClientMessage(
                 authentication=self.user_cache.session_token,
@@ -916,6 +941,8 @@ class SongView(ft.AlertDialog):
                 }
             ).encode()
         )
+
+        self.favorite_song_icon.update()
 
     def _request_song_sheet_chunks(self):
         if self.has_loaded_sheets:
