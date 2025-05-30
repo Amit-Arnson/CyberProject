@@ -425,6 +425,18 @@ class Music:
         return [result_dict.get(song_id, {}) for song_id in song_ids]
 
     @staticmethod
+    async def bulk_fetch_favorite_song_ids(
+            connection: ProxiedConnection,
+            user_id: str
+    ) -> set[int]:
+        song_ids = await connection.fetchall(
+            """SELECT song_id FROM favorite_songs WHERE user_id = ?""",
+            user_id
+        )
+
+        return {song_id[0] for song_id in song_ids}
+
+    @staticmethod
     async def bulk_fetch_song_preview_data(
             connection: ProxiedConnection,
             song_ids: list[int],
