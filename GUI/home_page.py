@@ -103,7 +103,8 @@ class HomePage:
             album_name: str,
             song_name: str,
             song_length: int,  # milliseconds
-            genres: list[str]
+            genres: list[str],
+            is_favorite_song: bool
     ) -> ft.Container:
         song_cover_art_loading = ft.Container(
             **self.preview_image_value_dict,
@@ -179,6 +180,8 @@ class HomePage:
                     # the user ID of the user who uploaded the song
                     "user_id": user_id,
 
+                    "is_favorite_song": is_favorite_song,
+
                     "song_id": song_id,
 
                     # used in the check when streaming cover art image bytes
@@ -194,7 +197,8 @@ class HomePage:
                 "album_name": album_name,
                 "song_name": song_name,
                 "song_length": song_length,
-                "genres": genres
+                "genres": genres,
+                "is_favorite_song": is_favorite_song
             },
             on_click=self._open_song_view
         )
@@ -206,7 +210,7 @@ class HomePage:
     def _open_song_view(self, event: ft.ControlEvent):
         song_item = event.control
 
-        song_data: dict[str, str | int | list[str]] = song_item.data
+        song_data: dict[str, str | int | list[str] | bool] = song_item.data
         song_id = song_data["song_id"]
 
         self.page.recently_viewed_songs: list[int]
@@ -232,6 +236,8 @@ class HomePage:
             song_name=song_data["song_name"],
             song_length=song_data["song_length"],
             genres=song_data["genres"],
+            is_favorite_song=song_data["is_favorite_song"],
+            song_data=song_data,
             open=True,
         )
 
@@ -372,6 +378,7 @@ class HomePage:
             song_name: str,
             song_length: int,
             genres: list[str],
+            is_favorite_song: bool,
     ):
         loading_song_item: ft.Container = self._create_loading_item(
             song_id=song_id,
@@ -381,7 +388,8 @@ class HomePage:
             album_name=album_name,
             song_name=song_name,
             song_length=song_length,
-            genres=genres
+            genres=genres,
+            is_favorite_song=is_favorite_song
         )
         self._add_song_item(loading_song_item)
 

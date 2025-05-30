@@ -221,6 +221,7 @@ class DownloadSong:
             song_name: str = payload["song_name"]
             song_length: int = payload["song_length"]  # in milliseconds
             genres: list[str] = payload["genres"]
+            is_favorite_song: bool = payload["is_favorite_song"]
         except KeyError:
             raise Exception("invalid message sent from server. this is likely a hacking attempt")
 
@@ -233,7 +234,8 @@ class DownloadSong:
                 album_name=album_name,
                 song_name=song_name,
                 genres=genres,
-                song_length=song_length
+                song_length=song_length,
+                is_favorite_song=is_favorite_song
             )
 
         async with self._lock:
