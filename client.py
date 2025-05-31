@@ -64,7 +64,7 @@ class ClientProtocol(asyncio.Protocol):
         try:
             server_message = ServerMessage.from_bytes(data)
         except MalformedMessage:
-            raise Exception("invalid message sent from server. this is likely a hacking attempt")
+            raise Exception("invalid message sent from server")
 
         status_code = server_message.status.get("code")
         requested_endpoint = server_message.endpoint
