@@ -482,17 +482,20 @@ class AudioInformation:
             file_type=ft.FilePickerFileType.AUDIO
         )
 
-    def _searchbar_change(self, event: ft.ControlEvent):
+    def _request_song_info(self, name: str = ""):
         self.transport.write(
             ClientMessage(
                 authentication=self.user_cache.session_token,
                 endpoint="song/search",
                 method="get",
                 payload={
-                    "name": event.data
+                    "name": name
                 }
             ).encode()
         )
+
+    def _searchbar_change(self, event: ft.ControlEvent):
+        self._request_song_info(name=event.data)
 
     def _initialize_file_selectors(self):
         self.song_selector = ft.Container(
@@ -512,16 +515,35 @@ class AudioInformation:
             alignment=ft.MainAxisAlignment.START
         )
 
+        search_bar = ft.Container(
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.SEARCH_ROUNDED, color=ft.Colors.GREY_600),
+                    ft.VerticalDivider(),
+                    ft.TextField(
+                        expand=True,
+                        on_change=self._searchbar_change,
+                        autofocus=True,
+                        border=ft.InputBorder.NONE
+                    ),
+                ]
+            ),
+            padding=ft.Padding(
+                left=10,
+                right=10,
+                top=0,
+                bottom=0
+            ),
+            height=50,
+            border_radius=15,
+            border=ft.border.all(1, color=ft.Colors.BLACK)
+        )
+
         self.search_popup = ft.AlertDialog(
             content=ft.Container(
                 ft.Column(
                     [
-                        ft.TextField(
-                            height=50,
-                            expand_loose=True,
-                            on_change=self._searchbar_change,
-                            autofocus=True
-                        ),
+                        search_bar,
                         self.search_values
                     ],
                     alignment=ft.MainAxisAlignment.START
@@ -543,8 +565,13 @@ class AudioInformation:
             expand=True,
             border_radius=15,
             border=ft.border.all(1, color=ft.Colors.BLACK),
-            on_click=lambda _: self.page.open(self.search_popup)
+            on_click=self._open_search_popup
         )
+
+    def _open_search_popup(self, *args):
+        self.page.open(self.search_popup)
+
+        self._request_song_info()
 
     def _initialize_duration_box(self):
         self.duration_box: ft.Container = ft.Container(
