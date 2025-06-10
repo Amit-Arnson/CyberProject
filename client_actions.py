@@ -75,14 +75,19 @@ async def complete_authentication(
     # side using the hard-coded private key.
     hmac_key = os.urandom(32)
 
+    # we use this to fully stop MITM during DHE, because IPs can be faked.
+    rsa_encrypted_public_value = await async_rsa_encrypt(str(client_public_value).encode())
+
+    rsa_encrypted_hmac_key = await async_rsa_encrypt(hmac_key)
+
     transport.write(
         ClientMessage(
             authentication=None,
             method="respond",
             endpoint="authentication/key_exchange",
             payload={
-                "public": client_public_value,
-                "HMAC_key": await async_rsa_encrypt(hmac_key)
+                "public": rsa_encrypted_public_value,
+                "HMAC_key": rsa_encrypted_hmac_key
             }
         ).encode()
     )

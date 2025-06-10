@@ -94,13 +94,16 @@ async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, cl
     payload = client_message.payload
 
     try:
-        client_public_value = payload["public"]
+        encrypted_client_public_value = payload["public"]
         encrypted_hmac_key = payload["HMAC_key"]
     except KeyError:
         payload_keys = " ".join(f"\"{key}\"" for key in payload.keys())
         raise InvalidPayload(f"Invalid payload passed. expected key \"public\", \"HMAC_key\", instead got {payload_keys}")
 
     decrypted_hmac_key = await async_rsa_decrypt(encrypted_hmac_key)
+
+    decrypted_client_public_value_bytes = await async_rsa_decrypt(encrypted_client_public_value)
+    decrypted_client_public_value = int(decrypted_client_public_value_bytes.decode())
 
     if len(decrypted_hmac_key) != 32:
         raise InvalidValue("HMAC key for SHA256 must be 32 bytes")
@@ -112,7 +115,7 @@ async def authenticate_client(_: asqlite.Pool, client_package: ClientPackage, cl
     )
 
     # calculates the mutual key (note: this key is a secret key and should not be shared)
-    mutual_key_number: int = server_dhe.calculate_mutual(client_public_value)
+    mutual_key_number: int = server_dhe.calculate_mutual(decrypted_client_public_value)
 
     # derives a 16 byte key from the mutual key
     aes_key = server_dhe.kdf_derive(mutual_key=mutual_key_number, iterations=10000, size=16)

@@ -28,7 +28,7 @@ async def async_rsa_encrypt(plaintext: bytes):
     return await loop.run_in_executor(None, rsa_encrypt, plaintext)
 
 
-async def async_rsa_decrypt(plaintext: bytes):
+async def async_rsa_decrypt(plaintext: bytes) -> bytes:
     loop: asyncio.ProactorEventLoop = asyncio.get_event_loop()
 
     return await loop.run_in_executor(None, rsa_decrypt, plaintext)

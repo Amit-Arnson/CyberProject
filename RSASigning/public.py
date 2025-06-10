@@ -20,7 +20,7 @@ def rsa_decrypt(ciphertext: bytes) -> bytes:
     return cipher.decrypt(ciphertext)
 
 
-async def async_rsa_encrypt(plaintext: bytes):
+async def async_rsa_encrypt(plaintext: bytes) -> bytes:
     loop: asyncio.ProactorEventLoop = asyncio.get_event_loop()
 
     return await loop.run_in_executor(None, rsa_encrypt, plaintext)
