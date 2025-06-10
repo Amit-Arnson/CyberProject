@@ -1239,12 +1239,6 @@ async def send_song_previews(
             "artists": list[str],
             -- in milliseconds
             "duration": {"minimum": int, "maximum": int},
-
-            #- not implemented yet -#
-            -- in bpm
-            "tempo": {"minimum": int, "maximum": int},
-            -- between 1 and 5 (stars)
-            "rating": {"minimum": int, "maximum": int}
         }
     }
 
@@ -1257,10 +1251,14 @@ async def send_song_previews(
     {
         "file_id": str
         "song_id": int,
+        "song_length": int,
         "artist_name": str,
         "album_name": str,
         "song_name": str,
-        "genres": list[str]
+        "genres": list[str],
+        "user_id": str,
+        "username": str,
+        "is_favorite_song": bool,
     }
 
     expected output (for each chunk):
@@ -1367,10 +1365,14 @@ async def send_recommended_song_previews(
     {
         "file_id": str
         "song_id": int,
+        "song_length": int,
         "artist_name": str,
         "album_name": str,
         "song_name": str,
-        "genres": list[str]
+        "genres": list[str],
+        "user_id": str,
+        "username": str,
+        "is_favorite_song": bool,
     }
 
     expected output (for each chunk):
@@ -1548,10 +1550,14 @@ async def send_songs_by_genre(
     {
         "file_id": str
         "song_id": int,
+        "song_length": int,
         "artist_name": str,
         "album_name": str,
         "song_name": str,
-        "genres": list[str]
+        "genres": list[str],
+        "user_id": str,
+        "username": str,
+        "is_favorite_song": bool,
     }
 
     expected output (for each chunk):
@@ -1650,10 +1656,14 @@ async def send_recent_song_previews(
     {
         "file_id": str
         "song_id": int,
+        "song_length": int,
         "artist_name": str,
         "album_name": str,
         "song_name": str,
-        "genres": list[str]
+        "genres": list[str],
+        "user_id": str,
+        "username": str,
+        "is_favorite_song": bool,
     }
 
     expected output (for each chunk):
@@ -2547,10 +2557,14 @@ async def send_songs_by_favorite(
     {
         "file_id": str
         "song_id": int,
+        "song_length": int,
         "artist_name": str,
         "album_name": str,
         "song_name": str,
-        "genres": list[str]
+        "genres": list[str],
+        "user_id": str,
+        "username": str,
+        "is_favorite_song": bool,
     }
 
     expected output (for each chunk):
@@ -2712,10 +2726,14 @@ async def send_songs_by_upload(
     {
         "file_id": str
         "song_id": int,
+        "song_length": int,
         "artist_name": str,
         "album_name": str,
         "song_name": str,
-        "genres": list[str]
+        "genres": list[str],
+        "user_id": str,
+        "username": str,
+        "is_favorite_song": bool,
     }
 
     expected output (for each chunk):
