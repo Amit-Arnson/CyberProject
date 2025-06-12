@@ -151,6 +151,9 @@ class AudioInformation:
         self.search_values.update()
 
     def _request_song_bytes(self, event: ft.ControlEvent):
+        # reset the current buffered bytes
+        self.audio_bytes = b""
+
         song_id: int = event.control.data
 
         self._add_downloading_audio_screen()
