@@ -711,7 +711,7 @@ class HomePage:
         self.advanced_search_bar: ft.Container = ft.Container(
             ft.Row(
                 [
-                    self.advanced_search,
+                    # self.advanced_search,
                     self.search_bar
                 ]
             ),
