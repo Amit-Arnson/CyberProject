@@ -118,6 +118,9 @@ class ServerProtocol(asyncio.Protocol):
         # decrypts the data
         data = self.client_package.client.read(data)
 
+        if not data:
+            return
+
         try:
             client_message = ClientMessage.from_bytes(data)
         except MalformedMessage:

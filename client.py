@@ -17,6 +17,7 @@ from GUI.login import LoginPage
 from GUI.page_error import PageError
 
 # The IP and PORT of the server.
+# IP = "172.20.10.3"
 IP = "127.0.0.1"
 PORT = 5555
 
@@ -61,10 +62,13 @@ class ClientProtocol(asyncio.Protocol):
         # decrypts the data
         data = self.transport.read(data)
 
+        if not data:
+            return
+
         try:
             server_message = ServerMessage.from_bytes(data)
         except MalformedMessage:
-            raise Exception("invalid message sent from server")
+            raise Exception(f"invalid message sent from server: {data}")
 
         status_code = server_message.status.get("code")
         requested_endpoint = server_message.endpoint
