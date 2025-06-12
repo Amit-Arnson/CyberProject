@@ -214,5 +214,5 @@ async def send_file_chunks(
                 ).encode()
             )
 
-            await asyncio.sleep(0.025)
+            await asyncio.sleep(0.05)
             
